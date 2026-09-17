@@ -3,7 +3,7 @@ Description=MU300 kernel warnings and errors into the journal (info-level vendor
 After=systemd-journald.service
 
 [Service]
-ExecStart=/bin/sh -c 'exec dmesg --follow-new --level=emerg,alert,crit,err,warn --notime | systemd-cat -t kernel -p warning'
+ExecStart=/opt/mu300/bin/kmsg-forward
 Restart=always
 RestartSec=5
 
