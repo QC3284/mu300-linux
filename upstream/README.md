@@ -35,10 +35,17 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 * `debug/install-probe.py` (`MU300_PROBE_STAGE=N` for `build.sh`): resets at a chosen boot stage; the cycle time tells
   whether the stage was reached. This located the custom-DTB hang in `setup_machine_fdt`.
 
-## Missing for a usable system
-No mainline drivers yet for UMS9620 clocks, pinctrl, power domains, USB (DWC3 glue + PHY), eMMC clocking, PCIe (Wi-Fi/BT),
-or the modem/PM (SIPC) stack. Without `modem_control` the PM co-processor powers the board off after ~290 s.
-Next: USB gadget (console/network) and eMMC, which need clock/PHY drivers ported from the vendor 5.4 tree.
+## Remaining mainline work
+Clocks, pinctrl, power domains, USB 3.1 gadget, eMMC, PCIe, thermal, cpufreq, watchdog, LEDs and Wi-Fi/BT are
+working (see the status below). What is still missing:
+
+- **Modem** (`sipc`/`sipa`/modem loader): the out-of-tree port in `modules/sprd_modem` boots the firmware and has
+  registered on LTE once, but detection is racy and PDP/DNS is unverified. Trusty needs a CPU latency QoS request
+  plus a NOP poll because the ACK PSCI hooks are missing, and `cp_diskserver` has to run while the modem boots.
+- **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
+  still required.
+- **GPU and audio**: not started.
+- **Bluetooth**: built as an out-of-tree module, untested on 6.18.
 
 ## Status (2026-09-17): OpenWrt runs on 6.18.52
 
