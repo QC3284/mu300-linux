@@ -5,7 +5,7 @@ Files in this directory are **stock ZTE firmware**, not part of the MIT-licensed
 ## trustos-F50_FLYMODEM_ZYV1.0.0B09.img
 
 The Trusty TEE image (`trustos`) as read from a ZTE F50 / MU300 running stock firmware
-`F50_FLYMODEM_ZYV1.0.0B09`. It is published here with ZTE's written permission, obtained by the repository owner;
+`F50_FLYMODEM_ZYV1.0.0B09`.
 it is not covered by the MIT licence of the rest of this repository and all rights remain with ZTE/Unisoc.
 
 | | |
