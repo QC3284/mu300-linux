@@ -32,6 +32,35 @@ say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 ask() { # ask VAR "question" default
     printf '%s [%s]: ' "$2" "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\$_a"; }
+# fetch URL OUT: GitHub's release CDN throttles a single connection hard in some regions (measured 0.2 MB/s
+# against a 180 Mbit/s line), so pull the file as parallel ranges and fall back to one stream when that fails.
+fetch() {
+    _u=$1; _o=$2
+    _len=$(curl -fsSLI "$_u" | awk 'tolower($1) == "content-length:" {print $2}' | tr -d '\r' | tail -n1)
+    _jobs=${MU300_FETCH_JOBS:-8}
+    if [ -z "$_len" ] || [ "$_len" -lt 8000000 ] 2>/dev/null || [ "$_jobs" -le 1 ] 2>/dev/null; then
+        curl -fL --retry 3 --progress-bar -o "$_o" "$_u"
+        return
+    fi
+    _part=$((_len / _jobs + 1)); _i=0; _pids=
+    rm -f "$_o".part*
+    while [ $_i -lt "$_jobs" ]; do
+        _s=$((_i * _part)); _e=$((_s + _part - 1))
+        [ $_e -ge "$_len" ] && _e=$((_len - 1))
+        curl -fsSL --retry 3 -r "$_s-$_e" -o "$_o.part$_i" "$_u" &
+        _pids="$_pids $!"; _i=$((_i + 1))
+    done
+    _ok=1
+    for _p in $_pids; do wait "$_p" || _ok=0; done
+    if [ $_ok = 1 ]; then
+        cat "$_o".part* > "$_o"; rm -f "$_o".part*
+        [ "$(wc -c < "$_o" | tr -d ' ')" = "$_len" ] && return
+    fi
+    rm -f "$_o".part*
+    echo "  parallel download failed, retrying as a single stream"
+    curl -fL --retry 3 --progress-bar -o "$_o" "$_u"
+}
+
 # adb shell/exec-out read stdin; never let them eat the answers typed (or piped) into this script
 su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
 
@@ -168,7 +197,7 @@ for f in $files; do
     have=$( (shasum -a 256 "$REL/$f" 2>/dev/null || sha256sum "$REL/$f" 2>/dev/null) | cut -d' ' -f1)
     if [ "$have" != "$want" ]; then
         echo "  $f"
-        curl -fL --progress-bar -o "$REL/$f.part" "$base/$f" || die "download of $f failed"
+        fetch "$base/$f" "$REL/$f.part" || die "download of $f failed"
         have=$( (shasum -a 256 "$REL/$f.part" 2>/dev/null || sha256sum "$REL/$f.part") | cut -d' ' -f1)
         [ "$have" = "$want" ] || die "checksum mismatch for $f"
         mv "$REL/$f.part" "$REL/$f"

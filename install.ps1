@@ -51,6 +51,34 @@ function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[
     }
     & $script:PyExe @PyArgs
 }
+# GitHub's release CDN throttles single connections hard in some regions: pull large files as parallel ranges
+function Fetch($url, $out) {
+    $jobs = 8
+    try { $len = [int64](Invoke-WebRequest $url -Method Head -UseBasicParsing).Headers['Content-Length'][0] } catch { $len = 0 }
+    if ($len -lt 8MB) { Invoke-WebRequest $url -OutFile $out -UseBasicParsing; return }
+    $part = [int64]($len / $jobs) + 1
+    $running = @()
+    for ($i = 0; $i -lt $jobs; $i++) {
+        $s = $i * $part; $e = [math]::Min($s + $part - 1, $len - 1)
+        $running += Start-Job -ScriptBlock {
+            param($u, $f, $a, $b)
+            $r = [System.Net.HttpWebRequest]::Create($u); $r.AddRange($a, $b)
+            $resp = $r.GetResponse(); $fs = [IO.File]::Create($f)
+            $resp.GetResponseStream().CopyTo($fs); $fs.Close(); $resp.Close()
+        } -ArgumentList $url, "$out.part$i", $s, $e
+    }
+    $failed = $false
+    foreach ($j in $running) { Wait-Job $j | Out-Null; if ($j.State -ne 'Completed') { $failed = $true }; Receive-Job $j -ErrorAction SilentlyContinue | Out-Null; Remove-Job $j }
+    if (-not $failed) {
+        $fs = [IO.File]::Create($out)
+        for ($i = 0; $i -lt $jobs; $i++) { $b = [IO.File]::OpenRead("$out.part$i"); $b.CopyTo($fs); $b.Close(); Remove-Item "$out.part$i" }
+        $fs.Close()
+        if ((Get-Item $out).Length -eq $len) { return }
+    }
+    Get-ChildItem "$out.part*" -ErrorAction SilentlyContinue | Remove-Item -Force
+    Write-Host '  parallel download failed, retrying as a single stream'
+    Invoke-WebRequest $url -OutFile $out -UseBasicParsing
+}
 # shell scripts and config files for the device must keep Unix line endings
 function WriteUnix($path, $text) { [IO.File]::WriteAllText($path, ($text -replace "`r`n", "`n")) }
 
@@ -217,7 +245,7 @@ foreach ($f in $files) {
     $have = if (Test-Path "$REL\$f") { (Get-FileHash "$REL\$f" -Algorithm SHA256).Hash.ToLower() } else { '' }
     if ($have -ne $sums[$f]) {
         Write-Host "  $f"
-        Invoke-WebRequest "$base/$f" -OutFile "$REL\$f.part" -UseBasicParsing
+        Fetch "$base/$f" "$REL\$f.part"
         if ((Get-FileHash "$REL\$f.part" -Algorithm SHA256).Hash.ToLower() -ne $sums[$f]) { Die "checksum mismatch for $f" }
         Move-Item -Force "$REL\$f.part" "$REL\$f"
     }

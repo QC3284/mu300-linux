@@ -196,7 +196,23 @@ connection that keeps dropping.
 **Websites think you are in another country.** The device has no GPS, so sites guess from the IP address; mobile
 operators and VPN servers often look like a different city.
 
-**I forgot the password.** Boot Android and run `./install.sh` again; it reinstalls and asks for a new one.
+**I forgot the password, and Linux boots by default.** You do not need to log in to get out:
+
+1. **Back to Android:** unplug the device about ten seconds after it powers on, then plug it in again. The
+   bootloader sees an unfinished boot and falls back to Android by itself (`mu300-boot-ok` only confirms a boot
+   ~30 s after the system is up, so an interrupted boot never counts as successful).
+2. **Set a new password** from your computer, without booting Linux:
+   ```sh
+   tools/reset-password.sh            # ubuntu, openwrt or both
+   ```
+   It mounts the Linux filesystem from Android and rewrites the password hash, keeping all your data.
+3. Start Linux again with `boot/android-boot-linux.sh work/boot-linux-slotb.img`, or reboot if Linux is the default.
+
+Re-running `./install.sh` and choosing **update** also sets a new password and keeps your data.
+
+**Downloads are slow.** GitHub's release CDN throttles single connections in some regions (0.2 MB/s on a
+180 Mbit/s line here). The installer already downloads in 8 parallel chunks, which measured 8x faster; set
+`MU300_FETCH_JOBS` to change that, or point `MU300_RELEASE_URL` at your own mirror.
 
 **Never use OpenWrt's `sysupgrade` or flash OpenWrt firmware images here.** They are written for ordinary computers
 and would overwrite the device's storage. A normal `apk upgrade` is fine, except `kernel` and `kmod-*` packages.
