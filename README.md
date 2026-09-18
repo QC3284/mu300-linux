@@ -119,6 +119,7 @@ copied from Android.
 | Test stability under load | `sudo mu300-toolkit stress all 10` |
 | Check the mobile connection | `sudo mobile-data status` |
 | Change the Wi-Fi name or password | edit `/etc/mu300/hotspot.conf`, then `sudo systemctl restart mu300-hotspot` |
+| Update to the newest release | `sudo mu300-update check` then `sudo mu300-update apply` |
 | Switch between OpenWrt and Ubuntu | `sudo mu300-os openwrt` / `sudo mu300-os ubuntu` |
 | Go back to Android | `sudo mu300-next-boot android`, then `sudo reboot` |
 | Return to Linux from Android | `boot/android-boot-linux.sh boot-linux-slotb.img` |
@@ -135,6 +136,24 @@ sudo nano /etc/mu300/vpn.conf         # paste your vless:// link into VLESS_URI,
 sudo systemctl enable --now mu300-vpn
 mu300-vpn status
 ```
+
+### Updating
+
+The device can update itself from a published release, without a computer:
+
+```sh
+sudo mu300-update check      # installed version vs newest release
+sudo mu300-update apply      # download, unpack, switch; then reboot
+sudo mu300-update rollback   # back to the previous version
+```
+
+`mu300-toolkit` offers the same under System -> Software update. Your settings, users, `/usr/local` and the vendor
+files (Wi-Fi firmware, Android modem userspace) are carried over, and the previous version is kept as `<os>.old` for
+a rollback until you run `mu300-update clean`. The new filesystem is unpacked beside the old one and only swapped in
+at the end, so an interrupted download cannot leave a half-updated system.
+
+The kernel and the boot image are **not** updated this way: they have to be built with your device's own Android
+files, which only `./install.sh` on a computer can do.
 
 ## Uninstall
 

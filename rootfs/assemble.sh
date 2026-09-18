@@ -17,6 +17,8 @@ rm -f $R/.dockerenv
 rm -f $R/etc/ssh/ssh_host_* ; : > $R/etc/machine-id; rm -f $R/var/lib/dbus/machine-id
 # docker manages /etc/hostname, so the exported file is empty
 echo mu300 > $R/etc/hostname
+# which release this filesystem came from, so mu300-update can tell whether a newer one exists
+mkdir -p $R/etc/mu300 && printf '%s\n' "${MU300_VERSION:-dev}" > $R/etc/mu300/image-version
 ln -sfn ../run/systemd/resolve/stub-resolv.conf $R/etc/resolv.conf
 # vendor firmware for Wi-Fi (wcnmodem.bin, wifi_board_config*.ini) is copied from the device's /odm/firmware
 if [ -d /firmware ]; then mkdir -p $R/usr/lib/firmware && cp /firmware/* $R/usr/lib/firmware/; fi
