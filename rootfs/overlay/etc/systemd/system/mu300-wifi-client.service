@@ -9,7 +9,8 @@ Before=mu300-hotspot.service
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/mu300/bin/wifi-client up
-ExecStop=/opt/mu300/bin/wifi-client disconnect
+# no ExecStop: at shutdown there is nothing to tear down (the radio is reset at the next boot anyway), and
+# running "disconnect" there would also clear the scan-mode flag that the coming boot is meant to use
 
 [Install]
 WantedBy=multi-user.target
