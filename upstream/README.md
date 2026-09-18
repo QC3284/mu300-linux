@@ -70,8 +70,8 @@ Not working yet:
 - **Bring-up is order and timing dependent**: the sequence that reached "Modem Alive" (modules in two batches,
   then `mu300-vendor start`, then `cp_diskserver`) did not reproduce after a clean reboot, where `modem_control`
   stopped at `g_modem_state = 8` with one `cp_diskserver` blocked in uninterruptible I/O.
-- `refnotify` logs an error for every message because `/vendor/etc/wcn_to_mipi.xml` was missing from the vendor
-  subset (now extracted).
+- `refnotify` logs an error for every message about a missing `/vendor/etc/wcn_to_mipi.xml`. Checked on the
+  device: the stock firmware does not contain that file either, so this is cosmetic, not a cause.
 
 Also found while testing: **the USB ECM gadget only receives on 6.18**. `usb0` counts incoming packets and the
 bridge is configured correctly, but nothing the device sends reaches the host, so there is no DHCP, no SSH and no
