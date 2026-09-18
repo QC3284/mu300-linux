@@ -170,4 +170,8 @@ if ($wipe -ne 'keep') {
 }
 
 SuDo "grep -q "" $T/mu300root "" /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" | Out-Null
+# the on-device switch would point at a boot_b that is Android again
+Say 'Removing the on-device switch (Magisk module)'
+if ((SuDo 'magisk -v')) { SuDo '[ -d /data/adb/modules/mu300_linux_switch ] && touch /data/adb/modules/mu300_linux_switch/remove' | Out-Null }
+
 Say 'Done. The device boots stock Android; reboot it once to check.'

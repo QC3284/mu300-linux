@@ -77,7 +77,8 @@ fi
 [ -e /in/bt-init ] && install -m755 /in/bt-init $R/opt/mu300/bin/mu300-bt-init
 [ -f /in/sing-box ] && install -m755 /in/sing-box $R/opt/mu300/bin/sing-box
 [ -e /in/busybox ] && { install -m755 /in/busybox $R/opt/mu300/bin/busybox; mkdir -p $R/opt/mu300/busybox-bin; }
-ln -sfn /opt/mu300/bin/mu300-toolkit $R/usr/local/bin/mu300-toolkit
+# on PATH for sudo too (secure_path has no /opt/mu300/bin)
+for c in mu300-toolkit mu300-next-boot mu300-os mu300-update mobile-data mu300-at mu300-vpn; do ln -sfn /opt/mu300/bin/$c $R/usr/local/bin/$c; done
 
 # identity and defaults
 echo mu300 > $R/etc/hostname

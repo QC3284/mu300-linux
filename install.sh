@@ -302,7 +302,12 @@ su_do "dd if=$T/mu300-boot.img of=/dev/block/by-name/boot_b bs=4M && sync"
 [ "$(su_do 'sha256sum /dev/block/by-name/boot_b' | cut -d' ' -f1)" = "$EXP" ] || die "boot_b verify failed (slot a still active, Android keeps booting)"
 su_do "dd if=$T/mu300-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/mu300-boot.img $T/mu300-bc-b.bin"
 
+# on-device switch for later: one command in Android instead of plugging into a computer (needs Magisk)
+say "Installing the on-device switch (Magisk module)"
+sh "$TOP/tools/install-magisk-module.sh" || echo "  (skipped; ./install.sh keeps working either way)"
+
 say "Done. Rebooting into $BOOT_OS"
 echo "  USB network: 192.168.77.1   SSH: $([ "$BOOT_OS" = ubuntu ] && echo ubuntu@192.168.77.1 || echo root@192.168.77.1, LuCI http://192.168.77.1)"
 echo "  switch systems: mu300-os ubuntu|openwrt   back to Android: mu300-next-boot android"
+echo "  back to Linux from Android (with Magisk): su -c mu300-linux"
 adb reboot </dev/null

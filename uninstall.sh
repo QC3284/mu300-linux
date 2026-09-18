@@ -136,4 +136,8 @@ fi
 
 # never delete through a still mounted Linux filesystem
 su_do "grep -q \" $T/mu300root \" /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" >/dev/null
+# the on-device switch would point at a boot_b that is Android again
+say "Removing the on-device switch (Magisk module)"
+sh "$TOP/tools/install-magisk-module.sh" --remove || true
+
 say "Done. The device boots stock Android; reboot it once to check."

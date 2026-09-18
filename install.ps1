@@ -305,7 +305,30 @@ SuDo "dd if=$T/mu300-boot.img of=/dev/block/by-name/boot_b bs=4M && sync" | Out-
 if ((SuDo 'sha256sum /dev/block/by-name/boot_b').Split(' ')[0] -ne $EXP) { Die 'boot_b verify failed (slot a still active, Android keeps booting)' }
 SuDo "dd if=$T/mu300-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/mu300-boot.img $T/mu300-bc-b.bin" | Out-Null
 
+# on-device switch for later: one command in Android instead of plugging into a computer (needs Magisk)
+Say 'Installing the on-device switch (Magisk module)'
+$ModSrc = Join-Path $Top 'android\magisk\mu300-linux-switch'
+$Mod = '/data/adb/modules/mu300_linux_switch'
+$MTmp = "$T/mu300-magisk"
+if ((SuDo 'magisk -v')) {
+    & adb shell "rm -rf $MTmp" 2>$null | Out-Null
+    & adb shell "mkdir -p $MTmp/system/bin" 2>$null | Out-Null
+    foreach ($f in 'module.prop', 'switch.sh', 'action.sh') {
+        & adb push (Join-Path $ModSrc $f) "$MTmp/$f" 2>$null | Out-Null
+    }
+    & adb push (Join-Path $ModSrc 'system\bin\mu300-linux') "$MTmp/system/bin/mu300-linux" 2>$null | Out-Null
+    SuDo "rm -rf $Mod && mkdir -p $Mod/system/bin && cp -a $MTmp/module.prop $MTmp/switch.sh $MTmp/action.sh $Mod/ && cp -a $MTmp/system/bin/mu300-linux $Mod/system/bin/ && chown -R 0:0 $Mod && chmod 755 $Mod/switch.sh $Mod/action.sh $Mod/system/bin/mu300-linux && chmod 644 $Mod/module.prop && rm -rf $MTmp && sync" | Out-Null
+    if ((SuDo "[ -x $Mod/switch.sh ] && echo yes") -eq 'yes') {
+        Write-Host "  installed: 'su -c mu300-linux' on the device starts Linux after the next Android boot"
+    } else {
+        Write-Host '  could not install it; ./install.ps1 keeps working either way'
+    }
+} else {
+    Write-Host '  no Magisk (or no root) on this device - skipped'
+}
+
 Say "Done. Rebooting into $BOOT_OS"
 Write-Host "  USB network: 192.168.77.1   SSH: $(if ($BOOT_OS -eq 'ubuntu') { 'ubuntu@192.168.77.1' } else { 'root@192.168.77.1, LuCI http://192.168.77.1' })"
 Write-Host '  switch systems: mu300-os ubuntu|openwrt   back to Android: mu300-next-boot android'
+Write-Host '  back to Linux from Android (with Magisk): su -c mu300-linux'
 & adb reboot | Out-Null

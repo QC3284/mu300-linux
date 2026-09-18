@@ -39,7 +39,9 @@ for u in mu300-vendor.service:sysinit.target mu300-lan.service:multi-user.target
   case $svc in serial-getty@*) src=/usr/lib/systemd/system/serial-getty@.service;; esac
   ln -sfn $src $R/etc/systemd/system/$tgt.wants/$svc
 done
-ln -sfn /opt/mu300/bin/mu300-toolkit $R/usr/local/bin/mu300-toolkit
+# the commands people are told to run must be on PATH, including sudo's secure_path, which does not contain
+# /opt/mu300/bin - without these links every "sudo mu300-os ..." in the README is a "command not found"
+for c in mu300-toolkit mu300-next-boot mu300-os mu300-update mobile-data mu300-at mu300-vpn; do ln -sfn /opt/mu300/bin/$c $R/usr/local/bin/$c; done
 # no graphical/serial login noise on a headless dongle; keep ttyS1 console for debugging
 ln -sfn /dev/null $R/etc/systemd/system/getty@tty1.service
 cd $R && tar --numeric-owner -czf /w/mu300-ubuntu-24.04-rootfs.tar.gz .
