@@ -39,13 +39,47 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 Clocks, pinctrl, power domains, USB 3.1 gadget, eMMC, PCIe, thermal, cpufreq, watchdog, LEDs and Wi-Fi/BT are
 working (see the status below). What is still missing:
 
-- **Modem** (`sipc`/`sipa`/modem loader): the out-of-tree port in `modules/sprd_modem` boots the firmware and has
-  registered on LTE once, but detection is racy and PDP/DNS is unverified. Trusty needs a CPU latency QoS request
-  plus a NOP poll because the ACK PSCI hooks are missing, and `cp_diskserver` has to run while the modem boots.
+- **Modem** (`sipc`/`sipa`/modem loader): much further than the note above used to say, see "Modem on 6.18"
+  below. It boots, reports "Modem Alive", answers AT, switches the radio on and measures 5G signal; what is not
+  working yet is completing registration reliably, and the AT channel wedging after a few commands.
 - **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
   still required.
 - **GPU and audio**: not started.
 - **Bluetooth**: built as an out-of-tree module, untested on 6.18.
+
+## Modem on 6.18 (2026-09-18)
+
+Measured on the device, OpenWrt 25.12 on 6.18.52, modules loaded by hand in the order of
+`tools/mu300-modem-ml-load` (26 modules, **no errors**, `sipa-dele` removed - see its comment):
+
+Works:
+- `/dev/modem`, `/dev/stty_nr*` and 16 `sipa_eth*` interfaces appear.
+- `modem_control` starts the three modem processors (`modem@0/1/2`: "modem run = 1", "start over").
+- **"Modem Alive"** arrives (seen 4x in one session), with `cp_diskserver` serving NV
+  (`nr_fixnv1_a read success`).
+- **AT works**: `AT` -> `OK`, `AT+CPIN?` -> `READY`, `AT+SFUN=4` switches the radio on (`AT+CFUN?` -> 1).
+- **5G signal is measured**: `+CSQ: 40,25`, `+CESQ: ...,25,40,71,58,76` (LTE RSRP about -100 dBm plus NR
+  ssrsrp/sssinr), so the RF side including calibration is alive.
+
+Not working yet:
+- **Registration does not complete**: `AT+CEREG?` stays at `2,0` (searching) and `AT+COPS?` returns empty, while
+  the same SIM in the same device registers within seconds on the 5.4 kernel.
+- **The AT channel wedges**: after a handful of commands (reliably after `AT+SFUN=4`) both `stty_nr1` and, later,
+  `stty_nr0` stop answering until the modem is restarted. The same symptom exists on 5.4, so it is the modem's AT
+  service or the SIPC tty layer, not something specific to mainline.
+- **Bring-up is order and timing dependent**: the sequence that reached "Modem Alive" (modules in two batches,
+  then `mu300-vendor start`, then `cp_diskserver`) did not reproduce after a clean reboot, where `modem_control`
+  stopped at `g_modem_state = 8` with one `cp_diskserver` blocked in uninterruptible I/O.
+- `refnotify` logs an error for every message because `/vendor/etc/wcn_to_mipi.xml` was missing from the vendor
+  subset (now extracted).
+
+Also found while testing: **the USB ECM gadget only receives on 6.18**. `usb0` counts incoming packets and the
+bridge is configured correctly, but nothing the device sends reaches the host, so there is no DHCP, no SSH and no
+ping - the serial console (`ttyGS0`, `askfirst` login from the uci-defaults) is the only way in. The 5.4 kernel
+with the same initramfs and the same gadget configuration works, so this is a mainline dwc3/f_ecm issue.
+
+Debugging without the network: `ttyGS0` gives a root shell; drive it from the host by writing commands to
+`/dev/cu.usbmodem*` (keep each command short, long lines get truncated on the console).
 
 ## Status (2026-09-17): OpenWrt runs on 6.18.52
 
