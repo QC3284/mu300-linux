@@ -1,4 +1,6 @@
 [Unit]
+# the radio does one thing at a time: no hotspot while the device is a client of another network
+ConditionPathExists=!/run/mu300-wifi-client.active
 Description=MU300 Wi-Fi hotspot (hostapd on wlan0, bridged into br-lan)
 After=mu300-wifi.service mu300-lan.service
 Requires=mu300-wifi.service

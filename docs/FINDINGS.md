@@ -200,6 +200,28 @@ an extra open and close of the device, which takes the channel away from whoever
 
 ## Mobile data without Android RIL
 
+### 14b. Wi-Fi station mode: decided at boot, and one way only
+The SC2355 can be an access point or a client of somebody else's network, but the switch only goes one way:
+
+* The driver creates `wlan0` in **station** mode. hostapd turns it into an access point, and after that nothing
+  turns it back. `iw dev wlan0 set type managed` is refused with `Invalid argument` even with the interface down
+  and out of the bridge, although `iw phy phy0 info` lists `managed` among the supported modes.
+* Deleting and recreating the interface **breaks the radio until the next reboot**: the driver powers the WCN
+  chip down and up through an SDIO path (`WCN BASEstart_marlin SDIO card dump`), which is not how Marlin3 is
+  attached on this board, and the result is `sprd-wlan: failed to power on WCN!` on every later open. A second
+  interface does not help either - with the first one still present the firmware answers scans with
+  `sc2355_scan_timeout`.
+
+So the mode belongs to the boot: `mu300-wifi-client.service` runs before `mu300-hotspot.service`, joins the saved
+network while `wlan0` is still a station, and holds `/run/mu300-wifi-client.active`, which the hotspot unit refuses
+to start on (`ConditionPathExists=!`). Going back to the hotspot needs no reboot, because that is the direction
+hostapd can do by itself.
+
+**WPA3/SAE does not work**: wpa_supplicant negotiates SAE correctly but every association is rejected with
+`status_code=1`, so Wi-Fi 7 / WPA3-only networks (a "MLO" SSID, for instance) cannot be joined. WPA2 works;
+measured on the device: 18 networks scanned, joined, DHCP address, and the Wi-Fi default route (metric 50) taking
+precedence over mobile data (metric 100).
+
 ### 15. Radio, registration and the data bearer
 * AT channels: `/dev/stty_nr0` carries unsolicited results (URCs); `/dev/stty_nr1` is a clean command channel.
 * After `modem_control` boots the modem the radio is off (`+CFUN: 0`). Android's RIL (`libimpl-ril.so`) uses the Unisoc
