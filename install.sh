@@ -14,7 +14,7 @@ TOP=$(cd "$(dirname "$0")" && pwd)
 KOUT=${MU300_KERNEL_OUT:-$TOP/out}
 WORK=${MU300_WORK:-$TOP/work}
 OWRT_VER=25.12.5
-RELEASE=${MU300_RELEASE:-v2026.09.19}
+RELEASE=${MU300_RELEASE:-v2026.09.20}
 REPO=${MU300_REPO:-dikeckaan/mu300-linux}
 T=/data/local/tmp
 MODE=prebuilt; CHECK_ONLY=0
