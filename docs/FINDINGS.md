@@ -139,6 +139,16 @@ The root filesystem moved from Ubuntu 26.04 to 24.04 LTS: 26.04's userland start
   directory (systemd then disappears). Always ship files under `usr/lib/...`.
 * `docker export` leaves `/etc/hostname` empty.
 
+### 13b. Never close the modem's AT tty
+`/dev/stty_nr*` are SIPC channels, not real serial ports. Closing one while the modem is sending - and it always is,
+signal reports arrive every few seconds - leaves the channel desynchronised: every later open reads nothing, on both
+5.4 and 6.18, and only restarting the modem brings it back. Measured: five commands in a row through one open file
+descriptor all answer; the next process that opens the device gets silence, still silent 45 s later.
+
+Android's RIL keeps the port open for the lifetime of the system. `mu300-atd` does the same: it owns the tty and
+serves one command at a time through a pair of fifos in `/run/mu300-at`, `mu300-at "AT+CSQ"` asks it, and
+`mobile-data` uses it automatically when it is running.
+
 ## Wi-Fi (SC2355 / Marlin3)
 
 ### 14. Bring-up
