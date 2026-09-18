@@ -147,7 +147,24 @@ descriptor all answer; the next process that opens the device gets silence, stil
 
 Android's RIL keeps the port open for the lifetime of the system. `mu300-atd` does the same: it owns the tty and
 serves one command at a time through a pair of fifos in `/run/mu300-at`, `mu300-at "AT+CSQ"` asks it, and
-`mobile-data` uses it automatically when it is running.
+`mobile-data` uses it automatically when it is running. Verified on 5.4: 30 separate client invocations in a row,
+all answered, channel still healthy afterwards.
+
+### 13c. Reading this tty needs `read -t`, and only bash or busybox ash have it
+Two ways of timing out a read do **not** work here, and both fail silently:
+
+* **dash has no `read -t`.** It is `/bin/sh` on Ubuntu and Debian, so a `#!/bin/sh` script using `read -t` fails on
+  every read with "Illegal option", spins through its timeout and returns an empty reply. The symptom is a daemon
+  that answers nothing while burning exactly one timeout of CPU per command (measured: 17.9 s for three 6 s
+  commands).
+* **The termios timer is ignored.** `stty min 0 time 5` changes nothing: the driver blocks in `sbuf_read` until the
+  modem says something, possibly for ever. Visible as `wchan = sbuf_read` with zero CPU time.
+
+`read -t` in bash and in busybox ash uses `poll()`, which this driver does implement, so both work. `mu300-atd` and
+`mu300-at` re-exec themselves under bash (or busybox ash) when the shell running them has no `-t`.
+
+Apply `stty` to the already-open descriptor (`stty raw -echo <&3`), never `stty -F /dev/stty_nr1`: the `-F` form
+opens and closes the tty again, which is exactly what 13b warns about.
 
 ## Wi-Fi (SC2355 / Marlin3)
 
