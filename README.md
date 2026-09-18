@@ -122,8 +122,15 @@ copied from Android.
 | Update to the newest release | `sudo mu300-update check` then `sudo mu300-update apply` |
 | Switch between OpenWrt and Ubuntu | `sudo mu300-os openwrt` / `sudo mu300-os ubuntu` |
 | Go back to Android | `sudo mu300-next-boot android`, then `sudo reboot` |
-| Return to Linux from Android | `boot/android-boot-linux.sh boot-linux-slotb.img` |
+| Return to Linux from Android | `su -c mu300-linux` on the device (see below), or `boot/android-boot-linux.sh boot-linux-slotb.img` from a computer |
 | Send all traffic through a VPN | see below |
+
+### Starting Linux from Android without a computer
+
+`android/magisk/build.sh` builds a small Magisk module. Once it is installed, the Magisk app gets an **Action**
+button that reboots the device into Linux, and `su -c mu300-linux` does the same from a terminal
+(`su -c 'mu300-linux status'` just shows which system is on which slot). It writes only the same 32 bytes of
+`misc` that the installer does. See [android/magisk/README.md](android/magisk/README.md).
 
 ### VPN
 
