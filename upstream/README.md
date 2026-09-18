@@ -39,12 +39,12 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 Clocks, pinctrl, power domains, USB 3.1 gadget, eMMC, PCIe, thermal, cpufreq, watchdog, LEDs and Wi-Fi/BT are
 working (see the status below). What is still missing:
 
-- **Modem** (`sipc`/`sipa`/modem loader): much further than the note above used to say, see "Modem on 6.18"
-  below. It boots, reports "Modem Alive", answers AT, switches the radio on and measures 5G signal; what is not
-  working yet is completing registration reliably, and the AT channel wedging after a few commands.
+- **Modem** (`sipc`/`sipa`/modem loader): the transport works - modules load, Trusty starts the CP and every SIPC
+  channel opens, including the 5G modem's - but the modem software does not finish starting ("Modem Alive" never
+  arrives and AT stays silent). See "Modem on 6.18" below.
 - **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
   still required.
-- **GPU and audio**: not started.
+- **GPU and audio**: not started (`mali_kbase` has never been built for 6.18).
 - **Bluetooth**: built as an out-of-tree module, untested on 6.18.
 
 ## Modem on 6.18 (2026-09-18)
@@ -70,13 +70,28 @@ Not working yet:
 - **Bring-up is order and timing dependent**: the sequence that reached "Modem Alive" (modules in two batches,
   then `mu300-vendor start`, then `cp_diskserver`) did not reproduce after a clean reboot, where `modem_control`
   stopped at `g_modem_state = 8` with one `cp_diskserver` blocked in uninterruptible I/O.
+- **Where it stops now** (2026-09-19, 25 modules, `cp_diskserver` started before `modem_control`): Trusty verifies
+  and starts the CP (`kbc_verify_all_avb2() ret = 0`, `SEC_KBC_START_CP() ret = 0`), all three processors report
+  `modem run = 1` and `start over`, the modem's shared memory pools are added (`0x87800000`, `0x87c00000`) and the
+  SIPC handshake completes on every channel - `dst=5` (the 5G modem) answers 7 of 7 opens, `dst=6` 2 of 2 and
+  `dst=9` 5 of 5. And still no "Modem Alive" arrives and `/dev/stty_nr*` answers nothing. So the AP-CP transport is
+  up and it is the modem's own software that never finishes starting; the next thing to look at is what
+  `modem_control` is waiting for after `START_CP` (its own log through logdw), not the SIPC layer.
+- Harmless noise on the way: the vendor `smem` debug device is registered once per co-processor, so every core
+  after the first logs `kobject_add_internal failed for smem with -EEXIST` and `Failed to create smem class`, and
+  `DEVICE_ATTR(base_addr, 0440, NULL, NULL)` trips the newer "read permission without 'show'" warning. Neither
+  affects the probe: `sprd ipc probe success` and the pools are added either way.
 - `refnotify` logs an error for every message about a missing `/vendor/etc/wcn_to_mipi.xml`. Checked on the
   device: the stock firmware does not contain that file either, so this is cosmetic, not a cause.
 
-Also found while testing: **the USB ECM gadget only receives on 6.18**. `usb0` counts incoming packets and the
-bridge is configured correctly, but nothing the device sends reaches the host, so there is no DHCP, no SSH and no
-ping - the serial console (`ttyGS0`, `askfirst` login from the uci-defaults) is the only way in. The 5.4 kernel
-with the same initramfs and the same gadget configuration works, so this is a mainline dwc3/f_ecm issue.
+**The USB network works** (2026-09-19). It looked like "ECM only receives on mainline" for a while; the truth was
+duller: the kernel under test had been built *before* the last round of config fixes. Rebuilt from the current
+`mu300-mainline.config`, the gadget works both ways - the host gets its DHCP lease, ping runs at about 3 ms and
+SSH into OpenWrt works, which makes everything else on this list far easier to debug.
+
+`boot/init` now picks the first USB network function the kernel actually has (`ecm`, then `ncm`). Asking for one
+that was not built in leaves the gadget unbound, and with it no network *and* no serial console - a mistake that
+cost one debugging round.
 
 Debugging without the network: `ttyGS0` gives a root shell; drive it from the host by writing commands to
 `/dev/cu.usbmodem*` (keep each command short, long lines get truncated on the console).
