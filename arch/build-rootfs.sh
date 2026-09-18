@@ -78,7 +78,7 @@ fi
 [ -f /in/sing-box ] && install -m755 /in/sing-box $R/opt/mu300/bin/sing-box
 [ -e /in/busybox ] && { install -m755 /in/busybox $R/opt/mu300/bin/busybox; mkdir -p $R/opt/mu300/busybox-bin; }
 # on PATH for sudo too (secure_path has no /opt/mu300/bin)
-for c in mu300-toolkit mu300-next-boot mu300-os mu300-update mobile-data mu300-at mu300-vpn; do ln -sfn /opt/mu300/bin/$c $R/usr/local/bin/$c; done
+for c in mu300-toolkit mu300-next-boot mu300-os mu300-update mobile-data mu300-at mu300-vpn wifi-client; do ln -sfn /opt/mu300/bin/$c $R/usr/local/bin/$c; done
 
 # identity and defaults
 echo mu300 > $R/etc/hostname
@@ -96,7 +96,7 @@ echo "%wheel ALL=(ALL:ALL) ALL" > $R/etc/sudoers.d/wheel; chmod 440 $R/etc/sudoe
 
 # services: same set the Ubuntu image enables
 for u in mu300-vendor.service:sysinit.target mu300-lan.service:multi-user.target mu300-ssh-hostkeys.service:sysinit.target \
-         serial-getty@ttyGS0.service:getty.target sshd.service:multi-user.target mu300-wifi.service:multi-user.target \
+         serial-getty@ttyGS0.service:getty.target sshd.service:multi-user.target mu300-wifi.service:multi-user.target mu300-wifi-client.service:multi-user.target \
          mu300-mobile-data.service:multi-user.target mu300-mobile-data-watch.service:multi-user.target \
          mu300-fixups.service:sysinit.target mu300-zram.service:swap.target mu300-boot-ok.service:multi-user.target \
          mu300-cp_diskserver.service:multi-user.target mu300-refnotify.service:multi-user.target \
