@@ -13,6 +13,8 @@ RemainAfterExit=yes
 ExecStartPre=/bin/sleep 15
 ExecStart=/opt/mu300/bin/mobile-data up
 ExecStop=/opt/mu300/bin/mobile-data down
+# tearing the data call down talks to the modem; a reboot must not wait for that
+TimeoutStopSec=15
 Restart=on-failure
 RestartSec=30
 
