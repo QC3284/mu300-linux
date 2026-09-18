@@ -139,16 +139,32 @@ The root filesystem moved from Ubuntu 26.04 to 24.04 LTS: 26.04's userland start
   directory (systemd then disappears). Always ship files under `usr/lib/...`.
 * `docker export` leaves `/etc/hostname` empty.
 
-### 13b. Never close the modem's AT tty
-`/dev/stty_nr*` are SIPC channels, not real serial ports. Closing one while the modem is sending - and it always is,
-signal reports arrive every few seconds - leaves the channel desynchronised: every later open reads nothing, on both
-5.4 and 6.18, and only restarting the modem brings it back. Measured: five commands in a row through one open file
-descriptor all answer; the next process that opens the device gets silence, still silent 45 s later.
+### 13b. One reader at a time on the modem's AT tty, and reopen it after a modem restart
+`/dev/stty_nr*` are SIPC channels, not real serial ports, and the data goes to **one** reader. While a process
+holds the channel, a second one that opens the device reads nothing - it is not broken, it is simply not the owner.
 
-Android's RIL keeps the port open for the lifetime of the system. `mu300-atd` does the same: it owns the tty and
-serves one command at a time through a pair of fifos in `/run/mu300-at`, `mu300-at "AT+CSQ"` asks it, and
-`mobile-data` uses it automatically when it is running. Verified on 5.4: 30 separate client invocations in a row,
-all answered, channel still healthy afterwards.
+This is what an earlier version of this section got wrong. The observation was "the tty stays silent until the modem
+is restarted", and the conclusion was that closing it desynchronises the channel for ever. What actually happens is
+the reverse: a descriptor that was open **across a modem restart** (`AT+SFUN=4`, or a CP crash) refers to a channel
+that no longer exists, so it reads nothing - and because it still occupies the device, every other opener is shut
+out too, which is what made it look permanent. Closing that descriptor and opening the device again fixes it
+immediately; no modem restart is needed. Measured: with the daemon holding a stale descriptor, all six channels are
+silent; with the daemon stopped, all six answer `OK` at once.
+
+Two rules follow, and `mu300-atd` implements both:
+
+* **Exactly one owner.** The daemon holds the tty and serves one command at a time through a pair of fifos in
+  `/run/mu300-at`; `mu300-at "AT+CSQ"` asks it, and `mobile-data` uses it automatically when it is running. Nothing
+  else may open the device - including `stty -F`, which is an open and a close of its own.
+* **Reopen when the modem goes quiet.** After two unanswered commands the daemon reopens the device and retries
+  once, which is all a modem restart needs.
+
+Also make sure only one bring-up runs at a time: `mobile-data up` from the service and from the watchdog used to
+run concurrently, and the two of them take the channel lock away from each other for every single AT command, so
+neither finishes. `mobile-data` now holds `/run/mu300-mobile-data-up.lock` while it works.
+
+Verified on 5.4 after these changes: a full `down`/`up` cycle followed by AT queries, and 12 queries over two
+minutes with the watchdog polling at the same time - all answered, no reopen needed.
 
 ### 13c. Reading this tty needs `read -t`, and only bash or busybox ash have it
 Two ways of timing out a read do **not** work here, and both fail silently:
@@ -163,8 +179,8 @@ Two ways of timing out a read do **not** work here, and both fail silently:
 `read -t` in bash and in busybox ash uses `poll()`, which this driver does implement, so both work. `mu300-atd` and
 `mu300-at` re-exec themselves under bash (or busybox ash) when the shell running them has no `-t`.
 
-Apply `stty` to the already-open descriptor (`stty raw -echo <&3`), never `stty -F /dev/stty_nr1`: the `-F` form
-opens and closes the tty again, which is exactly what 13b warns about.
+Apply `stty` to the already-open descriptor (`stty raw -echo <&3`), never `stty -F /dev/stty_nr1`: the `-F` form is
+an extra open and close of the device, which takes the channel away from whoever owns it (13b).
 
 ## Wi-Fi (SC2355 / Marlin3)
 
