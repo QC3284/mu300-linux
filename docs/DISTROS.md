@@ -42,6 +42,40 @@ it cannot do on this device:
 What is left is still useful: a pocket-sized box with its own 5G modem that can run `nmap`, `sqlmap`, `metasploit`,
 proxies and scanners over the mobile connection or the Wi-Fi it is connected to.
 
+## Survey of the popular distributions (measured 2026-09-18)
+
+Two things decide whether a distribution can run on this device's 5.4 kernel, and both are readable from its own
+binaries: the minimum kernel its glibc was compiled for (the ELF ABI note), and whether its userspace already uses
+syscalls 5.4 does not have — `openat2` (5.6) in `tar` is the one that bit us with Ubuntu 26.04.
+
+| Distribution (arm64) | glibc needs | `tar` uses `openat2` | Verdict |
+|---|---|---|---|
+| Ubuntu 22.04 / 24.04 LTS | 3.7 | no | ✅ works (24.04 is the tested default) |
+| Debian 12 / 13 / sid | 3.7 | no | ✅ works, built here |
+| Kali rolling | 3.7 | no | ✅ works, built here (see the Kali section) |
+| Arch Linux ARM | — | no | ✅ works, built here |
+| OpenWrt / ImmortalWrt 25.12 | musl | no | ✅ works, built here |
+| Alpine 3.22 | musl | no | ✅ userspace fine — but OpenRC, so the services need porting |
+| Fedora 42 / 43 | 3.7 | no | ✅ userspace fine, not built yet |
+| Rocky 9, AlmaLinux 10, Oracle Linux 9 | 3.7 | no | ✅ userspace fine, not built yet |
+| Amazon Linux 2023 | 3.7 | n/a | ✅ userspace fine, not built yet |
+| Gentoo stage3 arm64 | 3.7 | no | ✅ userspace fine; OpenRC unless the systemd stage3 is used |
+| Void Linux | — | — | ✅ rootfs tarball exists; runit, so the services need porting |
+| Raspberry Pi OS arm64 | Debian | no | ✅ Debian underneath; take the rootfs out of its image |
+| openSUSE Tumbleweed | 4.3 | **yes** | ⚠️ works only after replacing `tar` (same trap as Ubuntu 26.04) |
+| Ubuntu 26.04+ | 3.7 | **yes** | ⚠️ same; this is why the default moved back to 24.04 |
+| Arch (official image), Void (official image), Clear Linux | — | — | ❌ no arm64 container image (Arch: use Arch Linux ARM) |
+
+No glibc on this list demands a kernel newer than 5.4, so the kernel is rarely the blocker; what breaks is individual
+programs reaching for new syscalls, and those can be swapped out one by one.
+
+### The part that is actual work
+
+The MU300 services — modem bring-up, the Android vendor chroot, Wi-Fi, the LAN bridge, the hotspot, the toolkit —
+exist as **systemd units** (used by Ubuntu, Debian, Kali, Arch, Fedora and friends) and as **procd init scripts**
+for OpenWrt/ImmortalWrt. A distribution with a different init (Alpine's OpenRC, Void's runit) boots fine, but
+somebody has to write those ~15 service definitions again before the modem and Wi-Fi come up by themselves.
+
 ## What does not fit
 
 * **Anything that needs its own kernel** (Fedora IoT, postmarketOS images, Home Assistant OS): they ship kernels
