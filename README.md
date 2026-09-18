@@ -240,6 +240,8 @@ and would overwrite the device's storage. A normal `apk upgrade` is fine, except
 
 * [`docs/BUILD.md`](docs/BUILD.md) — build the kernel and images yourself (`kernel/build-all.sh` does it in one step).
 * [`docs/FINDINGS.md`](docs/FINDINGS.md) — everything learned about this hardware and why each workaround exists.
+* [`docs/DISTROS.md`](docs/DISTROS.md) — running other distributions (ImmortalWrt, Arch Linux ARM, Debian, Kali)
+  and what the 5.4 kernel rules out.
 * [`upstream/`](upstream/) — the mainline 6.18 kernel port.
 * [Releases](https://github.com/dikeckaan/mu300-linux/releases) — prebuilt images. They contain **no proprietary
   files**; the installer takes those from your own device.
@@ -251,7 +253,8 @@ and would overwrite the device's storage. A normal `apk upgrade` is fine, except
 | `kernel/` | kernel build environment, config, patches |
 | `boot/` | initramfs `init`, boot image builder, slot handling |
 | `rootfs/` | Ubuntu image: `Dockerfile`, `assemble.sh`, services and scripts in `overlay/` |
-| `openwrt/` | OpenWrt image build |
+| `openwrt/` | OpenWrt and ImmortalWrt image build |
+| `arch/` | Arch Linux ARM image build |
 | `android-vendor/` | scripts that copy the needed Android files from *your* device |
 | `tools/` | helper programs, release tooling, backup, SSH/serial/log helpers |
 

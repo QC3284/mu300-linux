@@ -1,5 +1,9 @@
-# Ubuntu 24.04 LTS arm64 root filesystem for the MU300 (exported with `docker export`, not run as a container)
-FROM ubuntu:24.04
+# Ubuntu 24.04 LTS arm64 root filesystem for the MU300 (exported with `docker export`, not run as a container).
+# BASE swaps the distribution: any arm64 Debian-family image with the same package names works, for example
+#   docker build --build-arg BASE=debian:13 -t mu300-debian:13 rootfs/
+#   docker build --build-arg BASE=kalilinux/kali-rolling -t mu300-kali rootfs/
+ARG BASE=ubuntu:24.04
+FROM ${BASE}
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     systemd systemd-sysv systemd-timesyncd systemd-resolved udev dbus kmod \
