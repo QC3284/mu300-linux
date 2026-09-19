@@ -198,9 +198,25 @@ runs a subshell per command (`reply=$(collect ...)`). A `trap 'rm -rf $LOCK' EXI
 second after taking it, and the next daemon walked straight in - the very failure the lock was meant to stop, now
 happening every few seconds. Clean up on `INT`/`TERM` only, and only when the pid in the lock is still ours.
 
-### 13b-2. The modem still stops answering on mainline - what it is not (open)
-On the mainline kernel the modem stops talking to the AP partway through every boot and never comes back without a
-reboot. Typical run: `+CSQ: 44,26` at 67 s, nothing at 89 s. What dies is the CP's side of SIPC - the outbox
+### 13b-2. The modem stops answering on Linux - and it is not the mainline port (open)
+**Measured on both kernels and on stock Android, in that order, and the answer is not what it looked like.** The
+modem stops talking to the AP partway through every Linux boot and never comes back without a reboot:
+
+| System | First AT reply | Then | `sipa_eth0` |
+|---|---|---|---|
+| mainline 6.18.52 | 67 s | silent 22 s later | address, `rx=0` |
+| vendor 5.4.254 | 60 s | silent 17 s later | address, `rx=0` |
+| stock Android 13 | - | keeps working | address, **`rx=104`** |
+
+So this is **not a regression in the mainline port**: the vendor kernel the device shipped with fails the same way
+on the same day, and Android on the same hardware, SIM and carrier passes traffic. What is missing is on our side
+of userspace, and it is missing on both kernels. Android runs a full modem stack (RIL, `phoneserver`/`atcmdsrv`,
+`slogmodem`, the IMS bridge); we run `modem_control`, `cp_diskserver` and `refnotify` and nothing else - and
+`refnotify` cannot even open `/dev/stime_ch` (ENODEV, the time-sync channel), on both kernels. The 5.4 module list
+also loads `sipa_usb`, `sprd_pamu3` and `sfp_core`, none of which the mainline build has, though 5.4 shows `rx=0`
+with them, so they are not sufficient by themselves.
+
+The rest of this section is what was measured while the failure was still thought to be mainline's. Typical run: `+CSQ: 44,26` at 67 s, nothing at 89 s. What dies is the CP's side of SIPC - the outbox
 (CP -> AP) mailbox interrupt stops counting, the modem's own log stops at the same moment, and after the mailbox
 fix (13e) the AP's messages still go out and are simply never answered. Restarting the vendor daemons does not
 recover it; `modem_control` reloading the modem does not either.
@@ -223,9 +239,12 @@ Ruled out by measurement, so that nobody spends another evening on them:
 * **A full software mailbox queue** (real bug, fixed in 13e) - the AP can send again, and the modem still goes
   quiet.
 
-The next step is a differential run against the 5.4 kernel with the same instrumentation (`/dev/mbox`, the
-mailbox interrupt counters and the CP's log channel), to see whether the CP behaves differently there or whether
-5.4's AP side does something ours does not.
+Also ruled out by the same differential: **our own services**. With `mu300-atd` and `mobile-data` killed and a
+single shell holding the tty, the channel still went silent (132 s instead of ~90 s).
+
+The next step is therefore not a kernel one: find what the CP expects from the AP that Android provides and we do
+not - the time-sync channel `refnotify` cannot open is the most concrete lead, followed by running more of the
+vendor modem userspace in the chroot the way `modem_control` already is.
 
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
