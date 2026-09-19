@@ -89,7 +89,31 @@ Before and after, from the same logs:
 `modem_control` about 8 s later. "Modem Alive" arrives within a minute, and `mu300-atd` then serves AT normally -
 15 commands in a row with no reopen needed.
 
-Still open: `mali_kbase` has never been built for 6.18, so there is no GPU, and audio is untouched.
+### GPU
+
+`mali_kbase` (Arm DDK r40p0, the same source the 5.4 image uses) builds against 6.18 after a port of its kernel
+interfaces: `time_t`, `hrtimer_init()` -> `hrtimer_setup()`, `del_timer*()` -> `timer_delete*()`, the shrinker
+allocation API, `vma->vm_flags` accessors, `get_user_pages()`/`pin_user_pages()` losing their `vmas` argument,
+`dev_pm_opp_set_regulators()` returning a token, `ioremap_nocache()`, `DEFINE_SEMAPHORE()` taking a count,
+`no_llseek`, `FMODE_UNSIGNED_OFFSET`, `get_file_rcu()`, devfreq's `scaling_min_freq`/`scaling_max_freq`, and the
+page-migration hooks, which the folio conversion replaced and which are compiled out (migration is an
+optimisation the driver runs without).
+
+Two of them were more than renames:
+
+* The DDK carries its own copy of the kernel's top-down address search, which walked the VMA **rbtree** - gone
+  since 6.1. `vm_unmapped_area()` is not exported to modules, so the search now walks downwards with
+  `find_vma()` and keeps the DDK's extra alignment rules (shader code must not touch a 4 GB boundary).
+* Its `Kbuild` adds the power model (`ipa/`) to `mali_kbase-y` and a later line **reassigns** that variable with
+  `:=`, dropping the objects again. Nobody noticed because the vendor kernel sets
+  `CONFIG_SPRD_GPU_COOLING_DEVICE` and never uses `ipa/`; mainline does, and the module then fails to link. The
+  include was moved to the end of the file.
+
+The kernel config gained `CONFIG_SYNC_FILE` (the DDK's fence helpers) and the devfreq options the driver expects.
+
+Untested on hardware so far: the module builds, nothing more.
+
+Still open: audio is untouched.
 
 ## Status (2026-09-17): OpenWrt runs on 6.18.52
 
