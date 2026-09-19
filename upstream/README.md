@@ -39,62 +39,57 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 Clocks, pinctrl, power domains, USB 3.1 gadget, eMMC, PCIe, thermal, cpufreq, watchdog, LEDs and Wi-Fi/BT are
 working (see the status below). What is still missing:
 
-- **Modem** (`sipc`/`sipa`/modem loader): the transport works - modules load, Trusty starts the CP and every SIPC
-  channel opens, including the 5G modem's - but the modem software does not finish starting ("Modem Alive" never
-  arrives and AT stays silent). See "Modem on 6.18" below.
+- ~~**Modem**~~: works since 2026-09-19 - "Modem Alive", AT, SIM, 5G NSA registration and a data context on
+  `sipa_eth0`. See "Modem on 6.18" below for what was wrong (shared memory mapped write-back).
 - **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
   still required.
 - **GPU and audio**: not started (`mali_kbase` has never been built for 6.18).
 - **Bluetooth**: built as an out-of-tree module, untested on 6.18.
 
-## Modem on 6.18 (2026-09-18)
+## Modem on 6.18: working (2026-09-19)
 
-Measured on the device, OpenWrt 25.12 on 6.18.52, modules loaded by hand in the order of
-`tools/mu300-modem-ml-load` (26 modules, **no errors**, `sipa-dele` removed - see its comment):
+The modem comes up on the mainline kernel: "Modem Alive", AT, SIM, radio, **registration on 5G NSA** and a data
+context with an address on `sipa_eth0`. Measured on the device:
 
-Works:
-- `/dev/modem`, `/dev/stty_nr*` and 16 `sipa_eth*` interfaces appear.
-- `modem_control` starts the three modem processors (`modem@0/1/2`: "modem run = 1", "start over").
-- **"Modem Alive"** arrives (seen 4x in one session), with `cp_diskserver` serving NV
-  (`nr_fixnv1_a read success`).
-- **AT works**: `AT` -> `OK`, `AT+CPIN?` -> `READY`, `AT+SFUN=4` switches the radio on (`AT+CFUN?` -> 1).
-- **5G signal is measured**: `+CSQ: 40,25`, `+CESQ: ...,25,40,71,58,76` (LTE RSRP about -100 dBm plus NR
-  ssrsrp/sssinr), so the RF side including calibration is alive.
+```
+AT         -> OK                                   AT+CFUN?  -> +CFUN: 1
+AT+CPIN?   -> +CPIN: READY                         AT+CSQ    -> +CSQ: 37,20
+AT+CEREG?  -> +CEREG: 2,1,"C300","00E07F53",13     AT+COPS?  -> +COPS: 0,2,"28602",13
+mobile data up on sipa_eth0 (28602)                sipa_eth0  UP  10.x.x.x/8
+```
 
-Not working yet:
-- **Registration does not complete**: `AT+CEREG?` stays at `2,0` (searching) and `AT+COPS?` returns empty, while
-  the same SIM in the same device registers within seconds on the 5.4 kernel.
-- **The AT channel wedges**: after a handful of commands (reliably after `AT+SFUN=4`) both `stty_nr1` and, later,
-  `stty_nr0` stop answering until the modem is restarted. The same symptom exists on 5.4, so it is the modem's AT
-  service or the SIPC tty layer, not something specific to mainline.
-- **Bring-up is order and timing dependent**: the sequence that reached "Modem Alive" (modules in two batches,
-  then `mu300-vendor start`, then `cp_diskserver`) did not reproduce after a clean reboot, where `modem_control`
-  stopped at `g_modem_state = 8` with one `cp_diskserver` blocked in uninterruptible I/O.
-- **Where it stops now** (2026-09-19, 25 modules, `cp_diskserver` started before `modem_control`): Trusty verifies
-  and starts the CP (`kbc_verify_all_avb2() ret = 0`, `SEC_KBC_START_CP() ret = 0`), all three processors report
-  `modem run = 1` and `start over`, the modem's shared memory pools are added (`0x87800000`, `0x87c00000`) and the
-  SIPC handshake completes on every channel - `dst=5` (the 5G modem) answers 7 of 7 opens, `dst=6` 2 of 2 and
-  `dst=9` 5 of 5. And still no "Modem Alive" arrives and `/dev/stty_nr*` answers nothing. So the AP-CP transport is
-  up and it is the modem's own software that never finishes starting; the next thing to look at is what
-  `modem_control` is waiting for after `START_CP` (its own log through logdw), not the SIPC layer.
-- Harmless noise on the way: the vendor `smem` debug device is registered once per co-processor, so every core
-  after the first logs `kobject_add_internal failed for smem with -EEXIST` and `Failed to create smem class`, and
-  `DEVICE_ATTR(base_addr, 0440, NULL, NULL)` trips the newer "read permission without 'show'" warning. Neither
-  affects the probe: `sprd ipc probe success` and the pools are added either way.
-- `refnotify` logs an error for every message about a missing `/vendor/etc/wcn_to_mipi.xml`. Checked on the
-  device: the stock firmware does not contain that file either, so this is cosmetic, not a cause.
+### What was wrong: the shared memory was mapped write-back
 
-**The USB network works** (2026-09-19). It looked like "ECM only receives on mainline" for a while; the truth was
-duller: the kernel under test had been built *before* the last round of config fixes. Rebuilt from the current
-`mu300-mainline.config`, the gadget works both ways - the host gets its DHCP lease, ping runs at about 3 ms and
-SSH into OpenWrt works, which makes everything else on this list far easier to debug.
+The regions the modem and the AP share are reserved **inside** System RAM (no `no-map`), and the vendor 5.4 driver
+maps them with `vm_map_ram(pages, count, -1, pgprot_noncached(PAGE_KERNEL))`. Newer kernels dropped the `prot`
+argument from `vm_map_ram()`, so the port had switched to `memremap(..., MEMREMAP_WC | MEMREMAP_WB)`, which falls
+back to **write-back** whenever write-combine is not available - and it never is for a linear-mapped region.
 
-`boot/init` now picks the first USB network function the kernel actually has (`ecm`, then `ncm`). Asking for one
-that was not built in leaves the gadget unbound, and with it no network *and* no serial console - a mistake that
-cost one debugging round.
+The modem does not snoop the AP's caches, so everything the AP wrote stayed invisible to it. The symptom was
+subtle rather than fatal: the CP started, asked for its NV data, and the NV server logged `fail SIZE` on the
+second packet, wrote three chunks and stalled; `modem_control` then gave up with `wait modem alive timeout` and
+`g_modem_state = 8`. `ioremap_wc()` is not an answer either - the kernel refuses it for addresses inside System
+RAM (`WARNING at arch/arm64/mm/ioremap.c:27`), which is exactly what happened when it was tried.
 
-Debugging without the network: `ttyGS0` gives a root shell; drive it from the host by writing commands to
-`/dev/cu.usbmodem*` (keep each command short, long lines get truncated on the console).
+`vmap(pages, count, VM_MAP, prot)` still takes a pgprot, so `smem.c` now builds the page array like the vendor
+driver and maps the regions non-cached again, keeping `memremap()` only for regions that have no `struct page`
+(real `no-map`) and for the ones the vendor code wants cached.
+
+Before and after, from the same logs:
+
+| | write-back (before) | non-cached (after) |
+|---|---|---|
+| `fail SIZE` | 1 | 0 |
+| NV packets served (`writeData`) | 3 | runs to completion |
+| "Modem Alive" | never | yes |
+
+### Bring-up
+
+`tools/mu300-modem-ml-load` loads 25 modules (no `sipa-dele`, see its comment). `cp_diskserver` is started first,
+`modem_control` about 8 s later. "Modem Alive" arrives within a minute, and `mu300-atd` then serves AT normally -
+15 commands in a row with no reopen needed.
+
+Still open: `mali_kbase` has never been built for 6.18, so there is no GPU, and audio is untouched.
 
 ## Status (2026-09-17): OpenWrt runs on 6.18.52
 

@@ -182,6 +182,21 @@ Two ways of timing out a read do **not** work here, and both fail silently:
 Apply `stty` to the already-open descriptor (`stty raw -echo <&3`), never `stty -F /dev/stty_nr1`: the `-F` form is
 an extra open and close of the device, which takes the channel away from whoever owns it (13b).
 
+### 13d. Memory shared with the modem must not be mapped write-back (mainline)
+The modem and the AP share regions that are reserved **inside** System RAM (no `no-map` in the device tree), and
+the modem does not snoop the AP's caches. The vendor 5.4 driver maps them with
+`vm_map_ram(pages, count, -1, pgprot_noncached(PAGE_KERNEL))`. Newer kernels removed the `prot` argument from
+`vm_map_ram()`, and a port that reaches for `memremap(..., MEMREMAP_WC | MEMREMAP_WB)` instead gets **write-back**,
+because write-combine is never available for a linear-mapped region.
+
+The modem then starts, asks for its NV data and never finishes: the NV server reads one good packet and logs
+`fail SIZE` on the next, writes three chunks, stalls, and `modem_control` gives up with `wait modem alive timeout`
+(`g_modem_state = 8`). `ioremap_wc()` cannot fix it either - the kernel refuses ioremap for System RAM addresses
+(`WARNING at arch/arm64/mm/ioremap.c:27`) and the code silently falls back to the cached mapping.
+
+`vmap(pages, count, VM_MAP, prot)` still takes a pgprot, so building the page array and mapping non-cached, the way
+the vendor driver did, brings the modem up: `fail SIZE` goes to 0 and "Modem Alive" arrives.
+
 ## Wi-Fi (SC2355 / Marlin3)
 
 ### 14. Bring-up
