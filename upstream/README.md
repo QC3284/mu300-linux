@@ -43,7 +43,8 @@ working (see the status below). What is still missing:
   `sipa_eth0`. See "Modem on 6.18" below for what was wrong (shared memory mapped write-back).
 - **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
   still required.
-- **GPU and audio**: not started (`mali_kbase` has never been built for 6.18).
+- ~~**GPU**~~: works since 2026-09-19 (DDK r40p0 ported to 6.18, OpenCL verified on the device).
+- **Audio**: not started.
 - **Bluetooth**: built as an out-of-tree module, untested on 6.18.
 
 ## Modem on 6.18: working (2026-09-19)
@@ -111,7 +112,13 @@ Two of them were more than renames:
 
 The kernel config gained `CONFIG_SYNC_FILE` (the DDK's fence helpers) and the devfreq options the driver expects.
 
-Untested on hardware so far: the module builds, nothing more.
+Measured on the device: the driver probes, `/dev/mali0` appears and the Android OpenCL userspace runs through the
+vendor chroot - `Mali-G57 r0p1, OpenCL 3.0 v1.r40p0`, 1464 MiB, and `cltest` adds 4 194 304 floats on the GPU with
+**0 errors**.
+
+The address search was worth one more round: the first version returned `gap_end - length`, but
+`align_and_check()` has already subtracted the length, so every allocation landed one buffer too low. The driver
+loaded and OpenCL ran, and every single result was wrong - a reminder that "it runs" is not "it works".
 
 Still open: audio is untouched.
 
