@@ -108,6 +108,22 @@ average. `top` shows about 98 % idle.
   accessed through a loop device with an offset. **The GPT, userdata and all Android partitions are unchanged.**
 * `userdata` uses metadata encryption (`dm-default-key`, `inlinecrypt`), so it cannot be shrunk or shared.
 
+### 9b. There is no second home for the rootfs
+Asked for often, because a smaller eMMC variant leaves less free space behind `userdata`. Measured on the device:
+
+* **An image file inside `userdata` cannot work.** Metadata encryption covers the whole partition, not just file
+  contents: `mmcblk0p75` reads as ciphertext from Linux - 4079 of the first 4096 bytes are non-zero, no ext4 magic
+  at `0x438` (`2d81`), no f2fs magic at `0x400` (`58931da1`). The same `dd` on our own region returns `53ef` and
+  the label `mu300root`, so this is the partition and not the reader. The key lives in keymaster and `metadata`
+  and Android unwraps it at boot, so a file created from Android is unreadable from Linux whatever we do to it.
+* **`blackbox` (500 MiB) and `fulldumpdb` (2 GiB) are not spare.** They look unused, but sampling shows
+  `fulldumpdb` non-zero in 16 of 16 samples (it starts with a `note` record) and `blackbox` in 1 of 16: the
+  firmware writes crash dumps there.
+* So the gap after `userdata` is all there is. The installer no longer demands 4 GiB of it: the installed systems
+  measure ~320 MiB (OpenWrt) and ~580 MiB (Ubuntu) and an update keeps the previous one as `<os>.old`, so it asks
+  for 800 MiB, 1.6 GiB or 2.4 GiB depending on the choice, and prints the eMMC size and the end of the last
+  partition, which identifies the variant when it still does not fit.
+
 ### 10. Mounting gotchas
 * busybox `mount -o loop,offset=` only creates a loop for regular files; for a block device the options go to
   ext4 and fail with `EINVAL`. Use `losetup -o` and verify `/sys/block/loopN/loop/offset`.

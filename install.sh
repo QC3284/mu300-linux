@@ -89,8 +89,17 @@ start=$(( (last_end / 4096 + 1) * 4096 ))
 end=$(( ((disk - 34) / 4096 - 1) * 4096 ))
 OFF=$((start * 512)); SIZE=$(( (end - start) * 512 ))
 gib() { awk -v b="$1" 'BEGIN { printf "%.1f GiB", b / 1073741824 }'; }
-echo "eMMC: $(gib $((disk * 512))), partitions end at $(gib $((last_end * 512))), unpartitioned after them: $(gib $SIZE)"
-[ $SIZE -gt $((4 * 1024 * 1024 * 1024)) ] || die "less than 4 GiB of unpartitioned space ($((SIZE / 1048576)) MiB): this device has a different partition layout, nothing is changed"
+# What each choice needs: the installed systems measure ~320 MiB (OpenWrt) and ~580 MiB (Ubuntu), and an update
+# keeps the previous one as <os>.old while the new one is unpacked, so allow for two of each plus working room.
+NEED_OPENWRT=$((800 * 1024 * 1024)); NEED_UBUNTU=$((1600 * 1024 * 1024)); NEED_BOTH=$((2400 * 1024 * 1024))
+echo "eMMC: $(gib $((disk * 512))) ($disk sectors), partitions end at $(gib $((last_end * 512))) (sector $last_end), free after them: $(gib $SIZE)"
+# Smaller eMMC variants leave less room behind userdata, and how much is needed depends on the choice further
+# down - OpenWrt alone fits in a few hundred megabytes. So refuse only what cannot hold anything at all, and
+# check the real requirement once the systems are known. There is nowhere else to put this region on these
+# devices: userdata is metadata-encrypted (dm-default-key), so an image file inside it cannot be read from
+# Linux, and the spare-looking blackbox and fulldumpdb partitions are written by the firmware itself.
+[ $SIZE -ge $((700 * 1024 * 1024)) ] || die "only $((SIZE / 1048576)) MiB of free space after the last partition: this device has a different layout, nothing is changed.
+Please report the numbers above (eMMC size and where the partitions end); they identify the variant."
 # an existing installation defines the region (it may have been created with a slightly different size)
 existing=no
 for cand in $OFF 27762098176; do
@@ -117,8 +126,12 @@ elif [ "$DIRTY" -gt 0 ]; then
     verdict="WARNING: the unpartitioned space is not empty; it may be used by this firmware. Installing overwrites it"
 elif [ $SIZE -ge $((20 * 1024 * 1024 * 1024)) ]; then
     verdict="OK: free and empty, same layout as the tested device (~32 GiB after userdata on the 64 GB eMMC)"
+elif [ $SIZE -ge $NEED_BOTH ]; then
+    verdict="OK: free and empty, smaller than on the tested device but enough for both systems"
+elif [ $SIZE -ge $NEED_UBUNTU ]; then
+    verdict="OK: free and empty, but room for one system only (Ubuntu or OpenWrt, not both)"
 else
-    verdict="OK: free and empty, but smaller than on the tested device; Ubuntu + OpenWrt need about 4 GiB"
+    verdict="OK: free and empty, but small: OpenWrt fits, Ubuntu does not"
 fi
 echo "result: $verdict"
 if [ $CHECK_ONLY = 1 ]; then
@@ -135,8 +148,11 @@ say "What should be installed?"
 echo "  1) Ubuntu 24.04 LTS (full distribution, apt, ~500 MiB RAM in use)"
 echo "  2) OpenWrt $OWRT_VER (router, LuCI web UI, ~140 MiB RAM in use)"
 echo "  3) both (switch later with: mu300-os ubuntu|openwrt)"
+[ $SIZE -lt $NEED_BOTH ] && echo "  (this device has $(gib $SIZE): $([ $SIZE -ge $NEED_UBUNTU ] && echo 'one system fits, not both' || echo 'only OpenWrt fits'))"
 ask choice "Choice" 3
 case $choice in 1) OSES=ubuntu ;; 2) OSES=openwrt ;; 3) OSES="ubuntu openwrt" ;; *) die "invalid choice" ;; esac
+need=$NEED_OPENWRT; [ "$OSES" = ubuntu ] && need=$NEED_UBUNTU; [ "$OSES" = "ubuntu openwrt" ] && need=$NEED_BOTH
+[ $SIZE -ge $need ] || die "that choice needs about $((need / 1048576)) MiB and this device has $((SIZE / 1048576)) MiB of free space"
 BOOT_OS=${OSES%% *}
 [ "$choice" = 3 ] && { ask BOOT_OS "Which one should boot (ubuntu/openwrt)" ubuntu; case $BOOT_OS in ubuntu|openwrt) ;; *) die "invalid system" ;; esac; }
 ask dl "Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)" yes
