@@ -3,6 +3,26 @@
 set -e
 KREL=5.4.254-gb50db5b6224c
 R=/build/rootfs
+
+# Say which mount is missing instead of failing later on a bare "cp: can't stat". This runs inside the
+# container, so every path here is a -v from the docker run in docs/BUILD.md.
+miss=
+[ -f /w/base.tar ] || miss="$miss\n  /w/base.tar        -v \$PWD/rootfs:/w              (docker run --rm mu300-ubuntu:24.04 tar -c ... > rootfs/base.tar)"
+[ -d /w/overlay ] || miss="$miss\n  /w/overlay         -v \$PWD/rootfs:/w              (part of the checkout)"
+ls /kmods/*.ko >/dev/null 2>&1 || miss="$miss\n  /kmods/*.ko        -v \$PWD/out/modules:/kmods:ro  (kernel/build-linux.sh output)"
+[ -f /kout/modules.builtin ] || miss="$miss\n  /kout/modules.*    -v \$PWD/out:/kout:ro           (kernel/build-linux.sh output)"
+[ -f /logdw ] || miss="$miss\n  /logdw             -v \$PWD/tools/logdw/logdw:/logdw:ro"
+if [ -n "$miss" ]; then
+    printf 'assemble.sh: missing build inputs:%b\n' "$miss" >&2
+    echo "see docs/BUILD.md for the full docker run line" >&2
+    exit 1
+fi
+# Optional inputs decide whether the image can use the modem, Wi-Fi and the GPU at all. Missing ones used to
+# pass silently and produce an image that boots and does nothing useful, so say what went in.
+for o in /firmware /android-subset /android-gpu-subset /bt-init /cltest /sing-box; do
+    [ -e "$o" ] && echo "assemble.sh: + $o" || echo "assemble.sh: - $o (not mounted; the image will be built without it)"
+done
+
 rm -rf $R && mkdir -p $R
 tar -xf /w/base.tar -C $R
 cp -a /w/overlay/. $R/
