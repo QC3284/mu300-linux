@@ -198,6 +198,20 @@ runs a subshell per command (`reply=$(collect ...)`). A `trap 'rm -rf $LOCK' EXI
 second after taking it, and the next daemon walked straight in - the very failure the lock was meant to stop, now
 happening every few seconds. Clean up on `INT`/`TERM` only, and only when the pid in the lock is still ours.
 
+### 13b-2. What actually killed the channel: our own boot recorder
+On the mainline kernel the AT channel died a minute and a half into every boot - it answered at 67 s and was
+silent by 89 s, reproducibly, while the data connection carried on working. A process trace over that window
+showed nothing opening `/dev/stty_nr1` except the daemon, and one thing that did not belong: `early-recorder`'s
+`dd` writing a fixed **8 MiB into boot_b every five seconds**, after building its copy from up to 3 MB of `dmesg`
+each time - over half a gigabyte of eMMC writes per boot.
+
+Disabled, the same test answered at 71, 88, 105, 122, 139 and 156 s. The channel is a shell reading a tty byte by
+byte, and it only takes two replies missed under that load for the daemon to decide the descriptor is stale and
+reopen the device, which is what leaves it silent for good. The recorder now writes only the blocks it has filled,
+caps the `dmesg` copy and runs every ten seconds.
+
+Worth remembering in general: **a debugging aid that writes this much is not a passive observer on this device.**
+
 ### 13c. Reading this tty needs `read -t`, and only bash or busybox ash have it
 Two ways of timing out a read do **not** work here, and both fail silently:
 
