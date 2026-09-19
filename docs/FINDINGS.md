@@ -198,19 +198,34 @@ runs a subshell per command (`reply=$(collect ...)`). A `trap 'rm -rf $LOCK' EXI
 second after taking it, and the next daemon walked straight in - the very failure the lock was meant to stop, now
 happening every few seconds. Clean up on `INT`/`TERM` only, and only when the pid in the lock is still ours.
 
-### 13b-2. What actually killed the channel: our own boot recorder
-On the mainline kernel the AT channel died a minute and a half into every boot - it answered at 67 s and was
-silent by 89 s, reproducibly, while the data connection carried on working. A process trace over that window
-showed nothing opening `/dev/stty_nr1` except the daemon, and one thing that did not belong: `early-recorder`'s
-`dd` writing a fixed **8 MiB into boot_b every five seconds**, after building its copy from up to 3 MB of `dmesg`
-each time - over half a gigabyte of eMMC writes per boot.
+### 13b-2. The modem still stops answering on mainline - what it is not (open)
+On the mainline kernel the modem stops talking to the AP partway through every boot and never comes back without a
+reboot. Typical run: `+CSQ: 44,26` at 67 s, nothing at 89 s. What dies is the CP's side of SIPC - the outbox
+(CP -> AP) mailbox interrupt stops counting, the modem's own log stops at the same moment, and after the mailbox
+fix (13e) the AP's messages still go out and are simply never answered. Restarting the vendor daemons does not
+recover it; `modem_control` reloading the modem does not either.
 
-Disabled, the same test answered at 71, 88, 105, 122, 139 and 156 s. The channel is a shell reading a tty byte by
-byte, and it only takes two replies missed under that load for the daemon to decide the descriptor is stale and
-reopen the device, which is what leaves it silent for good. The recorder now writes only the blocks it has filled,
-caps the `dmesg` copy and runs every ten seconds.
+The timing is not fixed: measured deaths 24 s to 60 s after the first successful command (53 s, 87 s, 90 s, 91 s,
+109 s of uptime), and not a fixed number of commands either - ten in a fast loop, four at one command every ten
+seconds.
 
-Worth remembering in general: **a debugging aid that writes this much is not a passive observer on this device.**
+Ruled out by measurement, so that nobody spends another evening on them:
+
+* **Our own boot recorder.** It did write 8 MiB to the eMMC every five seconds and that is worth fixing on its own
+  (§ below), but with it disabled the channel still died.
+* **A cached alias of the modem's shared memory.** The vendor device tree marks these reservations without
+  `no-map` (only `rebootescrow` has it), so the 5.4 kernel maps them exactly the same way.
+* **The modem power manager.** `sprd_mpm_init_resource_ops()` is never called in the 5.4 tree either, so the NULL
+  request/release callbacks are normal for this SoC.
+* **The data attach.** With `wan` disabled and no `AT+CGDATA` at all, the channel dies just the same.
+* **Two daemons on the channel** (real bug, fixed in 13b) and **the modem log ring filling** (real, 257 KB were
+  sitting unread, drained now) - neither stops the failure.
+* **A full software mailbox queue** (real bug, fixed in 13e) - the AP can send again, and the modem still goes
+  quiet.
+
+The next step is a differential run against the 5.4 kernel with the same instrumentation (`/dev/mbox`, the
+mailbox interrupt counters and the CP's log channel), to see whether the CP behaves differently there or whether
+5.4's AP side does something ours does not.
 
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
