@@ -175,12 +175,28 @@ Two rules follow, and `mu300-atd` implements both:
 * **Reopen when the modem goes quiet.** After two unanswered commands the daemon reopens the device and retries
   once, which is all a modem restart needs.
 
+"Exactly one owner" has to be enforced, not assumed. On the mainline kernel the modem kept going quiet a few
+minutes after every boot, and it was neither the channel nor the modem: **a second `mu300-atd` had been started**
+(procd respawning it, a service started twice). Two daemons read the same `/dev/stty_nr1` and each gets part of
+every reply, and the newcomer removes and recreates the command fifo under the one already running, so every
+command returns empty. What follows looks exactly like a lost network - the watchdog sees no context, takes the
+interface down, netifd tears `wan` down and rebuilds it for ever - while the modem is untouched: stopping every
+daemon and starting a single one answered `+CSQ: 43,24` with `+CGACT:1,1` still active. `mu300-atd` now takes
+`/run/mu300-at/lock` before it opens the tty or creates the fifo; a second instance waits there instead of
+exiting, so a spare is always ready to take over if the owner is killed.
+
 Also make sure only one bring-up runs at a time: `mobile-data up` from the service and from the watchdog used to
 run concurrently, and the two of them take the channel lock away from each other for every single AT command, so
-neither finishes. `mobile-data` now holds `/run/mu300-mobile-data-up.lock` while it works.
+neither finishes. `mobile-data` now holds `/run/mu300-mobile-data-up.lock` while it works, `down()` leaves the
+context alone while a bring-up owns the channel, and only one watchdog runs.
 
 Verified on 5.4 after these changes: a full `down`/`up` cycle followed by AT queries, and 12 queries over two
 minutes with the watchdog polling at the same time - all answered, no reopen needed.
+
+A lock for this has to avoid one trap: **ash and dash run an `EXIT` trap when a subshell exits**, and the daemon
+runs a subshell per command (`reply=$(collect ...)`). A `trap 'rm -rf $LOCK' EXIT` therefore deleted the lock a
+second after taking it, and the next daemon walked straight in - the very failure the lock was meant to stop, now
+happening every few seconds. Clean up on `INT`/`TERM` only, and only when the pid in the lock is still ours.
 
 ### 13c. Reading this tty needs `read -t`, and only bash or busybox ash have it
 Two ways of timing out a read do **not** work here, and both fail silently:
@@ -252,6 +268,17 @@ hostapd can do by itself.
 `status_code=1`, so Wi-Fi 7 / WPA3-only networks (a "MLO" SSID, for instance) cannot be joined. WPA2 works;
 measured on the device: 18 networks scanned, joined, DHCP address, and the Wi-Fi default route (metric 50) taking
 precedence over mobile data (metric 100).
+
+### 14c. The Wi-Fi driver can panic the kernel while it is still starting (mainline)
+Two boots in a row died at about 29 s with `Unable to handle kernel paging request at 00000000000030b0`,
+`pc : sc2355_pcie_tx_cmd_pop_list+0x2c [sprd_wlan_combo]`, reached from `dw_handle_msi_irq` - "Fatal exception in
+interrupt", so the kernel stops and LK falls back to Android on the next boot. The captured trace is in
+`/sys/fs/pstore/dmesg-ramoops-*`, which Android can read after the failed boot.
+
+The chip reports finished commands with an MSI, and the bus callbacks are registered around `tx_init()` and
+`tx_deinit()` - which allocates `hif->tx_mgmt` and sets it back to NULL. An interrupt inside that window walks
+`&tx_mgmt->tx_list_cmd.cmd_to_free`, which is offset `0x30b0` from NULL. Both PCIe pop callbacks now return the
+buffers to the bus and leave when there is no tx context yet.
 
 ### 15. Radio, registration and the data bearer
 * AT channels: `/dev/stty_nr0` carries unsolicited results (URCs); `/dev/stty_nr1` is a clean command channel.
