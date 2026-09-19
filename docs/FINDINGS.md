@@ -212,6 +212,22 @@ caps the `dmesg` copy and runs every ten seconds.
 
 Worth remembering in general: **a debugging aid that writes this much is not a passive observer on this device.**
 
+### 13e. The mailbox stops sending after one slow delivery (mainline)
+On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
+at 89 s - and stayed quiet until a reboot. It was neither the modem nor the channel: writing an AT command left
+the mailbox registers untouched (`/dev/mbox`: INBOX `msg_low` identical before and after), so **the AP was not
+sending anything at all**. `mbox-deliver-th` was asleep in `sprd_mbox_deliver_thread`, and the inbox interrupt had
+fired **zero** times since boot.
+
+`sprd_mbox_send_data()` queues a message in a software fifo when `phy_ops->send()` fails, and only the inbox
+interrupt - raised when a delivery completes or a channel blocks - wakes the thread that drains it. But
+`check_mbox_chan_state()` also fails with `-ETIMEDOUT` when the remote core is merely slow to take the previous
+message, and that raises no interrupt at all. One such timeout leaves the fifo non-empty for ever, and from then
+on every message takes the "fifo is not empty, queue it" path: the AP never speaks to the modem again.
+
+The fix is in the driver, not in the timeout: queueing now wakes the deliver thread itself, and the thread retries
+what is still queued (1 ms apart) instead of waiting for an interrupt that may never come.
+
 ### 13c. Reading this tty needs `read -t`, and only bash or busybox ash have it
 Two ways of timing out a read do **not** work here, and both fail silently:
 
