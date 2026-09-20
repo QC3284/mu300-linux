@@ -633,7 +633,13 @@ it hands the request to init, so *every* userspace reboot on this image shows up
 pstore line therefore says "userspace asked", never who. Three things together do say who, and all three write to
 `/mnt/mu300-disk/.mu300/` so they survive the reboot they are recording:
 
-* a wrapper on `/sbin/reboot` that logs uptime and four generations of parent `cmdline` before `exec`ing the real one,
+* **not** a wrapper on `/sbin/reboot`. That was tried and it deadlocks the device: on OpenWrt `reboot` hands the
+  request to procd, and procd runs `/sbin/reboot` itself on the way down - straight back into the wrapper, which
+  execs busybox, which tells procd again. Nothing reboots, `reboot` simply returns and the machine keeps
+  running, and the only sign is the audit file gaining an entry whose caller is `pid=1 /sbin/procd`. Hours were
+  lost to this twice over: once wondering why the device would not reboot, and once reading the two entries an
+  earlier operator's `reboot` had left as evidence of something deliberate. If a wrapper is wanted anyway, it
+  must call `reboot(2)` directly (`busybox reboot -f`) rather than exec the applet that talks to init,
 * a line at the top of each `/etc/rc.button/*` handler - OpenWrt's `reset` handler reboots on a *short* press
   (`SEEN < 1`), so a bouncing key is a plausible cause and worth ruling in or out explicitly,
 * a kprobe on the syscall for anything that bypasses `/sbin/reboot`, which needs no module:
