@@ -555,6 +555,13 @@ buffers to the bus and leave when there is no tx context yet.
 * The DT enables a sound card, the UMP9620 codec and an AW883xx amplifier at `6-0034`, and Android disables audio.
   With `i2c-dev`, nothing answers at 0x34 (nor at the bq2560x address 0x6b), and there is no AGDSP firmware partition.
   The board has no speaker path; only Bluetooth or USB-host audio devices are possible.
+* **A virtual card is enough for software that only needs a device.** The stock config leaves `SND_DRIVERS` off,
+  which is what gates `snd-aloop` and `snd-dummy`; the fragment turns it on and builds both as modules.
+  `snd-aloop` then gives card 0 with two PCM devices of eight substreams each - write to `hw:0,0` and the same
+  audio comes back on `hw:0,1` - which is what a call bridge or a SIP gateway on the device needs to hand audio
+  between two programs. Verified on the device: `/proc/asound/cards` shows `Loopback`, and `/dev/snd` has
+  `controlC0`, `pcmC0D0c/p` and `pcmC0D1c/p`. It carries no cellular voice by itself; that still needs the AGDSP
+  path below.
 * Update: community Android modules show the audio DSP itself is usable. The F50 DT has `audiocp_boot` and `sound@0` but
   no `audio-mem`/`audiodsp-mem` reserved memory (another UMS9620 device uses 0xaf700000 3 MiB and 0xafa00000 6 MiB).
   Their flow loads an AGDSP image taken from a different device into `/sys/devices/platform/audiocp_boot/agdsp`
