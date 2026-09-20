@@ -583,6 +583,30 @@ answered inside sing-box rather than carried as a TCP connection. A tunnel that 
 traffic points at the stack, not at routing or the firewall - both of which were searched first, and neither of
 which had a rule with a non-zero counter.
 
+### 26c. SMS needs PDU mode, and Turkish needs more than that
+Text mode (`AT+CMGF=1`) looks like the easy way and is unusable here. Whenever the sender is a name rather than
+a number - which is most of what a SIM in a router receives - this modem returns the address mangled:
+
+    +CMGL: 1,"REC READ","144414+4140224P444",,"26/09/17,17:18:47+12"
+
+The PDU for the same message says type-of-address `0xD0`, alphanumeric, and the packed septets spell
+`ADANA BLD`. Changing `AT+CSCS` does not help: `IRA`, `GSM` and `HEX` all return the same broken string, HEX
+simply in hex. Text mode also cannot tell you that three stored messages are one long message.
+
+So `sms` works in PDU mode and decodes the frames itself, in awk, because busybox awk is the only interpreter
+on the device - no python, no lua, no perl. It does have `and()`, `or()`, `lshift()` and `rshift()`, and
+`printf "%c"` writes a raw byte for anything under 256, which is enough to emit UTF-8 a byte at a time.
+
+**Turkish arrives as ordinary GSM 7-bit with a header saying to read it against a different table.** The user
+data header carries information element `0x25` (national language locking shift) with value `0x01`, and without
+honouring it the text comes out the right shape with the wrong letters - `hastası` as `hastasì`, `bağışta` as
+`baøìæta`, `Aladağ` as `Aladaø`. Eight positions move (`0x04 0x07 0x0B 0x0C 0x1C 0x1D 0x40 0x60`), and they are
+exactly the Turkish ones. The header has to be walked element by element for this: the concatenation element is
+not always first, and the language element never is.
+
+Sending picks the encoding from the text - GSM 7-bit while every character fits it, UCS-2 otherwise, which is
+what makes `ığşçöü ÇĞİÖŞÜ` survive. Verified by sending to the SIM's own number and reading it back intact.
+
 ## Default boot
 
 ### 17. Linux as default without losing the Android fallback
