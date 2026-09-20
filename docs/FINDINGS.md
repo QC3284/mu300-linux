@@ -845,11 +845,31 @@ would log as "Power down" rather than "Restarting system".
   addresses another UMS9620 device uses for audio - 0xaf700000 (3 MiB) and 0xafa00000 (6 MiB) - both fall in
   that hole, and the second ends precisely where `logobuffer` begins. That is a strong sign they are the right
   addresses for this SoC family rather than a guess.
-* So the remaining work is two concrete things rather than a port: reserve those two ranges (a kernel patch in
-  the style of `of-reserved-mem-skip`, which already exists for the opposite job, plus module parameters on our
-  own `audio_mem` build so it can skip the phandle lookup), and supply an AGDSP image. After that
-  `sprd_audcp_boot` has everything it needs and the card should register as `sprdphone`. A2DP over BlueZ needs
-  none of this.
+* **The reservation works, and it unblocked the DSP.** `of-reserved-mem-add.patch` reserves the two ranges
+  (`CONFIG_OF_RESERVED_MEM_ADD="0xaf700000,3M;0xafa00000,6M"`) and `audio-mem-fixed-region.patch` lets
+  `audio_mem` be told where they are. Measured on the device after a reboot into that kernel:
+
+      OF: fdt: Reserved memory: reserved 0x00000000af700000 size 0x0000000000300000 (reserved_mem_add)
+      OF: fdt: Reserved memory: reserved 0x00000000afa00000 size 0x0000000000600000 (reserved_mem_add)
+      [Audio:MEM] memory-region 1 from module parameters: 0xaf700000 size 0x300000
+      [Audio:MEM] dsp_bin (addr, size): (0xaf700000, 0x300000)
+      [Audio:SBLCK] audio_sblock_create: p_rxblks[6].addr 0xaf71d060
+      [Audio:SMSG] aud_smsg_send: dst=1, channel=3
+
+  The last two lines are the point: the audio SIPC channel that used to answer `ENODEV` now allocates its
+  blocks inside the reserved region and sends to the DSP. `mu300-audio-dsp` loads the 23 drivers with the right
+  parameters.
+* The card now parses **57 of its 58 dai links**, where before it deferred at link 0 and never moved.
+  `BE_VOICE_PCM_P` - the back end the SIP gateway needs - parses fine. It stops on the last one,
+  `BE_FAST_P_SMART_AMP`, with `get dai name for 'codec' failed!(-517)`: that link wants the smart amplifier,
+  which this board does not have (nothing answers at I2C 0x34, and the DT's own `sprd,spk-ext-pa-info` count
+  fails with -22). Links whose `codec` phandle is simply missing already fall back to a dummy codec - the
+  driver says so - but a codec that *defers* is treated as fatal, and `asoc_sprd_card_probe` gives up, so no
+  card registers and nothing re-probes.
+* So two things are left, and neither is the DSP memory any more: teach `asoc_sprd_card_dai_link_of` to fall
+  back to a dummy codec for a deferring codec as well as a missing one - correct on a board whose amplifier is
+  absent by the device tree's own account - and supply an AGDSP image for `sprd_audcp_boot`. A2DP over BlueZ
+  needs none of this.
 
 ## Bluetooth
 
