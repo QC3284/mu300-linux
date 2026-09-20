@@ -57,8 +57,44 @@
       "uniques": 51
     }
   },
-  "last_updated": "2026-09-20 15:43:41 UTC",
-  "referrers": [],
+  "last_updated": "2026-09-20 15:44:33 UTC",
+  "referrers": [
+    {
+      "count": 57,
+      "referrer": "github.com",
+      "uniques": 32
+    },
+    {
+      "count": 6,
+      "referrer": "Google",
+      "uniques": 4
+    },
+    {
+      "count": 6,
+      "referrer": "github-com.translate.goog",
+      "uniques": 3
+    },
+    {
+      "count": 3,
+      "referrer": "coolapk.com",
+      "uniques": 2
+    },
+    {
+      "count": 2,
+      "referrer": "Bing",
+      "uniques": 2
+    },
+    {
+      "count": 1,
+      "referrer": "chatgpt.com",
+      "uniques": 1
+    },
+    {
+      "count": 1,
+      "referrer": "web.telegram.org",
+      "uniques": 1
+    }
+  ],
   "repository": "dikeckaan/mu300-linux",
   "views_daily": {
     "2026-09-06": {

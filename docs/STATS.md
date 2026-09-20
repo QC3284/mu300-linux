@@ -1,6 +1,6 @@
 # Repository & Community Statistics — `dikeckaan/mu300-linux`
 
-> Automatically archived and updated. Last snapshot: **2026-09-20 15:43:41 UTC**.
+> Automatically archived and updated. Last snapshot: **2026-09-20 15:44:33 UTC**.
 
 ## Summary Overview
 
@@ -24,6 +24,18 @@
 | **2026-09-18** | 347 | 105 | 196 | 87 |
 | **2026-09-17** | 657 | 328 | 300 | 125 |
 | **2026-09-16** | 19 | 7 | 62 | 28 |
+
+## Top Referring Sites
+
+| Referrer | Total Views | Unique Visitors |
+|---|---|---|
+| github.com | 57 | 32 |
+| Google | 6 | 4 |
+| github-com.translate.goog | 6 | 3 |
+| coolapk.com | 3 | 2 |
+| Bing | 2 | 2 |
+| chatgpt.com | 1 | 1 |
+| web.telegram.org | 1 | 1 |
 
 ## Release Downloads Breakdown
 

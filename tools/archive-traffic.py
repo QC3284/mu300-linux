@@ -10,7 +10,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def get_token():
@@ -75,6 +75,7 @@ def main():
                 loaded = json.load(f)
                 data["views_daily"] = loaded.get("views_daily", {})
                 data["clones_daily"] = loaded.get("clones_daily", {})
+                data["referrers"] = loaded.get("referrers", [])
         except Exception as e:
             sys.stderr.write(f"Warning: Could not read existing json: {e}\n")
 
@@ -107,7 +108,7 @@ def main():
     if referrers_res:
         data["referrers"] = referrers_res
 
-    now_iso = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     data["last_updated"] = now_iso
 
     with open(json_path, "w", encoding="utf-8") as f:
