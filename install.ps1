@@ -15,7 +15,7 @@
 [CmdletBinding()]
 param(
     [switch]$Check,
-    [string]$Release = 'v2026.09.21',
+    [string]$Release = 'v2026.09.22',
     [string]$ReleaseUrl,
     [string]$Repo = 'dikeckaan/mu300-linux',
     [string]$Work = (Join-Path $PSScriptRoot 'work')
