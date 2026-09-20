@@ -324,6 +324,14 @@ been woken, because nothing has ever transmitted through it in the boot that was
 matters has therefore still not been made**: the Linux dump has to be taken while packets are actually being
 pushed at `sipa_eth0`, and then read field by field against the block above.
 
+**Do not test this with ping.** On this network ICMP does not come back even over a link that works: on stock
+Android, with data flowing, `ping -I sipa_eth0 8.8.8.8` reports 100 % loss, and that form binds to the device,
+so it is the cellular path rather than a VPN swallowing the echo. A TCP connect on the same interface completes
+and `rx_packets` climbs. The signal to read is that counter, not whether a connect succeeded - the connect may
+be carried by a VPN, and on Android it was (`ip route get 1.1.1.1` goes to `tun0`), but the VPN's own packets
+still leave and arrive over `sipa_eth0`, which is the only WAN this device has. `mu300-ipa-dump` does it this
+way; several earlier "nothing arrives" measurements here were ping-based and proved less than they looked.
+
 Two smaller differences from the same reference, both cheap to copy and neither yet tested:
 
 * Android keeps **IPv6 switched off on that interface** (`/proc/sys/net/ipv6/conf/sipa_eth0/disable_ipv6` is 1);
