@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 Archive repository traffic (views, clones, referrers) and release download statistics.
-Merges new data into docs/stats/traffic.json and regenerates docs/STATS.md.
+Merges new data into docs/stats/traffic.json, updates README.md between markers,
+and regenerates docs/STATS.md.
 """
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -89,7 +91,6 @@ def main():
     # Merge views
     for item in views_res.get("views", []):
         day = item["timestamp"][:10]
-        # Keep maximum seen for any given day
         cur = data["views_daily"].get(day, {"count": 0, "uniques": 0})
         data["views_daily"][day] = {
             "count": max(cur.get("count", 0), item.get("count", 0)),
@@ -115,58 +116,53 @@ def main():
         json.dump(data, f, indent=2, sort_keys=True)
     print(f"Updated {json_path}")
 
-    # Generate markdown report at docs/STATS.md
-    md_path = os.path.join(top, "docs", "STATS.md")
-
+    # Calculate totals
     total_views = sum(v["count"] for v in data["views_daily"].values())
     total_unique_views = sum(v["uniques"] for v in data["views_daily"].values())
     total_clones = sum(c["count"] for c in data["clones_daily"].values())
     total_unique_cloners = sum(c["uniques"] for c in data["clones_daily"].values())
 
-    # Release downloads summary
     total_downloads = 0
     kernel_downloads = 0
     rootfs_downloads = 0
-    release_lines = []
+    release_rows = []
 
     for r in releases_res:
         tag = r.get("tag_name")
-        published = (r.get("published_at") or "")[:10]
-        r_total = 0
-        r_assets = []
+        first = True
         for a in r.get("assets", []):
             cnt = a.get("download_count", 0)
             sz = format_size(a.get("size", 0))
             name = a.get("name")
-            r_total += cnt
             total_downloads += cnt
             if "kernel" in name.lower():
                 kernel_downloads += cnt
             elif "rootfs" in name.lower() or "ubuntu" in name.lower() or "openwrt" in name.lower():
                 rootfs_downloads += cnt
-            r_assets.append(f"| `{name}` | {sz} | **{cnt}** |")
-        release_lines.append((tag, published, r_total, r_assets))
+            tag_label = f"**{tag}**" if first else ""
+            release_rows.append(f"| {tag_label} | `{name}` | {sz} | **{cnt}** |")
+            first = False
 
-    md_lines = [
-        f"# Repository & Community Statistics — `{repo}`",
+    # Generate the Markdown block for README.md and docs/STATS.md
+    stars = repo_meta.get("stargazers_count", 0)
+    forks = repo_meta.get("forks_count", 0)
+    fork_ratio = (forks / max(1, stars)) * 100
+
+    stats_block_lines = [
+        "<!-- STATS:START -->",
+        f"> *Last updated: **{now_iso}** (tracked automatically via GitHub Actions)*",
         "",
-        f"> Automatically archived and updated. Last snapshot: **{now_iso}**.",
+        "### Overview",
         "",
-        "## Summary Overview",
+        "| Metric | Count | Details |",
+        "|---|---|---|",
+        f"| ⭐ **Stars** | **{stars}** | Stargazers |",
+        f"| 🍴 **Forks** | **{forks}** | Forks ({fork_ratio:.0f}% fork-to-star ratio) |",
+        f"| 📥 **Release Asset Downloads** | **{total_downloads}** | {kernel_downloads + rootfs_downloads} OS/Kernel images, {total_downloads - (kernel_downloads + rootfs_downloads)} checksums |",
+        f"| 👥 **Page Views (Archived)** | **{total_views:,}** | ~{total_unique_views:,} unique visitors |",
+        f"| 💻 **Git Clones (Archived)** | **{total_clones:,}** | ~{total_unique_cloners:,} unique cloners |",
         "",
-        f"- ⭐ **Stars:** {repo_meta.get('stargazers_count', 0)}",
-        f"- 🍴 **Forks:** {repo_meta.get('forks_count', 0)}",
-        f"- 👀 **Watchers:** {repo_meta.get('watchers_count', 0)}",
-        f"- ⚠️ **Open Issues:** {repo_meta.get('open_issues_count', 0)}",
-        f"- 📥 **Total Release Asset Downloads:** {total_downloads} ({kernel_downloads + rootfs_downloads} OS/Kernel images)",
-        f"- 👥 **Recorded Page Views:** {total_views:,} (approx. {total_unique_views:,} unique visitors)",
-        f"- 💻 **Recorded Git Clones:** {total_clones:,} (approx. {total_unique_cloners:,} unique cloners)",
-        "",
-        "## Star History",
-        "",
-        f"[![Star History Chart](https://api.star-history.com/svg?repos={repo}&type=Date)](https://star-history.com/#{repo}&Date)",
-        "",
-        "## Traffic & Clones History (Daily)",
+        "### Daily Traffic & Git Clones",
         "",
         "| Date | Page Views | Unique Visitors | Git Clones | Unique Cloners |",
         "|---|---|---|---|---|",
@@ -177,36 +173,57 @@ def main():
         v = data["views_daily"].get(d, {"count": 0, "uniques": 0})
         c = data["clones_daily"].get(d, {"count": 0, "uniques": 0})
         if v["count"] > 0 or c["count"] > 0:
-            md_lines.append(f"| **{d}** | {v['count']} | {v['uniques']} | {c['count']} | {c['uniques']} |")
+            stats_block_lines.append(f"| **{d}** | {v['count']} | {v['uniques']} | {c['count']} | {c['uniques']} |")
 
     if data.get("referrers"):
-        md_lines.extend([
+        stats_block_lines.extend([
             "",
-            "## Top Referring Sites",
+            "### Top Referring Sites",
             "",
             "| Referrer | Total Views | Unique Visitors |",
             "|---|---|---|",
         ])
         for ref in data["referrers"]:
-            md_lines.append(f"| {ref.get('referrer')} | {ref.get('count')} | {ref.get('uniques')} |")
+            stats_block_lines.append(f"| {ref.get('referrer')} | {ref.get('count')} | {ref.get('uniques')} |")
 
-    md_lines.extend([
+    stats_block_lines.extend([
         "",
-        "## Release Downloads Breakdown",
+        "### Release Downloads Breakdown",
         "",
+        "| Release | Asset | Size | Downloads |",
+        "|---|---|---|---|",
     ])
+    stats_block_lines.extend(release_rows)
+    stats_block_lines.append("<!-- STATS:END -->")
+    stats_block_content = "\n".join(stats_block_lines)
 
-    for tag, published, r_total, r_assets in release_lines:
-        md_lines.append(f"### {tag} ({published}) — Subtotal: {r_total} downloads")
-        md_lines.append("")
-        md_lines.append("| Asset | Size | Downloads |")
-        md_lines.append("|---|---|---|")
-        for asset_line in r_assets:
-            md_lines.append(asset_line)
-        md_lines.append("")
+    # 1. Update README.md
+    readme_path = os.path.join(top, "README.md")
+    if os.path.exists(readme_path):
+        with open(readme_path, "r", encoding="utf-8") as f:
+            readme_text = f.read()
+        pattern = r"<!-- STATS:START -->.*?<!-- STATS:END -->"
+        if re.search(pattern, readme_text, re.DOTALL):
+            new_readme = re.sub(pattern, stats_block_content, readme_text, flags=re.DOTALL)
+            with open(readme_path, "w", encoding="utf-8") as f:
+                f.write(new_readme)
+            print(f"Updated {readme_path}")
+        else:
+            sys.stderr.write("Notice: README.md does not contain <!-- STATS:START --> markers.\n")
 
+    # 2. Update docs/STATS.md
+    md_path = os.path.join(top, "docs", "STATS.md")
+    stats_md_lines = [
+        f"# Repository & Community Statistics — `{repo}`",
+        "",
+        stats_block_content,
+        "",
+        "### Star History",
+        "",
+        f"[![Star History Chart](https://api.star-history.com/svg?repos={repo}&type=Date)](https://star-history.com/#{repo}&Date)",
+    ]
     with open(md_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(md_lines) + "\n")
+        f.write("\n".join(stats_md_lines) + "\n")
     print(f"Updated {md_path}")
 
 
