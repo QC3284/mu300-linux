@@ -563,6 +563,26 @@ buffers to the bus and leave when there is no tx context yet.
 * busybox/toybox tar drop xattrs, so `ping` loses `cap_net_raw`; `mu300-fixups.service` restores it.
 * Android's uid `system` (1000) is also Ubuntu's first user, so modem device nodes show up as owned by `ubuntu`.
 
+### 26b. The tunnel needs sing-box's gvisor stack on this kernel
+Everything through the VPN failed while the VPN itself looked healthy: it connected to its server, resolved
+names through the tunnel, and `sbtun` counted the packets going in. Applications got `Connection refused` from
+`nc` and `Failed to send request: Operation not permitted` from `uclient-fetch`, and sing-box logged one line
+per connection - `router: pre-match[0] => sniff` - and nothing after it. No outbound was ever selected.
+
+The cause is the tun inbound's default **system** stack, which this 5.4 vendor kernel cannot support. It says so
+at startup, in a warning that is easy to read as cosmetic:
+
+    inbound/tun[tun-in]: enable offload: set udp offload: TUNSETOFFLOAD: invalid argument
+
+`"stack": "gvisor"` carries its own TCP/IP and does not ask the kernel for any of it. With that one field,
+`apk update` goes from "8 unavailable, 145 distinct packages" to **"OK: 11168 distinct packages available"**,
+with the kill switch active the whole time.
+
+Worth remembering while chasing something like this: DNS kept working throughout, because it is hijacked and
+answered inside sing-box rather than carried as a TCP connection. A tunnel that resolves names but carries no
+traffic points at the stack, not at routing or the firewall - both of which were searched first, and neither of
+which had a rule with a non-zero counter.
+
 ## Default boot
 
 ### 17. Linux as default without losing the Android fallback
