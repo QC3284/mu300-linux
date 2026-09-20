@@ -166,3 +166,9 @@ CONFIG_NFT_BRIDGE_REJECT=y
 CONFIG_SND_DRIVERS=y
 CONFIG_SND_ALOOP=m
 CONFIG_SND_DUMMY=m
+
+# Reserve the audio DSP's memory, which this board's device tree does not. audio-mem-mgr describes the DSP
+# completely and has no memory-region, so without this audio_mem has nothing to give sprd_audcp_boot and the
+# image cannot be loaded. The F50 reserves nothing between ae8fffff and b0000000, and these are the two ranges
+# another UMS9620 device uses - the second ends exactly where logobuffer begins (docs/FINDINGS.md 24).
+CONFIG_OF_RESERVED_MEM_ADD="0xaf700000,3M;0xafa00000,6M"

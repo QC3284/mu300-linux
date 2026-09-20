@@ -34,6 +34,7 @@ docker build -q -t mu300-kbuild "$TOP/kernel" >/dev/null
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 
+cp -R "$TOP/kernel/." "$W/"
 docker run --rm -v "$VOL":/src -v "$W":/work \
   -e MODULES_REPO="$MODULES_REPO" -e MODULES_REV="$MODULES_REV" \
   mu300-kbuild bash -euc '
@@ -43,6 +44,12 @@ git sparse-checkout set $M/wcn/wlan/wlan_combo $M/wcn/bluetooth/driver $M/gpu/na
 git checkout -q "$MODULES_REV" 2>/dev/null || true
 A=/src/ext-audio
 [ -d $A ] || cp -r /src/realme/$M/audio_driver $A
+# audio_mem needs a way to be told where the DSP regions are, since this board does not describe them
+if ! grep -q audio_mem_region $A/sprd_audio/audiomem/audio_mem.c; then
+    (cd $A && patch -p1 -s -f < /work/patches/audio-mem-fixed-region.patch)
+    find $A/sprd_audio/audiomem -name "*.o" -delete 2>/dev/null || true
+    rm -f $A/sprd_audio/audiomem/*.ko
+fi
 cd /src/zte-u30air
 
 # headers these Kbuilds include by name without putting the directory on their own path
