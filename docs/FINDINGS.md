@@ -324,6 +324,41 @@ been woken, because nothing has ever transmitted through it in the boot that was
 matters has therefore still not been made**: the Linux dump has to be taken while packets are actually being
 pushed at `sipa_eth0`, and then read field by field against the block above.
 
+**The downlink is the modem's decision, and it asks first.** This is the part the Android log settles, and it
+reframes everything above. With data flowing, `dmesg` on Android is a conversation on SIPC channel 120
+(`SMSG_CH_COMM_SIPA`, dst 5 = `SIPC_ID_PSCP`), repeating every few seconds:
+
+```
+sipa_dele: smsg_recv, smsg_cnt=295, dst=5, chan=120, type=5, flag=0x1   <- the modem asks
+sipa_dele: prod_id:4, on_cmd, flag = 1
+sipa_dele: sipa_dele get pd success ret = 0
+sipa_rm:   SIPA_RM_RES_CONS_WWAN_DL state changed 0->2                  <- the AP grants
+sipa_dele: smsg_send, dst=5 chan=120 type=6 flag=1                      <- and acks
+...three seconds later...
+sipa_dele: smsg_recv, ... type=5, flag=0x2                              <- the modem lets it go
+sipa_rm:   SIPA_RM_RES_CONS_WWAN_DL state changed 2->0
+```
+
+So `CONS_WWAN_DL` is not released on a working system, as a single sample suggested - it cycles, granted for as
+long as the modem has something to deliver. And nothing arrives until the AP answers that request. **A
+`sipa_dele` that is not holding up its end is therefore a complete explanation of our symptom**: the modem is
+never given permission, so it never sends, so `sipa_receiver_notify_cb` is never called and `rx_packets` stays
+at zero while everything else looks correct.
+
+Checking it costs one command, because both halves of the exchange are `pr_info`:
+
+    dmesg | grep -E 'sipa_dele|sipa_rm'
+
+Nothing at all is the interesting answer. Two ways that happens, both visible:
+
+* `sipa_delegator failed to open dst 5 channel 120` - `smsg_ch_open` refused.
+* No message of any kind, including that one. `conn_thread` calls `smsg_ch_open(dst, chan, -1)`, and the `-1`
+  waits for ever by design ("the channel open may hang, we call it in the thread context"). If the modem side
+  never opens channel 120, the kthread simply sits there and says nothing.
+
+Worth knowing while reading the probe: `dts parsing failed` and `get resource failed for remote-base!` are
+**not** the failure. `sipa_dele_plat_drv_probe` logs them and carries on, and Android prints them too.
+
 **Do not test this with ping.** On this network ICMP does not come back even over a link that works: on stock
 Android, with data flowing, `ping -I sipa_eth0 8.8.8.8` reports 100 % loss, and that form binds to the device,
 so it is the cellular path rather than a VPN swallowing the echo. A TCP connect on the same interface completes
