@@ -811,12 +811,28 @@ would log as "Power down" rather than "Restarting system".
   between two programs. Verified on the device: `/proc/asound/cards` shows `Loopback`, and `/dev/snd` has
   `controlC0`, `pcmC0D0c/p` and `pcmC0D1c/p`. It carries no cellular voice by itself; that still needs the AGDSP
   path below.
-* Update: community Android modules show the audio DSP itself is usable. The F50 DT has `audiocp_boot` and `sound@0` but
-  no `audio-mem`/`audiodsp-mem` reserved memory (another UMS9620 device uses 0xaf700000 3 MiB and 0xafa00000 6 MiB).
-  Their flow loads an AGDSP image taken from a different device into `/sys/devices/platform/audiocp_boot/agdsp`
-  (`stop`, write, `start`), binds `sound@0` to `vbc-rxpx-codec-sc27xx`, and gets a `sprdphone-sc2730` card with Bluetooth
-  SCO call audio. The Unisoc ASoC/AGDSP driver sources are in the realme `unisoc-5.4` kernel_modules tree; porting this
-  to Linux is future work (A2DP over BlueZ does not need the DSP).
+* **The whole Unisoc audio stack now builds and loads on this kernel** - `kernel/build-audio.sh` produces 23
+  modules from the realme `unisoc-5.4` kernel_modules tree, and all 23 insmod cleanly: the DSP loader
+  (`sprd_audcp_boot`), `agdsp_access`, `audio_sipc`, `audio_mem`, the VBC v4 voice DAI
+  (`snd-soc-sprd-vbc-v4`, `snd-soc-sprd-vbc-fe`), the UMP9620 codec, the PCM platform and the machine card.
+  Nothing in the kernel config had to change: `CONFIG_SND_SOC`, `SND_SOC_COMPRESS` and `SND_SOC_TOPOLOGY` are
+  already built in. The build's three pitfalls are written up in that script.
+* The device tree is not the problem either, which was the expectation. `sound@0` is `status = "okay"` and
+  carries `sprd-audio-card,name`, `,routing`, `,headset` and `sprd,syscon-agcp-ahb`; `audiocp_boot` has its
+  full register set - `bootvector`, `bootaddress_sel`, `corereset`, `coreshutdown`, `sysreset`, `sysstatus`,
+  `deepsleep`. The machine driver finds it: the log shows `vbc-rxpx-codec-sc27xx sound@0`, exactly the binding
+  the community Android modules use.
+* **What stops it is the DSP itself.** `sound@0` probes and defers for ever, because the DAI link cannot be
+  parsed until the audio SIPC channel to the DSP exists, and that channel reports
+  `[Audio:SMSG] ERR:aud_smsg_ch_open ipc ENODEV`. The DSP is not running, and it cannot be started here: this
+  board's device tree has no `audio-mem`/`audiodsp-mem` reserved region (another UMS9620 device uses
+  0xaf700000 3 MiB and 0xafa00000 6 MiB), and there is no AGDSP firmware partition on the device. The
+  community Android flow supplies both - an image taken from a different device, written to
+  `/sys/devices/platform/audiocp_boot/agdsp` between `stop` and `start`.
+* So the remaining work is two concrete things rather than a port: reserve memory for the DSP (a device tree
+  overlay, or a `memmap`-style reservation on the kernel command line), and supply an AGDSP image. After that
+  `sprd_audcp_boot` has everything it needs, and the card should register as `sprdphone`. A2DP over BlueZ does
+  not need any of this.
 
 ## Bluetooth
 
