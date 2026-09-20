@@ -50,7 +50,6 @@ seth.ko
 sprd_modem_loader.ko
 sipa-sys.ko
 sipa-core.ko
-sipa-dele.ko
 sipa_eth.ko
 sipa_usb.ko
 sfp_core.ko

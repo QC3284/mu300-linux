@@ -359,6 +359,26 @@ Nothing at all is the interesting answer. Two ways that happens, both visible:
 Worth knowing while reading the probe: `dts parsing failed` and `get resource failed for remote-base!` are
 **not** the failure. `sipa_dele_plat_drv_probe` logs them and carries on, and Android prints them too.
 
+**The delegate gets exactly one attempt, and ours has been taking it too early** (not yet confirmed on the
+device, but it follows from the source and from our boot order). `conn_thread`'s first act is
+`smsg_ch_open(dst, chan, -1)`, and with the modem not up that ends one of two ways: it waits for ever for an
+OPEN that never comes, or `smsg_recv` returns an error, `smsg_ch_open` frees the channel, and the thread logs
+`sipa_delegator failed to open dst 5 channel 120` and **returns**. The reopen handling further down
+(`case SMSG_TYPE_OPEN: smsg_open_ack(...)`) only ever runs *after* that first open succeeds, so a modem restart
+is survivable and a modem that was never there is not. There is no second chance either: `sipa_dele` is
+`[permanent]` in `/proc/modules`, so it cannot be removed and inserted again.
+
+Our order made that likely. The initramfs loaded `sipa-dele.ko` with the rest of the modem stack at about
+twenty seconds, while `modem_control` does not have the CP talking until about sixty - measured on this device,
+`sprd-sbuf: channel 5-*` and `sbuf ready for pmic wdt init` both land at 60.8 s. Android loads it the other way
+round. `sipa-dele-start` now waits for one of those two lines before inserting the module, and
+`boot/module-order.txt` and `upstream/module-order.txt` no longer carry it. Nothing regresses if the theory is
+wrong: `sipa_core` creates every consumer resource itself, and the delegator only adds `PROD_CP` and the
+`CONS_WWAN_UL -> PROD_CP` edge, so `sipa_eth0` still opens exactly as before.
+
+Note that this needs a **rebuilt boot image** to take effect - an image that still loads the delegate early
+leaves nothing for `sipa-dele-start` to do, by design.
+
 **Do not test this with ping.** On this network ICMP does not come back even over a link that works: on stock
 Android, with data flowing, `ping -I sipa_eth0 8.8.8.8` reports 100 % loss, and that form binds to the device,
 so it is the cellular path rather than a VPN swallowing the echo. A TCP connect on the same interface completes
