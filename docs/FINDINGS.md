@@ -300,6 +300,37 @@ its RIL defines the context as `AT+CGDCONT=<cid>,"IP",<apn>,"",0,0,0,0,1` (IPv4 
 parameters) where we ask for `IPV4V6`; and its `SIPA_RM_RES_CONS_WWAN_DL` is granted while ours is never
 requested - though in `sipa_nic.c` that consumer belongs to PCIe-source nics, and this modem is on-chip.
 
+**The Android reference, taken on the same device with data working** (`sipa_eth0 rx=419 tx=1440`), so that the
+Linux dump has something to be compared against rather than reasoned about. Mount debugfs first - Android does
+not (`mount -t debugfs debugfs /sys/kernel/debug`):
+
+```
+suspend_stage = 0x0 rc = 80 sc = 79 pf = 1          # and 0x3f / 80 / 80 / 0 a second later: it sleeps when idle
+mode_state = 0x0 is_bypass = 0x1
+open = 0 src_mask = 0x7070 netid = 0 fcs = 0 rm_flow_ctrl = 0 rr = 0 rw = 1 release_in_progress = 1 nrt = 0 rip = 0
+DEVICE: sipa_eth0, src_id 6, netid 0, state UP      # rx_errors = 81, tx_errors = 81
+SIPA_RM_RES_PROD_IPA      ref_count = 1 state = 2 (granted)
+SIPA_RM_RES_PROD_CP       ref_count = 1 state = 2 (granted)
+SIPA_RM_RES_CONS_WWAN_UL  ref_count = 1 state = 2 (granted)
+SIPA_RM_RES_CONS_WWAN_DL  ref_count = 0 state = 0 (released)   # never granted, even with data flowing
+sipa_dummy0: all 419 packets on CPU0, last_irq_trigger set, last_read_empty 0
+```
+
+**The configuration is identical to ours.** Same interface name, same `src_id 6`, same `netid 0`, same
+`src_mask 0x7070`, same `is_bypass = 0x1`. So the netid/src_id mapping is not the problem, bypass mode is not the
+problem, and `CONS_WWAN_DL` being released is not the problem either - Android passes downlink with it released.
+What differs is only the history: `rc = 80` against our `rc = 0`, `nrt = 0` against our `nrt = 1`. Ours has never
+been woken, because nothing has ever transmitted through it in the boot that was dumped. **The comparison that
+matters has therefore still not been made**: the Linux dump has to be taken while packets are actually being
+pushed at `sipa_eth0`, and then read field by field against the block above.
+
+Two smaller differences from the same reference, both cheap to copy and neither yet tested:
+
+* Android keeps **IPv6 switched off on that interface** (`/proc/sys/net/ipv6/conf/sipa_eth0/disable_ipv6` is 1);
+  ours carries a link-local address. This fits its RIL defining the context as `"IP"` rather than our `"IPV4V6"`.
+* Its `rx_errors` and `tx_errors` are equal and non-zero (81 each) on a link that works, so those counters are
+  not by themselves a sign of trouble.
+
 **Read the IPA state before theorising - `/sys/kernel/debug/sipa/` answers most of it**, and two of its fields
 are easy to misread:
 
