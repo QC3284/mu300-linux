@@ -12,26 +12,6 @@ Think of it as a Raspberry Pi that already has a 5G modem, a Wi-Fi access point 
 
 ---
 
-## Project statistics
-
-The following figures are the public GitHub metadata available from the repository at the time of writing.
-Exact clone and archive/download counters from GitHub's traffic APIs are not exposed in this environment, so those
-rows are intentionally marked as unavailable instead of guessed.
-
-| Metric | Value | Notes |
-|---|---:|---|
-| Stars | 40 | Public GitHub stars |
-| Forks | 12 | Public GitHub forks |
-| Watchers | 40 | Public GitHub watchers |
-| Open issues | 1 | Current public issue count |
-| Releases | 6 | Number of published releases returned by the GitHub release API |
-| Latest release | v2026.09.21 | Most recently published release tag |
-| Clone count | unavailable | GitHub clone traffic endpoint is not exposed here |
-| Repository zip/tar.gz download count | unavailable | GitHub archive-download traffic is not exposed here |
-| Release asset download count | unavailable | GitHub release asset download counters are not populated in the API response used here |
-
----
-
 ## What you get
 
 * **A real Linux system**, not an app or a container: Ubuntu 24.04 LTS with systemd and `apt`, or OpenWrt with its
@@ -196,7 +176,7 @@ It makes Android the boot system again, restores the second boot partition and e
 Android data is left alone. You choose how thorough the erase is:
 
 * **secure** (default) — overwrites the whole 32 GiB region and then verifies it is empty, so your files are really
-gone. Takes a few minutes.
+  gone. Takes a few minutes.
 * **quick** — only erases the filesystem headers; the files stay readable on the flash until the space is reused.
 * **keep** — leaves the Linux filesystem alone; it simply never boots again.
 
