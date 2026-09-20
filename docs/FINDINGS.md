@@ -829,10 +829,27 @@ would log as "Power down" rather than "Restarting system".
   0xaf700000 3 MiB and 0xafa00000 6 MiB), and there is no AGDSP firmware partition on the device. The
   community Android flow supplies both - an image taken from a different device, written to
   `/sys/devices/platform/audiocp_boot/agdsp` between `stop` and `start`.
-* So the remaining work is two concrete things rather than a port: reserve memory for the DSP (a device tree
-  overlay, or a `memmap`-style reservation on the kernel command line), and supply an AGDSP image. After that
-  `sprd_audcp_boot` has everything it needs, and the card should register as `sprdphone`. A2DP over BlueZ does
-  not need any of this.
+* **The gap is exactly one device tree property.** `audio-mem-mgr` on this board carries every Unisoc audio
+  address there is - `sprd,cmdaddr`, `sprd,smsg-addr`, `sprd,shmaddr-dsp-vbc`, `sprd,offload-addr`,
+  `sprd,ddr32-dma`, `sprd,iram-ap-base`, `sprd,iram-dsp-base` and a dozen more - and is missing only
+  `memory-region`. `audio_mem` reads that property as two phandles (`of_parse_phandle(np, "memory-region", 0)`
+  and `1`) pointing at reserved DDR; without them `audio_mem_alloc(MEM_AUDCP_DSPBIN)` has nothing to hand
+  `sprd_audcp_boot`, so the image cannot be written and the DSP never starts. ZTE kept the whole audio
+  description and removed the reservation, which is consistent with a board built without a speaker.
+* There is no firmware file to look for, incidentally: `sprd_audcp_boot` has no `request_firmware()` at all.
+  Userspace writes the image into the `agdsp` sysfs attribute in chunks (`agdsp_store` memcpys into
+  `base_addr_virt`) between `stop` and `start`. Searching the F50's `super` for an `agdsp`-shaped filename
+  finds only slog config (`agdsp.conf`) and dump-region names (`AGDSP_MEM`, `AGDSP_PCM`) - no image.
+* **The memory map has a hole of exactly the right size in exactly the right place.** The F50 reserves up to
+  `ae8fffff` (`ch_ddr`) and then nothing until `b0000000` (`logobuffer`), leaving about 23 MiB free. The
+  addresses another UMS9620 device uses for audio - 0xaf700000 (3 MiB) and 0xafa00000 (6 MiB) - both fall in
+  that hole, and the second ends precisely where `logobuffer` begins. That is a strong sign they are the right
+  addresses for this SoC family rather than a guess.
+* So the remaining work is two concrete things rather than a port: reserve those two ranges (a kernel patch in
+  the style of `of-reserved-mem-skip`, which already exists for the opposite job, plus module parameters on our
+  own `audio_mem` build so it can skip the phandle lookup), and supply an AGDSP image. After that
+  `sprd_audcp_boot` has everything it needs and the card should register as `sprdphone`. A2DP over BlueZ needs
+  none of this.
 
 ## Bluetooth
 
