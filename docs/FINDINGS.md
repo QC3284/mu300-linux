@@ -246,6 +246,30 @@ The next step is therefore not a kernel one: find what the CP expects from the A
 not - the time-sync channel `refnotify` cannot open is the most concrete lead, followed by running more of the
 vendor modem userspace in the chroot the way `modem_control` already is.
 
+### 13f. The data call completes and still nothing arrives (open)
+Measured step by step on 5.4 with the release userspace, so none of it is a mainline or a script regression:
+
+* `AT+CFUN?` is **0 at boot** - the radio is off until `mobile-data` turns it on. Any experiment that stubs
+  `mobile-data` out is testing a device with no radio, which is why "the AT channel survives when nothing
+  attaches" proved less than it looked.
+* With the radio on, the bring-up is textbook: `+CEREG: 2,1` (registered), `AT+CGACT=1,1` returns `^ORIG: 1,2 OK`,
+  `AT+CGACT?` reports `+CGACT:1,1`, `AT+CGCONTRDP=1` hands back an address, a netmask and both DNS servers, and
+  `AT+CGDATA="M-ETHER",1` answers `^ORIG: 1,2` and then `CONNECT`.
+* Configure `sipa_eth0` with exactly that address and route, and **`rx_packets` stays at 0**. Not one downlink
+  packet, on either kernel, while stock Android on the same device, SIM and carrier shows `rx=104`.
+* `cid 11` is the IMS context (`ims.MNC002.MCC286.GPRS`), not a second internet bearer, and no other `sipa_ethN`
+  receives anything either.
+
+**`AT+CGDATA` needs a long timeout.** It answers `^ORIG` first and `CONNECT` ten to twenty seconds later. The
+eight-second budget `mobile-data` used meant the reply landed after we had given up, so the next command read
+*that* instead of its own answer - which is most of what "the AT channel dies after the attach" really was.
+Raised to 45 s.
+
+What is left is the IPA receive path itself. Two differences from Android are recorded but neither is proven:
+its RIL defines the context as `AT+CGDCONT=<cid>,"IP",<apn>,"",0,0,0,0,1` (IPv4 only, with the vendor's extra
+parameters) where we ask for `IPV4V6`; and its `SIPA_RM_RES_CONS_WWAN_DL` is granted while ours is never
+requested - though in `sipa_nic.c` that consumer belongs to PCIe-source nics, and this modem is on-chip.
+
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
 at 89 s - and stayed quiet until a reboot. It was neither the modem nor the channel: writing an AT command left
