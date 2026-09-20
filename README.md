@@ -278,6 +278,23 @@ and would overwrite the device's storage. A normal `apk upgrade` is fine, except
 The kernel source used here is mirrored at
 [`dikeckaan/zte-ums9620-kernel-5.4.254`](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254).
 
+## Project statistics
+
+Track community adoption, download numbers, and repository traffic:
+
+* **Live Metrics:**
+  * [![Total Downloads](https://img.shields.io/github/downloads/dikeckaan/mu300-linux/total?color=blue&logo=github)](https://github.com/dikeckaan/mu300-linux/releases)
+  * [![Stars](https://img.shields.io/github/stars/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/stargazers)
+  * [![Forks](https://img.shields.io/github/forks/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/network/members)
+* **Detailed Historical Archive:** See [`docs/STATS.md`](docs/STATS.md) for full day-by-day traffic, unique clones, referrers, and per-asset download counts (automatically preserved daily by GitHub Actions).
+* **Live Dashboards:**
+  * [GitHub Traffic & Clone Graphs](https://github.com/dikeckaan/mu300-linux/graphs/traffic)
+  * [Release Download Statistics Dashboard](https://tooomm.github.io/github-release-stats/?username=dikeckaan&repository=mu300-linux)
+
+### Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=dikeckaan/mu300-linux&type=Date)](https://star-history.com/#dikeckaan/mu300-linux&Date)
+
 ## Credits and licenses
 
 * Kernel source: ZTE's GPL release for the U30 Air (mirrored by Enceka) and the Unisoc drivers in it — GPL-2.0.
