@@ -276,7 +276,42 @@ The next step is therefore not a kernel one: find what the CP expects from the A
 not - the time-sync channel `refnotify` cannot open is the most concrete lead, followed by running more of the
 vendor modem userspace in the chroot the way `modem_control` already is.
 
-### 13f. The data call completes and still nothing arrives (open)
+### 13f. The data call completes and still nothing arrives - fixed: the delegate has to come after the modem
+**Fixed.** The downlink works: DNS resolves through the carrier's own resolvers and a TCP handshake to
+1.1.1.1:443 completes, with `rx_packets` and the IPA receive interrupt climbing for the first time. What it
+took was loading `sipa-dele.ko` after the modem is up instead of with the rest of the modem stack. The
+measurements that led there are kept below, because most of them are about what the *wrong* answers look like.
+
+Before and after, on the same device and SIM, one boot apart:
+
+| | before | after |
+|---|---|---|
+| `sipa_eth0` rx_packets | 0, always | climbs with every request |
+| irq 64 `sprd,multi-sipa-0` | 0 | 67 and rising |
+| `SIPA_RM_RES_PROD_CP` | released, ref 0 | granted, ref 1 |
+| `nic`: `rc` / `nrt` | 0 / 1 | 4 / 0 |
+| channel 5-120 | no trace of it | `send open msg` at 50.9 s, `receive open msg` and `success` at 60.8 s |
+| `sipa_dele` conversation | silent | `type=5 flag=1` -> `CONS_WWAN_DL 0->2` -> `type=6 flag=1`, cycling |
+
+The modem answers the channel open the moment it is up - `smsg_ch_open(dst, chan, -1)` waits, and 60.8 s is
+exactly when `modem_control` has the CP talking. So the old early load did not fail because the call was made
+too early in itself; it failed because the CP was *reset* underneath it afterwards, which is the path where
+`smsg_recv` errors out and `conn_thread` exits for good.
+
+Two things that are not this bug, and cost time looking like it:
+
+* **A stopped VPN leaves its policy routing behind.** `/etc/init.d/mu300-vpn stop` removes neither the
+  `sbtun` rules (prefs 9000-9010, table 2022) nor sing-box itself, so every packet still goes into a tunnel
+  with nothing at the other end and every test reads `Operation not permitted`. That is an EPERM from routing,
+  not from the modem, and it made a working data path look dead.
+* **A resolv.conf left behind by Docker.** Images built before the build fix carry the container's
+  `nameserver 192.168.65.7` as a regular file rather than the symlink to `/tmp/resolv.conf`, so every name
+  lookup fails while addresses work fine.
+
+What is left is not ours: with the tunnel down, DNS and 1.1.1.1:443 are reachable over the bearer and other
+destinations time out, which is the carrier restricting where this SIM may go.
+
+### 13f-1. How it looked while it was open
 Measured step by step on 5.4 with the release userspace, so none of it is a mainline or a script regression:
 
 * `AT+CFUN?` is **0 at boot** - the radio is off until `mobile-data` turns it on. Any experiment that stubs
