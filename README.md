@@ -1,5 +1,12 @@
 # Linux on the ZTE F50 / MU300
 
+[![Latest Release](https://img.shields.io/github/v/release/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/dikeckaan/mu300-linux/total?color=blue&logo=github)](https://github.com/dikeckaan/mu300-linux/releases)
+[![Stars](https://img.shields.io/github/stars/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/stargazers)
+[![Forks](https://img.shields.io/github/forks/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/network/members)
+[![Issues](https://img.shields.io/github/issues/dikeckaan/mu300-linux?logo=github)](https://github.com/dikeckaan/mu300-linux/issues)
+[![License](https://img.shields.io/badge/license-MIT%20%2F%20GPL--2.0-blue)](LICENSE)
+
 The ZTE F50 is a pocket 5G router. This project turns it into a small Linux computer: **Ubuntu 24.04 LTS** or
 **OpenWrt**, with SSH, Wi-Fi, Bluetooth and its 5G modem working. Android stays on the device, and you can go back
 to it at any time.
@@ -253,6 +260,8 @@ and would overwrite the device's storage. A normal `apk upgrade` is fine, except
 * [`upstream/`](upstream/) — the mainline 6.18 kernel port.
 * [Releases](https://github.com/dikeckaan/mu300-linux/releases) — prebuilt images. They contain **no proprietary
   files**; the installer takes those from your own device.
+* [Release Download Stats](https://tooomm.github.io/github-release-stats/?username=dikeckaan&repository=mu300-linux) — detailed per-asset download metrics across all versions.
+* [Traffic & Clones](https://github.com/dikeckaan/mu300-linux/graphs/traffic) — GitHub visitor insights and clone graphs.
 
 | Path | Contents |
 |---|---|
