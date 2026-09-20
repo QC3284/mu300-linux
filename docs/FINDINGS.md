@@ -159,21 +159,41 @@ The root filesystem moved from Ubuntu 26.04 to 24.04 LTS: 26.04's userland start
 `/dev/stty_nr*` are SIPC channels, not real serial ports, and the data goes to **one** reader. While a process
 holds the channel, a second one that opens the device reads nothing - it is not broken, it is simply not the owner.
 
-This is what an earlier version of this section got wrong. The observation was "the tty stays silent until the modem
-is restarted", and the conclusion was that closing it desynchronises the channel for ever. What actually happens is
-the reverse: a descriptor that was open **across a modem restart** (`AT+SFUN=4`, or a CP crash) refers to a channel
-that no longer exists, so it reads nothing - and because it still occupies the device, every other opener is shut
-out too, which is what made it look permanent. Closing that descriptor and opening the device again fixes it
-immediately; no modem restart is needed. Measured: with the daemon holding a stale descriptor, all six channels are
-silent; with the daemon stopped, all six answer `OK` at once.
+Both of the things this section has claimed over time are true, of different situations, and telling the two apart
+is the whole problem:
 
-Two rules follow, and `mu300-atd` implements both:
+* A descriptor that was open **across a modem restart** (`AT+SFUN=4`, or a CP crash) refers to a channel that no
+  longer exists, so it reads nothing - and because it still occupies the device, every other opener is shut out
+  too, which is what made it look permanent. Closing it and opening the device again fixes *that* case
+  immediately. Measured: with the daemon holding a stale descriptor, all six channels are silent; with the daemon
+  stopped, all six answer `OK` at once.
+* **Closing the descriptor while the modem is running does the opposite: the channel never answers again.**
+  Measured on 5.4, with `AT+CGACT?` answering normally minutes earlier: `mu300-atd` was killed and started again -
+  one close, one open, nothing else - and from then on `/dev/stty_nr1` accepted writes and returned nothing, for
+  the remaining forty minutes of that boot. Everything tried against it failed: opening it raw with no daemon at
+  all, opening `nr0`-`nr5` together, draining `nr0`, and `/etc/init.d/mu300-vendor restart` - `modem_control`
+  re-attaches without reloading the modem (the kernel logs `modem_control has get lock 0`, and no boot follows).
+  Only a reboot brings it back. The modem is fine throughout: `nr0` keeps delivering `+SIND` and `+ECIND`, and
+  debugfs `modem` still reports `run_state: 1`.
+
+A reopen is therefore the only cure for one case and the cause of the other, so the daemon needs evidence before
+it decides, and `nr0` is that evidence: the modem's unsolicited output never stops while it is running, so a `nr0`
+that is still producing lines means the modem is alive and this descriptor is fine - whatever else is wrong,
+closing it can only make things worse.
+
+Three rules follow, and `mu300-atd` implements all three:
 
 * **Exactly one owner.** The daemon holds the tty and serves one command at a time through a pair of fifos in
   `/run/mu300-at`; `mu300-at "AT+CSQ"` asks it, and `mobile-data` uses it automatically when it is running. Nothing
   else may open the device - including `stty -F`, which is an open and a close of its own.
-* **Reopen when the modem goes quiet.** After two unanswered commands the daemon reopens the device and retries
-  once, which is all a modem restart needs.
+* **Drain `nr0`.** It is read continuously into a capped log under `/run/mu300-at/urc/`, the way Android's RIL
+  holds all six channels open. It is not a cure for a silent channel - that was tried - but registration and PDP
+  changes are announced there and nowhere else, and `stty_nr0.log` is what the reopen rule below is built on.
+  `nr2`-`nr5` are left alone by default (`MU300_AT_URC_CHANNELS` takes them): a drainer owns its channel as
+  completely as the daemon owns `nr1`, and measured, those four say nothing at all.
+* **Reopen only when the modem is really gone.** Five unanswered commands, at most one reopen every five minutes,
+  and only when `stty_nr0.log` has been quiet for 240 s as well. The earlier rule - reopen after two or three
+  unanswered commands - traded a working modem for a dead one on any device busy enough to miss a few replies.
 
 "Exactly one owner" has to be enforced, not assumed. On the mainline kernel the modem kept going quiet a few
 minutes after every boot, and it was neither the channel nor the modem: **a second `mu300-atd` had been started**
@@ -184,6 +204,16 @@ interface down, netifd tears `wan` down and rebuilds it for ever - while the mod
 daemon and starting a single one answered `+CSQ: 43,24` with `+CGACT:1,1` still active. `mu300-atd` now takes
 `/run/mu300-at/lock` before it opens the tty or creates the fifo; a second instance waits there instead of
 exiting, so a spare is always ready to take over if the owner is killed.
+
+The lock alone was not enough, because `mobile-data` could still walk past it. Its `at()` asks the daemon when
+`/run/mu300-at/cmd` exists and opens `/dev/stty_nr1` itself when it does not - and "no fifo" is not the same as
+"no daemon". Remove `/run/mu300-at` under a running `mu300-atd` (a stale lock cleaned up by hand, a `tmpfiles`
+sweep) and the daemon keeps its descriptor while the fifo is gone, so every `mobile-data` call takes the direct
+path and becomes a second reader on a channel that hands each line to exactly one of them. Found on the device:
+`mu300-at` reporting "the daemon is not reading commands" while `/proc/*/fd` showed `mu300-atd` *and*
+`mobile-data watch` both holding `/dev/stty_nr1`. `mobile-data` now checks `/run/mu300-at/lock/pid` before it
+opens anything: a live `mu300-atd` behind that pid means "refuse and say so", and otherwise it takes the same
+lock for the length of the command. `tty_setup` obeys the same check, since `stty -F` is an open and a close.
 
 Also make sure only one bring-up runs at a time: `mobile-data up` from the service and from the watchdog used to
 run concurrently, and the two of them take the channel lock away from each other for every single AT command, so
@@ -269,6 +299,19 @@ What is left is the IPA receive path itself. Two differences from Android are re
 its RIL defines the context as `AT+CGDCONT=<cid>,"IP",<apn>,"",0,0,0,0,1` (IPv4 only, with the vendor's extra
 parameters) where we ask for `IPV4V6`; and its `SIPA_RM_RES_CONS_WWAN_DL` is granted while ours is never
 requested - though in `sipa_nic.c` that consumer belongs to PCIe-source nics, and this modem is on-chip.
+
+**Read the IPA state before theorising - `/sys/kernel/debug/sipa/` answers most of it**, and two of its fields
+are easy to misread:
+
+* `nic`: `suspend_stage`, `rc` (resumes), `sc` (suspends), `is_bypass`, then one line per allocated nic. A fresh
+  boot that has sent nothing shows `suspend_stage = 0x3f rc = 0` and that is **correct, not a fault**: the driver
+  sets `suspend_stage = SIPA_SUSPEND_MASK` in probe (`sipa_core.c`) and the hardware is woken lazily, by the
+  first transmit, through `sipa_nic_rm_res_request()`. Likewise `open = 0` on a nic line means `NIC_OPEN`, since
+  that enum starts at 0 (`sipa_priv.h`) - an open nic, not a closed one. Any conclusion drawn from these two has
+  to come from a dump taken *while traffic is being pushed at `sipa_eth0`*.
+* `rm_res` prints the whole producer/consumer graph with its states, `fifo_cfg` the seventeen common FIFOs,
+  `flow_ctrl` the per-FIFO enter/exit counts, and `sipa_eth/sipa_eth0/stats` the driver's own packet counters -
+  which are the ones to trust, since a route pointing at the interface is not the same as packets reaching it.
 
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
@@ -429,6 +472,33 @@ buffers to the bus and leave when there is no tx context yet.
 * The initramfs log loop ends at `switch_root` and journald flushes only after local filesystems are up, so a power cut in
   the first seconds of systemd leaves no log. `mu300-early-recorder.service` keeps writing `dmesg` to the boot_b log area
   for the first five minutes.
+
+### 20b. Telling a userspace reboot from a power cut, and finding who asked for it
+`/sys/fs/pstore/console-ramoops-0` survives into the next boot and separates the two cases in one line. A power cut or a
+watchdog leaves the log ending mid-sentence; a deliberate reboot ends with the kernel's own
+
+    [   46.468782]c0 [    T1] reboot: Restarting system with command 'shell'
+
+`[T1]` is the task that made the call, and on OpenWrt that is procd: busybox `reboot` does not call the syscall itself,
+it hands the request to init, so *every* userspace reboot on this image shows up as pid 1 no matter who started it. The
+pstore line therefore says "userspace asked", never who. Three things together do say who, and all three write to
+`/mnt/mu300-disk/.mu300/` so they survive the reboot they are recording:
+
+* a wrapper on `/sbin/reboot` that logs uptime and four generations of parent `cmdline` before `exec`ing the real one,
+* a line at the top of each `/etc/rc.button/*` handler - OpenWrt's `reset` handler reboots on a *short* press
+  (`SEEN < 1`), so a bouncing key is a plausible cause and worth ruling in or out explicitly,
+* a kprobe on the syscall for anything that bypasses `/sbin/reboot`, which needs no module:
+
+      echo 'p:mu300reboot __arm64_sys_reboot' > /sys/kernel/debug/tracing/kprobe_events
+      echo 1 > /sys/kernel/debug/tracing/events/kprobes/mu300reboot/enable
+      cat /sys/kernel/debug/tracing/trace_pipe >> /mnt/mu300-disk/.mu300/reboot-trace.log &
+
+  `trace_pipe` is worth the reader process: the trace buffer itself does not survive the reboot, and procd sleeps a
+  second before it calls the syscall, which is long enough for the line to reach the disk.
+
+`gpio-keys` on this board exposes `KEY_VOLUMEDOWN`, `KEY_VOLUMEUP` and `KEY_POWER` (`B: KEY=1c000000000000 0`) and no
+`KEY_RESTART`, so `/etc/rc.button/reset` cannot fire here; `/etc/rc.button/power` runs `poweroff`, which the kernel
+would log as "Power down" rather than "Restarting system".
 
 ## LAN, Wi-Fi bands and regulatory
 
