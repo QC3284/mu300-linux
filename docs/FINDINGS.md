@@ -1047,6 +1047,33 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   * This matters for the **voice** path, which is the one that runs through MCDT. Normal playback does not: its
     trace has no MCDT lines at all and goes through `AP01_PLY_FIFO` in VBC instead, so the MCDT bit is not what
     stalls media audio.
+* **The profiles are a *call* structure, not a media one**, which is worth knowing before spending time on
+  media playback. `audio_structure.xml`'s modes are Handset, Handsfree, Headset4P/3P, BTHS, BTHSNREC,
+  TypeC_Digital, HighVolume and Hac, each with NB1/NB2/WB1/WB2/SWB1/FB1/VOIP1 (modes 0-62), plus four
+  Loopback modes (63-66). There is no media mode at all.
+* **`param_id` in the select value is load-bearing.** The value is `(mode << 24) | (param_id << 16) | dsp_case`,
+  and with `param_id` 0 the apply does nothing visible. With `0x5e` - which is what a working device of this
+  family carries in both selects - the driver copies the mode into the DSP's shared memory:
+
+      [Audio:SIPC] cmd =11 sharemem_info.id=…, phy_iram_addr=0xaf981210, size=0x6c4
+
+  and `0xaf981210` is `sprd,shmaddr-dsp-vbc` from the device tree. `mu300-audio-dsp profiles [MODE]` does the
+  whole sequence.
+* **A working reference exists and is worth borrowing from.** A ZTE MU5358 (ums9632, a later VBC generation)
+  registers the same `sprdphone-sc2730` card and does carry call audio. Diffing `tinymix` on it between idle
+  and an active call shows exactly 18 controls move, and they are all routing and output: `DSP_VOICE_PLAY`,
+  every input of the `VBC_DA0_CODEC` mixer at once (VOICE, FAST, MM, OFFLOAD, LOOP, VOIP, AP23, FM),
+  `agdsp_access_en`, and the codec's own `AO Mixer AOL/AOR`, `DA AOR`, `EAR_AOL Mixer DACAOL`, `Earpiece
+  Function` and `Speaker Function`. Its names belong to a newer VBC, but the shape carried over: turning on
+  *every* `S_*_CODEC SWITCH` here, not just the scene's own, plus that codec tree and `agdsp_access_en`, was
+  tried and changed nothing.
+  * Neither the F50's own Android nor a ZTE U30 Air (the same ums9620, and the kernel this project builds
+    against) has any audio at all - no card, no audio modules, no reserved memory, and the same
+    `audio-mem-mgr` node with no `memory-region`. So within the UMS9620 hotspots there is no working example
+    to copy; the MU5358 is a different chip.
+  * The U30 Air is still useful: `/odm/etc/audio_params/sprd/` on it holds the **native** UMS9620 parameter
+    XMLs (`audio_structure`, `dsp_vbc`, `cvs`, `dsp_smartamp` and more), which are a better source for
+    `tools/vbc-profile` than the community package's donor copies from another device.
 * **Where it actually stops** - measured from `/proc/asound/card1/pcm0p/sub0/status` during a playback attempt:
 
       state: RUNNING   hw_ptr: 160   appl_ptr: 24160   avail: 0      (unchanged from t=2s to t=10s)
