@@ -919,6 +919,10 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 * `mu300-audio` brings the card up at boot on both systems - a procd `boot()` that backgrounds itself, because
   binding takes about half a minute of waiting on probes and busybox init does not spawn the consoles until
   sysinit returns. It runs `load` and never `start`, so nothing at boot can reach the reboot below.
+* **The reboot below is no longer reproducible, and the explanation given for it does not hold.** Android's own
+  module writes the firmware with `sound@0` *unbound* and binds afterwards; doing the same here did not reboot
+  the device either, so "the card must be registered first" is not the rule it was written up as. Kept below as
+  the record of what was actually measured at the time. What it is not is a reason to avoid `start`.
 * **Starting the DSP reboots the device only when the card is not registered.** Measured both ways: with
   `sprdphone-sc2730` up, writing the firmware and the reset registers leaves the device running (uptime went
   from 972 s to 1225 s across the attempt); with the card missing - which is what happens before `sprd-dma` is
@@ -957,18 +961,43 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   (`S_NORMAL_AP01_P_CODEC SWITCH`, `S_VOICE_PCM_P SWITCH`, `S_VOICE_P_CODEC SWITCH`, …). Android's HAL sets
   them from its own configuration and there is nothing to inherit here. `mu300-audio-dsp routes` sets the ones
   this board can use; with the route on, `hw_params` installs and `BE_DAI_ID_NORMAL_AP01_CODEC` comes up.
-* **An idle AGDSP reads exactly like one that never started**, which is the trap under the previous bullet.
-  The power domain is only up while something is using it, so `sys_status` is 7 whenever no PCM is open - and
-  `mu300-audio-dsp start` used to check it one second after the firmware write and report "the DSP did not
-  come up" over a perfectly good load. The honest test is to open a PCM and watch: `agdsp_access_enable()`
-  sends a mailbox message and polls the PMU for power-up, and the log says which way it went:
+* **An idle AGDSP reads exactly like one that never started.** The power domain is only up while something is
+  using it, so `sys_status` is 7 whenever no PCM is open - and `mu300-audio-dsp start` used to check it one
+  second after the firmware write and report "the DSP did not come up" over a load that had gone fine.
+* **Powered is not running, and confusing the two cost an evening.** Opening a PCM produces
 
       [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up dsp) val = 0x20
       [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up done) val = 0x20
 
-  Both lines and no `wait agdsp power up timeout` means the DSP is running; `status` then reads
-  `core=0 sys=0` for as long as the PCM stays open. `mu300-audio-dsp status` does this and says
-  "loaded - it woke when a PCM was opened".
+  with no `wait agdsp power up timeout`, and `status` then reads `core=0 sys=0`. That was read here as "the DSP
+  is running" and written up as such. It is not: `agdsp_access_enable()` takes the power domain up through the
+  PMU whether or not the core has anything to execute. **The test that distinguishes them is the DSP's own
+  log** - a running AGDSP writes to `/dev/audio_dsp_log` over the audio SIPC sblock channel:
+
+      timeout 6 dd if=/dev/audio_dsp_log bs=1 count=64 | wc -c
+
+  On this board that returns 0 and the kernel says `sblock_receive wait interrupted` / `dsp_log_read: failed to
+  receive block`. **The core is not executing the image.** `mu300-audio-dsp status` reports the two separately.
+* **This is not a Linux problem.** The Android community module has it too, in its own words - from
+  `f50_bluetooth_microphone_experimental`'s `service.sh`:
+
+      # AudioCP still times out on F50 even with the donor memory layout. Keep the
+      # probe manual so a failed 104-second codec loop cannot stall every boot.
+
+  and the Whale HAL module's README lists, as explicitly outside what it achieves: cellular call routing
+  through the F50's own earpiece, speaker and microphone, and **SIP/WebSocket apps bridging cellular RX/TX
+  through `AudioRecord`/`AudioTrack`** - which is exactly the thing a SIP gateway needs. What does work there
+  is media audio, system sounds, and cellular calls over a **Bluetooth headset's SCO link**, which does not go
+  through the AGDSP at all. `S_VOICE_P_BT` and `S_VOICE_C_BT` exist in the mixer, so that route is reachable
+  from here too, and BlueZ already runs on this device (section 25).
+* Things that are *not* the cause, each checked: the firmware is byte-identical to the image Android uses
+  (sha256 `378ceea7…b937`, and the module verifies that same hash); the memory is genuinely reserved
+  (`/sys/kernel/debug/memblock/reserved` shows `0xaf700000..0xafffffff`, 3 MiB + 6 MiB); `ldinfo` agrees at
+  `0xafa00000` size `0x600000`, which is the image exactly, so `agdsp_store()` copies all of it; and the load
+  order does not matter - Android writes the firmware with `sound@0` **unbound** and binds afterwards, which
+  was tried here and neither rebooted nor helped. The image's header reads `SharkL5_AUDCP_2022Y_VER_2548` /
+  `AUDCP.SharkL6` although this SoC is Qogirn6pro, which looks damning and is a red herring: it is the same
+  image Android boots media audio with.
 * `agdsp_store()` clamps every write to `ldinfo`'s size minus what it has already taken, so a firmware bigger
   than the reserved region is truncated silently and `dd` still reports success. Read the size back from
   `$BOOT/ldinfo` - `char name[32]; u32 load_phy_addr; u32 size`, so
