@@ -990,6 +990,30 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   is media audio, system sounds, and cellular calls over a **Bluetooth headset's SCO link**, which does not go
   through the AGDSP at all. `S_VOICE_P_BT` and `S_VOICE_C_BT` exist in the mixer, so that route is reachable
   from here too, and BlueZ already runs on this device (section 25).
+* **Every register the AP is supposed to write is written correctly**, read back from the silicon with
+  `tools/mu300-peek` (this kernel has `# CONFIG_DEVMEM is not set`, so there is no `/dev/mem` and a small
+  module is the only way to look). The two syscons are `/soc/syscon@64900000` (phandle 2) and
+  `@64910000` (phandle 4), both `sprd,ums9620-glbregs`, and after `start`:
+
+  | | address | read back | |
+  |---|---|---|---|
+  | bootprotect | `0x64900078` | `0x80009620` | the 0x9620 magic, unlocked |
+  | bootvector | `0x64900140` | `0x57d00040` | `(0xafa00000 + 0x80) >> 1`, exactly right |
+  | bootaddress_sel | `0x64900144` | `0x00000001` | set |
+  | sysshutdown / coreshutdown | `0x649103d0` / `0x3d4` | bit 25 clear | force-shutdown released |
+  | corereset / sysreset / reset_sel | `0x64910b88` / `0xb98` / `0xba8` | all 0 | resets released |
+
+  And the firmware really is in DDR: peeking `0xafa00000` shows `SharkL5_AUDCP_20…` where the file has it.
+* **The core is powered and still produces nothing.** With a PCM open, `status` reads `core=0 sys=0`, and
+  `agdsp_access` and `audiocp_boot` agree about that - they read the same register with the same mask
+  (`audcp_pmu_pwr_status4` / `sysstatus`, both phandle 4 offset `0x0544` mask `0x1f00`), so there is no
+  disagreement to chase there. Yet the DDR32 communication area at `0xaf700000` is byte-for-byte unchanged
+  before and during power-up: only the AP's own ring descriptors are in it. No SIPC, no log, no memory writes.
+  A powered core booting from a correct vector that writes nothing is a core executing something it cannot run.
+* That leaves the image, and the image is a **donor**: the community package took it from a SharkL5/L6 device
+  because the F50 has no `l_agdsp` partition to take one from (confirmed - the partition list has `ch_sys`,
+  `pm_sys`, `nr_modem`, `nr_phy` and nothing for audio, and a scan of `super` finds no `AUDCP` header either).
+  Getting past this needs a genuine Qogirn6pro/UMS9620 AGDSP image. Everything on the AP side is ready for one.
 * Things that are *not* the cause, each checked: the firmware is byte-identical to the image Android uses
   (sha256 `378ceea7…b937`, and the module verifies that same hash); the memory is genuinely reserved
   (`/sys/kernel/debug/memblock/reserved` shows `0xaf700000..0xafffffff`, 3 MiB + 6 MiB); `ldinfo` agrees at
