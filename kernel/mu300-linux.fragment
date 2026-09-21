@@ -169,6 +169,15 @@ CONFIG_SND_DUMMY=m
 
 # Reserve the audio DSP's memory, which this board's device tree does not. audio-mem-mgr describes the DSP
 # completely and has no memory-region, so without this audio_mem has nothing to give sprd_audcp_boot and the
-# image cannot be loaded. The F50 reserves nothing between ae8fffff and b0000000, and these are the two ranges
-# another UMS9620 device uses - the second ends exactly where logobuffer begins (docs/FINDINGS.md 24).
-CONFIG_OF_RESERVED_MEM_ADD="0xaf700000,3M;0xafa00000,6M"
+# image cannot be loaded. The F50 reserves nothing between ae8fffff and b0000000 (docs/FINDINGS.md 24).
+#
+# Two ranges, because an AGDSP image has its addresses built in and different UMS9620 boards place them
+# differently - a Moto G35 (same T760) puts audio-mem at 0xaf600000 and its 7 MiB DSP region at 0xaf900000,
+# a megabyte below where this board's own audio-mem-mgr properties put them (cmdaddr 0xaf980000 here against
+# 0xaf880000 there). Loading an image at the wrong base runs it into someone else's memory, which on this
+# board takes the whole thing down.
+#
+# 0xaf600000+3M and 0xaf900000+7M are contiguous to 0xb0000000, where logobuffer begins, and together they
+# cover this board's layout as well - so one reservation serves both and audio_mem's module parameters pick
+# which one an image is loaded against.
+CONFIG_OF_RESERVED_MEM_ADD="0xaf600000,3M;0xaf900000,7M"

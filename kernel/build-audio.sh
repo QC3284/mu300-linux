@@ -50,6 +50,12 @@ if ! grep -q audio_mem_region $A/sprd_audio/audiomem/audio_mem.c; then
     find $A/sprd_audio/audiomem -name "*.o" -delete 2>/dev/null || true
     rm -f $A/sprd_audio/audiomem/*.ko
 fi
+# an AGDSP image from another board needs the absolute shm addresses moved to match it
+if ! grep -q shm_shift $A/sprd_audio/audiomem/audio_mem.c; then
+    (cd $A && patch -p1 -s -f < /work/patches/audio-mem-shm-shift.patch)
+    find $A/sprd_audio/audiomem -name "*.o" -delete 2>/dev/null || true
+    rm -f $A/sprd_audio/audiomem/*.ko
+fi
 # MCDT skips every register write when its enable bit is clear, and on this board nothing sets it
 if ! grep -q "enabled the agcp mcdt clock" $A/sprd_audio/mcdt/mcdt_r2p0/mcdt_hw_r2p0.c; then
     (cd $A && patch -p1 -s -f < /work/patches/mcdt-enable-clock.patch)

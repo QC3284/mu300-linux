@@ -1111,6 +1111,28 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
     `VBC_SRC_BT_DAC`/`ADC`, `SYS_IIS1`/`SYS_IIS3`, `Inter PA Config` and `Codec Digital Access Disable` -
     intersecting `amixer controls` with `strings` on `audio.primary.whale.so` is a cheap way to see the whole
     vocabulary the vendor userspace uses.
+  * **An AGDSP image has its addresses compiled in, and boards do not agree on them.** This is why the Moto
+    G35 image takes the device down: its own device tree, pulled out of `vendor_boot.img` in the same
+    firmware, puts `audio-mem` at `0xaf600000` and a **7 MiB** DSP region at `0xaf900000`, with `cmdaddr`
+    `0xaf880000` and `shmaddr-dsp-vbc` `0xaf881210` - a megabyte below this board's `0xaf700000` /
+    `0xafa00000` / `0xaf980000`. Written to the wrong base it runs into memory that belongs to something
+    else. The same fact read the other way is reassuring: the donor image answers SIPC commands at
+    `0xaf980000`, so it *is* built for this board's layout and is in the right place.
+    * `CONFIG_OF_RESERVED_MEM_ADD` now reserves `0xaf600000,3M;0xaf900000,7M`, which is contiguous to
+      `0xb0000000` and covers this board's layout as well, so one boot image can host either.
+      `kernel/patches/audio-mem-shm-shift.patch` adds `shm_shift` for the addresses that are absolute in the
+      device tree rather than derived from the region.
+    * Tried: the Moto image at its own addresses (`ddr32_base=0xaf600000 dspbin_base=0xaf900000
+      dspbin_size=0x700000`), which the driver accepts - `ldinfo` reads `0xaf900000 / 7340032`. The board
+      survives, unlike at the wrong base, but the DSP does not answer: `failed to get command` and
+      `audio_sblock_thread: fail to send SMSG_CMD_SBLOCK_INIT to dsp`. The `shm_shift` half is not confirmed
+      working yet - `cmdaddr` still shows as `0xaf980000` in the SIPC trace - so this is not a clean negative.
+    * Worth knowing if you pick that up: `audio_mem` has **three** DT parsers (whale2, sharkl2, sharkl5) and
+      this board's node is `compatible = "unisoc,audio-mem-sharkl5"`. A change made in the whale2 one compiles,
+      loads, accepts its module parameter and does nothing, which is a quiet way to lose an experiment.
+    * Also: the boot service loads `audio_mem` at startup and the module is `[permanent]`, so trying a
+      different layout means `/etc/init.d/mu300-audio disable`, reboot, load by hand, and remember to
+      re-enable it afterwards.
   * **Three things took the board down** hard enough that slot B lost its boot trial and LK rolled back to
     Android. Recovery is `ANDROID_SERIAL=<the MU300> boot/android-boot-linux.sh <the image on boot_b>`, which
     verifies `boot_b` and rewrites only the 32-byte block in `misc`. The three: writing the Moto G35 AGDSP
