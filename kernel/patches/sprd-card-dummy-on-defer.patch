@@ -1,0 +1,51 @@
+sprd_card: let a codec that never arrives fall back to the dummy
+
+dai link BE_FAST_P_SMART_AMP asks for the smart amplifier, and this board does
+not have one: nothing answers at I2C 0x34 and the device tree's own
+sprd,spk-ext-pa-info count fails with -22. snd_soc_of_get_dai_name therefore
+returns -EPROBE_DEFER for ever, asoc_sprd_card_probe gives up on all 58 links,
+and no card is registered - the other 57 parse fine, BE_VOICE_PCM_P among them.
+
+A link whose codec phandle is simply absent already falls back to a dummy codec
+one frame up. dummy_on_defer=1 extends that to one that keeps deferring, which
+is the same judgement for the same reason. Off by default, because a deferral
+usually does mean "not yet".
+
+Only for the codec: args_count is NULL exactly on the codec call, and handing
+the cpu dai a dummy instead of deferring kills the card at link 0.
+
+--- a/sprd/machine/sprd_card/sprd-asoc-card-utils.c
++++ b/sprd/machine/sprd_card/sprd-asoc-card-utils.c
+@@ -127,6 +127,10 @@
+ 	return ret;
+ }
+ EXPORT_SYMBOL(asoc_sprd_register_card);
++static bool dummy_on_defer;
++module_param(dummy_on_defer, bool, 0644);
++MODULE_PARM_DESC(dummy_on_defer, "use a dummy codec for a dai link whose codec never arrives");
++
+ 
+ static int
+ asoc_sprd_card_sub_parse_of(struct device_node *np,
+@@ -158,6 +162,21 @@
+ 	/* Get dai->name */
+ 	ret = snd_soc_of_get_dai_name(np, &component->dai_name);
+ 	if (ret < 0) {
++		/*
++		 * A codec that defers for ever is a codec that is not on the board. The F50 asks for a smart
++		 * amplifier its hardware does not have - nothing answers at I2C 0x34 and its own
++		 * sprd,spk-ext-pa-info count fails - so dai link BE_FAST_P_SMART_AMP returns -EPROBE_DEFER,
++		 * asoc_sprd_card_probe gives up on the whole card, and nothing ever re-probes. A link whose
++		 * codec phandle is simply absent already falls back to a dummy just below; with
++		 * dummy_on_defer=1 a deferring one does too, which is the same judgement for the same reason.
++		 * Off by default, because elsewhere a deferral really does mean "not yet". Only for the codec:
++		 * args_count is NULL exactly on the codec call, and giving the cpu dai a dummy is fatal.
++		 */
++		if (ret == -EPROBE_DEFER && dummy_on_defer && !args_count) {
++			pr_info("%s: '%s' keeps deferring, treating it as absent\n",
++				__func__, np->name);
++			return -ENOENT;
++		}
+ 		pr_err("ERR: %s get dai name for '%s' failed!(%d)\n",
+ 		       __func__, np->name, ret);
+ 		return ret;

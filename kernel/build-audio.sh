@@ -50,6 +50,12 @@ if ! grep -q audio_mem_region $A/sprd_audio/audiomem/audio_mem.c; then
     find $A/sprd_audio/audiomem -name "*.o" -delete 2>/dev/null || true
     rm -f $A/sprd_audio/audiomem/*.ko
 fi
+# and a codec that never arrives must not take the whole card down with it
+if ! grep -q dummy_on_defer $A/sprd/machine/sprd_card/sprd-asoc-card-utils.c; then
+    (cd $A && patch -p1 -s -f < /work/patches/sprd-card-dummy-on-defer.patch)
+    find $A/sprd/machine/sprd_card -name "*.o" -delete 2>/dev/null || true
+    rm -f $A/sprd/machine/sprd_card/*.ko
+fi
 cd /src/zte-u30air
 
 # headers these Kbuilds include by name without putting the directory on their own path

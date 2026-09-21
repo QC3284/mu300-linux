@@ -866,10 +866,23 @@ would log as "Power down" rather than "Restarting system".
   fails with -22). Links whose `codec` phandle is simply missing already fall back to a dummy codec - the
   driver says so - but a codec that *defers* is treated as fatal, and `asoc_sprd_card_probe` gives up, so no
   card registers and nothing re-probes.
-* So two things are left, and neither is the DSP memory any more: teach `asoc_sprd_card_dai_link_of` to fall
-  back to a dummy codec for a deferring codec as well as a missing one - correct on a board whose amplifier is
-  absent by the device tree's own account - and supply an AGDSP image for `sprd_audcp_boot`. A2DP over BlueZ
-  needs none of this.
+* `sprd-card-dummy-on-defer.patch` handles the smart amplifier: `dummy_on_defer=1` lets a codec that keeps
+  deferring fall back to the dummy the way a missing one already does. It applies **only to the codec** -
+  `args_count` is NULL exactly on the codec call, and handing the cpu dai a dummy instead of deferring kills
+  the card at link 0 instead of 57, which is how that was found.
+* The firmware exists and is 6 MiB, which settles which region is which: `l_agdsp_a.img` goes in
+  `audiodsp-mem` at 0xafa00000, and `audio-mem` at 0xaf700000 3 MiB is the shared memory. The driver confirms
+  it - `sprd_audcp_boot audiocp_boot: base_addr_phy = 0xafa00000, bin size = 0x600000`. There is no image in
+  this repository and there cannot be: the project publishes no proprietary files, and unlike the Wi-Fi and
+  modem firmware there is no copy on the device to take.
+* **Starting the DSP reboots the device, and that is where this stands.** The drivers load, the firmware
+  writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
+  a deliberate reboot from userspace, not a panic, so the machine is not crashing but something is asking it
+  to restart. `start_store` writes `AUDCPBOOT_CTRL_SYS_RESET` and `CORE_RESET` through regmap, and on this
+  board that appears to reach more than the audio core. `mu300-audio-dsp load` therefore stops short of it:
+  it brings up all 23 drivers, the reserved memory, the DSP shared memory and the SIPC channel, and leaves the
+  DSP down. `start` is the opt-in that reboots.
+* A2DP over BlueZ needs none of this.
 
 ## Bluetooth
 
