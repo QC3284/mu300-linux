@@ -947,14 +947,34 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
   `/dev/snd/pcmC1D53p` opens and closes cleanly and takes its DMA buffer from the reserved region. What has
   not been done is a call carrying audio through it.
+* **The card registers with every route switched off**, and that is the last thing in the way of a PCM. Opening
+  one gives `aplay: Unable to install hw params`, which reads like a driver that cannot do 16-bit 48 kHz — it
+  can; the real line is a few above it in dmesg:
+
+      FE_NORMAL_AP01: ASoC: no backend DAIs enabled for FE_NORMAL_AP01
+
+  The DPCM front ends are joined to their back ends by ~70 `S_..._SWITCH` mixer controls, all off at probe
+  (`S_NORMAL_AP01_P_CODEC SWITCH`, `S_VOICE_PCM_P SWITCH`, `S_VOICE_P_CODEC SWITCH`, …). Android's HAL sets
+  them from its own configuration and there is nothing to inherit here. `mu300-audio-dsp routes` sets the ones
+  this board can use; with the route on, `hw_params` installs and `BE_DAI_ID_NORMAL_AP01_CODEC` comes up.
+* **An idle AGDSP reads exactly like one that never started**, which is the trap under the previous bullet.
+  The power domain is only up while something is using it, so `sys_status` is 7 whenever no PCM is open - and
+  `mu300-audio-dsp start` used to check it one second after the firmware write and report "the DSP did not
+  come up" over a perfectly good load. The honest test is to open a PCM and watch: `agdsp_access_enable()`
+  sends a mailbox message and polls the PMU for power-up, and the log says which way it went:
+
+      [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up dsp) val = 0x20
+      [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up done) val = 0x20
+
+  Both lines and no `wait agdsp power up timeout` means the DSP is running; `status` then reads
+  `core=0 sys=0` for as long as the PCM stays open. `mu300-audio-dsp status` does this and says
+  "loaded - it woke when a PCM was opened".
+* `agdsp_store()` clamps every write to `ldinfo`'s size minus what it has already taken, so a firmware bigger
+  than the reserved region is truncated silently and `dd` still reports success. Read the size back from
+  `$BOOT/ldinfo` - `char name[32]; u32 load_phy_addr; u32 size`, so
+  `od -An -tu4 -j32 -N8`. On this board it is 0xafa00000 and 6291456 bytes, which is the image exactly.
 * Also worth knowing: the community Android module's `l_agdsp_a` symlink under `/dev/block/by-name` is for the
-  Whale audio HAL, not the kernel - `sprd_audcp_boot` has no `request_firmware()` and no path of its own. The drivers load, the firmware
-  writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
-  a deliberate reboot from userspace, not a panic, so the machine is not crashing but something is asking it
-  to restart. `start_store` writes `AUDCPBOOT_CTRL_SYS_RESET` and `CORE_RESET` through regmap, and on this
-  board that appears to reach more than the audio core. `mu300-audio-dsp load` therefore stops short of it:
-  it brings up all 23 drivers, the reserved memory, the DSP shared memory and the SIPC channel, and leaves the
-  DSP down. `start` is the opt-in that reboots.
+  Whale audio HAL, not the kernel - `sprd_audcp_boot` has no `request_firmware()` and no path of its own.
 * A2DP over BlueZ needs none of this.
 
 ## Bluetooth
