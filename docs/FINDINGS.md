@@ -1031,19 +1031,48 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   mode 2's at twice that. Reading it as per-mode puts every field but mode 0's out of range, and the converter
   checks the two readings against each other (`byte_off // len_mode` against the element's own `mode=`) so the
   mistake cannot come back silently.
-* **`[MCDT] agcp mcdt clocl not available` is a teardown artifact, not the fault.** It appears *after*
-  `sprd_pcm_hw_free`, once `agdsp_access_disable()` has dropped the power domain and the AGCP AHB status reads
-  back empty. During setup the same block reports `mcdt_dac_dma_enable … mcdt_dma_ap_channel=1` and is fine.
-  `MODULE_EB0_STS` at `0x64900000` reads `0x2063e2d1` throughout, with `AUD_EB_V2` (bit 21), `AUDIF_CKG_AUTO_EN_V2`
-  (bit 22) and `VBC_EB_V2` (bit 15) all set.
+* **`[MCDT] agcp mcdt clocl not available` means what it says: MCDT is switched off.** It is easy to dismiss,
+  because it is logged during teardown, after `agdsp_access_disable()` has dropped the power domain - which is
+  where it was first seen, and it was written off here as an artifact of that. It is not. `MODULE_EB0_STS` at
+  `0x64900000` (the AGCP AHB syscon, phandle 2) read `0x2063e2d1`, and `BIT_MCDT_EN` is `BIT(12)`:
+
+      0x2063e2d1  ->  bits 15..12 = 0xe = 1110  ->  bit 12 clear
+
+  `check_agcp_mcdt_clock()` therefore returned false and **every** MCDT register access was skipped, setup
+  included - `mcdt_reg_read`, `mcdt_reg_raw_write` and `mcdt_reg_update` each return early without touching the
+  hardware. `mcdt_dac_dma_enable … mcdt_dma_ap_channel=1` still prints, which is what makes it look healthy.
+  Nothing in the audio drivers ever writes that bit; they only read it. Setting it (bit 12 at `0x64900000`,
+  while the AGDSP domain is powered, since the register lives inside it) silences the errors, and it persists.
+  `AUD_EB_V2` (21), `AUDIF_CKG_AUTO_EN_V2` (22) and `VBC_EB_V2` (15) were already set.
+  * This matters for the **voice** path, which is the one that runs through MCDT. Normal playback does not: its
+    trace has no MCDT lines at all and goes through `AP01_PLY_FIFO` in VBC instead, so the MCDT bit is not what
+    stalls media audio.
 * **Where it actually stops** - measured from `/proc/asound/card1/pcm0p/sub0/status` during a playback attempt:
 
       state: RUNNING   hw_ptr: 160   appl_ptr: 24160   avail: 0      (unchanged from t=2s to t=10s)
 
   The DMA advances **once**, by 160 frames, and then freezes with the application blocked on a full buffer,
-  until ALSA gives up and `aplay` reports `write error: I/O error`. So the path is wired end to end and the DSP
-  takes a first chunk - what is missing is whatever makes it come back for the second. That is the open
-  question; it is not the firmware, the memory, the routes, or the profiles, all of which are now accounted for.
+  until ALSA gives up and `aplay` reports `write error: I/O error`. 160 is exactly the `burst:160` the driver
+  programs, and `/proc/interrupts` shows both `sprd_dma` lines at zero throughout: the DMA does one burst and
+  then waits for a request from the VBC FIFO that never comes.
+  * Everything around it checks out. The trigger path runs in full - `ap_vbc_fifo_clear`,
+    `ap_vbc_fifo_enable enable=1`, `ap_vbc_aud_dma_chn_en enable=1`, then `aud_send_cmd_no_wait cmd: 0x7
+    value2: 0x1` to start the DSP. The codec end is powered: `DAC: On`, `CLK_DAC: On`, `DIG_CLK_DAC_BUF: On`,
+    `CP_LDO: On` in `/sys/kernel/debug/asoc/sprdphone-sc2730/sc27xx-audio-codec/dapm/`. The SMSG interrupt
+    fires and the DSP answers. Enabling dynamic debug on `snd_soc_sprd_vbc_v4`, `mcdt_hw_r2p0`,
+    `sprd_dmaengine_pcm` and `audio_sipc` (`echo 'module <m> +p' > /sys/kernel/debug/dynamic_debug/control`)
+    is what makes all of this visible, and is the first thing to do when picking this up.
+  * Tried and made no difference: every `VBC_SYSTEM_DEV_CHANGE` / `VBC_CUSTM_DEV_CHANGE` device type,
+    `VBC_DL_MUTE`/`VBC_UL_MUTE` off, `VBC_VOLUME`, the whole codec output tree (`HPL/HPR Mixer DAC… Switch`,
+    `AO Mixer`, `EAR_…`, the `* Function` and `* Mute` controls), `Virt Output Switch` and `agdsp_access_en`.
+    The last two are worth knowing about anyway: they appear in the Whale HAL's own string table, along with
+    `VBC_SRC_BT_DAC`/`ADC`, `SYS_IIS1`/`SYS_IIS3`, `Inter PA Config` and `Codec Digital Access Disable` -
+    intersecting `amixer controls` with `strings` on `audio.primary.whale.so` is a cheap way to see the whole
+    vocabulary the vendor userspace uses.
+  * Care is needed here: two experiments in this area took the board down hard enough that slot B lost its
+    trial and LK rolled back to Android (recover with `boot/android-boot-linux.sh`, which only rewrites the
+    32-byte block in `misc`). Writing the Moto G35 AGDSP image was one; a sweep over capture and the DSP
+    loopback scene was the other.
 * How the profile mechanism works, since the above depends on it: the parameters come from the Whale HAL on
   Android, and `vbc_profile_loading()` fetches them with `request_firmware()` under the bare names `audio_structure`,
   `dsp_vbc`, `cvs` and `dsp_smartamp`, and checks a magic - so the kernel will load them from `/lib/firmware`
