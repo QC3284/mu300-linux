@@ -905,12 +905,19 @@ would log as "Power down" rather than "Restarting system".
   `struct audcp_status { u32 core_status; u32 sys_status; u32 sleep_status; }`, and `sys_status` is 0 for
   "power up finished" and 7 for "power off". After the first firmware write and start it read
   `core=0 sys=0 sleep=6` - the DSP was up. Read it with `od -An -tu4 -N12`.
-* **Still open: the start is not repeatable.** The first attempt after a boot brings the DSP up; later ones
-  leave `sys=7` with every step reporting success - `stop` accepted (and it does reset `ppos` and
-  `download_index`), 1536 records written, `ldinfo` showing the right load address and size (0xafa00000,
-  0x600000), `start` accepted, no kernel output at all. The suspicion is that the power request
-  `agdsp_access_enable` asserts has to be held across the start, and that the card bring-up at boot is what
-  provides that window once.
+* **The start is once per boot, and that is all it needs to be.** From the cold state (`sys=7 sleep=0`) it
+  works every time; re-running it on a DSP that has already been booted leaves `sys=7` with every step still
+  reporting success. `mu300-audio` does it once at boot, after the card, which is the only ordering that is
+  safe anyway.
+* **`sys` flips between 0 and 7 on its own** - that is the DSP's power management, not a failure. Reading the
+  status at an arbitrary moment says little; what says the path works is opening the endpoint:
+
+      [ASoC: PCM ] sprd_pcm_preallocate_dma_ddr32_buffer alloc size = 0x20000
+      [Audio:MEM] audio_mem_alloc mem_type=5 addr = 0xaf725000, size=0x20000
+      [ASoC: PCM ] sprd_pcm_close FE_DAI_ID_VOICE_PCM_P Close Playback
+
+  `/dev/snd/pcmC1D53p` opens and closes cleanly and takes its DMA buffer from the reserved region. What has
+  not been done is a call carrying audio through it.
 * Also worth knowing: the community Android module's `l_agdsp_a` symlink under `/dev/block/by-name` is for the
   Whale audio HAL, not the kernel - `sprd_audcp_boot` has no `request_firmware()` and no path of its own. The drivers load, the firmware
   writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
