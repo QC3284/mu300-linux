@@ -1069,10 +1069,13 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
     `VBC_SRC_BT_DAC`/`ADC`, `SYS_IIS1`/`SYS_IIS3`, `Inter PA Config` and `Codec Digital Access Disable` -
     intersecting `amixer controls` with `strings` on `audio.primary.whale.so` is a cheap way to see the whole
     vocabulary the vendor userspace uses.
-  * Care is needed here: two experiments in this area took the board down hard enough that slot B lost its
-    trial and LK rolled back to Android (recover with `boot/android-boot-linux.sh`, which only rewrites the
-    32-byte block in `misc`). Writing the Moto G35 AGDSP image was one; a sweep over capture and the DSP
-    loopback scene was the other.
+  * **Three things took the board down** hard enough that slot B lost its boot trial and LK rolled back to
+    Android. Recovery is `ANDROID_SERIAL=<the MU300> boot/android-boot-linux.sh <the image on boot_b>`, which
+    verifies `boot_b` and rewrites only the 32-byte block in `misc`. The three: writing the Moto G35 AGDSP
+    image; opening a **capture** stream (`arecord -D hw:1,0` with `S_NORMAL_AP01_C_CODEC` on, which died
+    before its first log line); and **reading AGCP-domain MMIO while the domain was powered down**. That last
+    one is the trap worth remembering - `0x56510000` (VBC), MCDT and the AGCP AHB syscon all hang the bus if
+    touched with the AGDSP asleep, so a "harmless read-only peek" is not harmless. Hold a PCM open first.
 * How the profile mechanism works, since the above depends on it: the parameters come from the Whale HAL on
   Android, and `vbc_profile_loading()` fetches them with `request_firmware()` under the bare names `audio_structure`,
   `dsp_vbc`, `cvs` and `dsp_smartamp`, and checks a magic - so the kernel will load them from `/lib/firmware`
