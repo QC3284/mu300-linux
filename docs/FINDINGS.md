@@ -875,6 +875,18 @@ would log as "Power down" rather than "Restarting system".
   it - `sprd_audcp_boot audiocp_boot: base_addr_phy = 0xafa00000, bin size = 0x600000`. There is no image in
   this repository and there cannot be: the project publishes no proprietary files, and unlike the Wi-Fi and
   modem firmware there is no copy on the device to take.
+* **The card registers: `sprdphone-sc2730`, 19 PCM devices, `FE_ST_VOICE_PCM_P` at card 1 device 53.** That
+  is the same card the community Android modules produce, and that endpoint is exactly what sipserver looks
+  for. `mu300-audio-dsp load` does it in one command and it survives a reboot.
+* **The last thing in the way was the DMA engine, and nothing says so.** `CONFIG_SPRD_DMA` is a module and
+  nothing pulls it in, so `/sys/class/dma` is empty, `sprd-pcm-audio` defers for want of a channel, its
+  component never registers, and `snd_soc_register_card` fails with `ASoC: failed to init link FE_NORMAL_AP01:
+  -517` - a message that names a link and says nothing about DMA. Loading `virt-dma` and `sprd-dma` brings up
+  two controllers with sixty channels, and `sprd-pcm-audio`, `sprd-pcm-iis` and `sprd-compr-audio` register
+  behind them.
+* The card's own probe runs before those components exist and **is not retried**: it returns 0 even when
+  `snd_soc_register_card` deferred, so nothing re-probes it. Binding `sound@0` again by hand once everything
+  is up is what completes it.
 * **Starting the DSP reboots the device, and that is where this stands.** The drivers load, the firmware
   writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
   a deliberate reboot from userspace, not a panic, so the machine is not crashing but something is asking it
