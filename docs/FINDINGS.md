@@ -890,7 +890,29 @@ would log as "Power down" rather than "Restarting system".
 * `mu300-audio` brings the card up at boot on both systems - a procd `boot()` that backgrounds itself, because
   binding takes about half a minute of waiting on probes and busybox init does not spawn the consoles until
   sysinit returns. It runs `load` and never `start`, so nothing at boot can reach the reboot below.
-* **Starting the DSP reboots the device, and that is where this stands.** The drivers load, the firmware
+* **Starting the DSP reboots the device only when the card is not registered.** Measured both ways: with
+  `sprdphone-sc2730` up, writing the firmware and the reset registers leaves the device running (uptime went
+  from 972 s to 1225 s across the attempt); with the card missing - which is what happens before `sprd-dma` is
+  loaded - the console shows an orderly CPU shutdown and `reboot: Restarting system` seconds later. It is a
+  deliberate reboot from userspace, not a panic. Registering the card is what exercises `agdsp_access_enable`,
+  so with no card the AGDSP power domain is never brought up and `start_store` writes `RESET_SEL`, `CORE_RESET`
+  and `SYS_RESET` into a domain that is off. `mu300-audio-dsp start` now refuses unless the card is present.
+  The register sequence itself was compared against the driver and the device tree and is not the problem:
+  `reset_sel` 0x0ba8/0xffffffff, `corereset` 0x0b88/0x1, `sysreset` 0x0b98/0x400000, `bootprotect` 0x0078 with
+  the 0x9620 magic, and the boot vector is written - "dsp reboot by DDR!" means the `dsp-reboot-mode` property
+  is absent and the mode is **0**, which is the branch that sets the vector.
+* **`status` is a struct, not a number**, which is why a working DSP looked like a failed one:
+  `struct audcp_status { u32 core_status; u32 sys_status; u32 sleep_status; }`, and `sys_status` is 0 for
+  "power up finished" and 7 for "power off". After the first firmware write and start it read
+  `core=0 sys=0 sleep=6` - the DSP was up. Read it with `od -An -tu4 -N12`.
+* **Still open: the start is not repeatable.** The first attempt after a boot brings the DSP up; later ones
+  leave `sys=7` with every step reporting success - `stop` accepted (and it does reset `ppos` and
+  `download_index`), 1536 records written, `ldinfo` showing the right load address and size (0xafa00000,
+  0x600000), `start` accepted, no kernel output at all. The suspicion is that the power request
+  `agdsp_access_enable` asserts has to be held across the start, and that the card bring-up at boot is what
+  provides that window once.
+* Also worth knowing: the community Android module's `l_agdsp_a` symlink under `/dev/block/by-name` is for the
+  Whale audio HAL, not the kernel - `sprd_audcp_boot` has no `request_firmware()` and no path of its own. The drivers load, the firmware
   writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
   a deliberate reboot from userspace, not a panic, so the machine is not crashing but something is asking it
   to restart. `start_store` writes `AUDCPBOOT_CTRL_SYS_RESET` and `CORE_RESET` through regmap, and on this
