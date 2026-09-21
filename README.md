@@ -205,7 +205,7 @@ Like the installer, it offers to reboot the device from Linux into Android first
 | Temperature control, status LEDs, SIM tray | ✅ |
 | Back to Android, automatic rollback | ✅ |
 | Screen output (HDMI over USB-C) | ✗ the USB-C power chip never answers, so no display |
-| Sound | ✗ the amplifier does not respond |
+| Sound | 🚧 the Unisoc card comes up (`sprdphone-sc2730`, 19 PCM devices) and `snd-aloop` gives a virtual one; the board has no speaker and the audio DSP is not started yet |
 | Mainline kernel (6.18) | 🚧 experimental, see [`upstream/`](upstream/) |
 
 ## How it works, in short

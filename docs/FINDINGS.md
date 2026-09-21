@@ -887,6 +887,9 @@ would log as "Power down" rather than "Restarting system".
 * The card's own probe runs before those components exist and **is not retried**: it returns 0 even when
   `snd_soc_register_card` deferred, so nothing re-probes it. Binding `sound@0` again by hand once everything
   is up is what completes it.
+* `mu300-audio` brings the card up at boot on both systems - a procd `boot()` that backgrounds itself, because
+  binding takes about half a minute of waiting on probes and busybox init does not spawn the consoles until
+  sysinit returns. It runs `load` and never `start`, so nothing at boot can reach the reboot below.
 * **Starting the DSP reboots the device, and that is where this stands.** The drivers load, the firmware
   writes, and a few seconds later the console shows an orderly CPU shutdown and `reboot: Restarting system` -
   a deliberate reboot from userspace, not a panic, so the machine is not crashing but something is asking it
