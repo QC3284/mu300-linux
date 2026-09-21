@@ -1122,11 +1122,13 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
       `0xb0000000` and covers this board's layout as well, so one boot image can host either.
       `kernel/patches/audio-mem-shm-shift.patch` adds `shm_shift` for the addresses that are absolute in the
       device tree rather than derived from the region.
-    * Tried: the Moto image at its own addresses (`ddr32_base=0xaf600000 dspbin_base=0xaf900000
-      dspbin_size=0x700000`), which the driver accepts - `ldinfo` reads `0xaf900000 / 7340032`. The board
-      survives, unlike at the wrong base, but the DSP does not answer: `failed to get command` and
-      `audio_sblock_thread: fail to send SMSG_CMD_SBLOCK_INIT to dsp`. The `shm_shift` half is not confirmed
-      working yet - `cmdaddr` still shows as `0xaf980000` in the SIPC trace - so this is not a clean negative.
+    * **The Moto image does not come up here, at its own addresses either.** With
+      `ddr32_base=0xaf600000 dspbin_base=0xaf900000 dspbin_size=0x700000 shm_shift=0x100000` the driver
+      reports `ldinfo 0xaf900000 / 7340032` and `cmdaddr is now 0xaf880000`, matching that board's device
+      tree, and the device stays up instead of dying as it does at the wrong base - and the DSP still never
+      answers (`failed to get command`, `audio_sblock_thread: fail to send SMSG_CMD_SBLOCK_INIT to dsp`).
+      The donor image answers on the first try at this board's own addresses. Whatever the Moto image wants
+      beyond a matching memory map, it is not the addresses.
     * Worth knowing if you pick that up: `audio_mem` has **three** DT parsers (whale2, sharkl2, sharkl5) and
       this board's node is `compatible = "unisoc,audio-mem-sharkl5"`. A change made in the whale2 one compiles,
       loads, accepts its module parameter and does nothing, which is a quiet way to lose an experiment.
