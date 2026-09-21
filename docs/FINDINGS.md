@@ -1082,6 +1082,21 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   until ALSA gives up and `aplay` reports `write error: I/O error`. 160 is exactly the `burst:160` the driver
   programs, and `/proc/interrupts` shows both `sprd_dma` lines at zero throughout: the DMA does one burst and
   then waits for a request from the VBC FIFO that never comes.
+  * **The VBC registers say the AP side did its job.** Read during a stalled stream (safe only then - see the
+    warning above), at `0x56510020`:
+
+        AUD_EN 0x00000300   AUD_DMA_EN 0x00000003   PLY_FIFO0_STS 0x000024a1   PLY_FIFO1_STS 0x000024a1
+        AUD_INT_EN 0x00000004   AUD_INT_STS 0x00000010
+
+    The playback FIFO is enabled, both DMA channels are on, and the FIFO's low nine bits read 0xa1 = **161
+    words sitting in it, unchanging** - which matches hw_ptr's 160 frames exactly. The DMA filled the FIFO
+    once; nothing is taking data out of it. In this design that consumer is the DSP.
+  * Parameters and modes are exhausted as an explanation. Both parameter sets were tried with the working
+    `param_id` 0x5e - the community's donor set from a ZTE Voyage 41S (which is the same T760/UMS9620 as this
+    board, and a phone with real audio) and the U30 Air's native set - across modes 0, 2, 7, 9, 28 and the
+    Loopback mode 63. Every one stalls identically. The two sets are equivalent where it would matter: their
+    `dsp_vbc` mode 7 is byte-identical, and `audio_structure` differs only in tuning (EQ curves, gains, an AEC
+    switch), so neither is a stripped-down build.
   * Everything around it checks out. The trigger path runs in full - `ap_vbc_fifo_clear`,
     `ap_vbc_fifo_enable enable=1`, `ap_vbc_aud_dma_chn_en enable=1`, then `aud_send_cmd_no_wait cmd: 0x7
     value2: 0x1` to start the DSP. The codec end is powered: `DAC: On`, `CLK_DAC: On`, `DIG_CLK_DAC_BUF: On`,
