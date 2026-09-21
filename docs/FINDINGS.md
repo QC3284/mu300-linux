@@ -969,17 +969,23 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
       [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up dsp) val = 0x20
       [sprd-aud-agdsp] agdsp_access_enable, ap_access_ena_reg (wake up done) val = 0x20
 
-  with no `wait agdsp power up timeout`, and `status` then reads `core=0 sys=0`. That was read here as "the DSP
-  is running" and written up as such. It is not: `agdsp_access_enable()` takes the power domain up through the
-  PMU whether or not the core has anything to execute. **The test that distinguishes them is the DSP's own
-  log** - a running AGDSP writes to `/dev/audio_dsp_log` over the audio SIPC sblock channel:
+  with no `wait agdsp power up timeout`, and `status` then reads `core=0 sys=0`. On its own that only says the
+  power domain came up, which `agdsp_access_enable()` does through the PMU whether or not the core has anything
+  to execute. It is not a test of the firmware.
+* **`/dev/audio_dsp_log` is not that test either, and believing it was cost an evening and a wrong writeup.**
+  It returns nothing (`sblock_receive wait interrupted`, `dsp_log_read: failed to receive block`) on a DSP that
+  is demonstrably running: this firmware simply does not log. "The log is silent, so the core is dead" was
+  stated here as a measurement and it was an inference, from one negative signal.
+* **The test that does settle it is `aud_send_cmd`'s own trace**, because its exit line is only reachable when
+  the DSP replied - an unanswered command retries four times and then leaves through `failed to get command`,
+  never printing it (`audio-sipc.c` around line 700). What the kernel actually logs here is
 
-      timeout 6 dd if=/dev/audio_dsp_log bs=1 count=64 | wc -c
+      [Audio:SIPC] aud_send_cmd out,cmd =5 id:0 ret-value:0,repeat_count=1
 
-  On this board that returns 0 and the kernel says `sblock_receive wait interrupted` / `dsp_log_read: failed to
-  receive block`. **The core is not executing the image.** `mu300-audio-dsp status` reports the two separately.
-* **This is not a Linux problem.** The Android community module has it too, in its own words - from
-  `f50_bluetooth_microphone_experimental`'s `service.sh`:
+  `repeat_count=1` is a reply on the first attempt. **The AGDSP is running and answering.** `mu300-audio-dsp`
+  reports power-up and liveness separately, and uses this for the second.
+* **Android does not get further than this either**, which is worth knowing before spending a week on it. Its
+  AudioCP times out too - from `f50_bluetooth_microphone_experimental`'s `service.sh`:
 
       # AudioCP still times out on F50 even with the donor memory layout. Keep the
       # probe manual so a failed 104-second codec loop cannot stall every boot.
@@ -1004,16 +1010,38 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   | corereset / sysreset / reset_sel | `0x64910b88` / `0xb98` / `0xba8` | all 0 | resets released |
 
   And the firmware really is in DDR: peeking `0xafa00000` shows `SharkL5_AUDCP_20…` where the file has it.
-* **The core is powered and still produces nothing.** With a PCM open, `status` reads `core=0 sys=0`, and
-  `agdsp_access` and `audiocp_boot` agree about that - they read the same register with the same mask
-  (`audcp_pmu_pwr_status4` / `sysstatus`, both phandle 4 offset `0x0544` mask `0x1f00`), so there is no
-  disagreement to chase there. Yet the DDR32 communication area at `0xaf700000` is byte-for-byte unchanged
-  before and during power-up: only the AP's own ring descriptors are in it. No SIPC, no log, no memory writes.
-  A powered core booting from a correct vector that writes nothing is a core executing something it cannot run.
-* That leaves the image, and the image is a **donor**: the community package took it from a SharkL5/L6 device
-  because the F50 has no `l_agdsp` partition to take one from (confirmed - the partition list has `ch_sys`,
-  `pm_sys`, `nr_modem`, `nr_phy` and nothing for audio, and a scan of `super` finds no `AUDCP` header either).
-  Getting past this needs a genuine Qogirn6pro/UMS9620 AGDSP image. Everything on the AP side is ready for one.
+* **Look at the right shared memory.** `0xaf700000` is `sprd,ddr32-dma`, a DMA buffer, and it holds only the
+  AP's own ring descriptors - staring at it and concluding "the core writes nothing" was another wrong
+  inference. The AP↔DSP mailbox is elsewhere, and the F50's own `/audio-mem-mgr` node gives every address:
+
+      sprd,ddr32-dma        0xaf700000 + 0x200000      sprd,cmdaddr          0xaf980000 + 0x400
+      sprd,ddr32-dspmemdump 0xaf900000 + 0x80000       sprd,smsg-addr        0xaf980400 + 0xa10
+      sprd,iram-ap-base     0x56800000                 sprd,shmaddr-dsp-vbc  0xaf981210 + 0x1400
+
+  `start` zeroes those areas (`sprd_audcp_memset_communication_area`), and they fill in again once the domain
+  powers: the ring header returns at `0xaf980400` with `0x07` and `0x01` appearing after it. That node also
+  settles the naming scare for good - its own `compatible` is `unisoc,audio-mem-sharkl5`, on a board whose
+  syscons are `sprd,ums9620-glbregs`. SharkL5 is Unisoc's lineage label here, not a different chip.
+* **The blocker is the DSP's profiles, not the DSP.** A PCM still fails with `write error: I/O error` while the
+  DSP answers control commands, because the data path needs configuration that on Android comes from the Whale
+  HAL. `vbc_profile_loading()` fetches it with `request_firmware()` under the bare names `audio_structure`,
+  `dsp_vbc`, `cvs` and `dsp_smartamp`, and checks a magic - so the kernel will load them from `/lib/firmware`
+  with no HAL involved, and writing 1 to the matching `… Profile Update` mixer control is what triggers it:
+
+      struct vbc_fw_header { char magic[16]; u32 num_mode; u32 len_mode; };   /* "audio_profile" */
+      /* then num_mode * len_mode bytes of packed mode data */
+
+  The community's donor-params module ships the same three as XML for `/odm/etc/audio_params/sprd`, and those
+  carry exactly what the header needs - `<dsp_vbc … num_mode="0x48" struct_size="0x6c4">` and then every field
+  with its `offset`, `bits` and `val`. Converting XML to this binary is the open piece of work that replaces
+  the HAL here.
+* The F50 has no `l_agdsp` partition to take an image from (the list has `ch_sys`, `pm_sys`, `nr_modem`,
+  `nr_phy` and nothing for audio). A genuine Qogirn6pro image does exist and is easy to fetch: Motorola's
+  Moto G35 (UMS9620, codename *manila*) ships `QogirN6Pro_AUDCP_DSP_lit_dm.bin`, 6 MiB, in its official
+  firmware - and its header reads `SharkL5_AUDCP_2024Y_VER_5003`, same lineage label as the donor's 2022 build,
+  with byte-identical entry code at `+0x80`. Loading it in place of the donor took the board down hard enough
+  that slot B lost its trial and LK rolled back to Android, so it is not a drop-in; the donor image is the one
+  that runs.
 * Things that are *not* the cause, each checked: the firmware is byte-identical to the image Android uses
   (sha256 `378ceea7…b937`, and the module verifies that same hash); the memory is genuinely reserved
   (`/sys/kernel/debug/memblock/reserved` shows `0xaf700000..0xafffffff`, 3 MiB + 6 MiB); `ldinfo` agrees at
