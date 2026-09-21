@@ -1022,9 +1022,30 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   powers: the ring header returns at `0xaf980400` with `0x07` and `0x01` appearing after it. That node also
   settles the naming scare for good - its own `compatible` is `unisoc,audio-mem-sharkl5`, on a board whose
   syscons are `sprd,ums9620-glbregs`. SharkL5 is Unisoc's lineage label here, not a different chip.
-* **The blocker is the DSP's profiles, not the DSP.** A PCM still fails with `write error: I/O error` while the
-  DSP answers control commands, because the data path needs configuration that on Android comes from the Whale
-  HAL. `vbc_profile_loading()` fetches it with `request_firmware()` under the bare names `audio_structure`,
+* **The profiles load from `/lib/firmware`, and `tools/vbc-profile` builds them.** Writing 1 to
+  `Audio Structure Profile Update` / `DSP VBC Profile Update` / `CVS Profile Update` gives
+  `vbc_profile_loading, return 0` for blobs converted from the vendor XML, and writing a mode to the matching
+  `… Profile Select` then applies it (`vbc_profile_try_apply, now_mode[0]=0`) and sends the DSP a 620-byte
+  parameter payload it acknowledges. The one thing about the XML that is not guessable: **`id` is an offset
+  into the whole mode array, not into the mode it appears in** - mode 1's first field is at `struct_size`,
+  mode 2's at twice that. Reading it as per-mode puts every field but mode 0's out of range, and the converter
+  checks the two readings against each other (`byte_off // len_mode` against the element's own `mode=`) so the
+  mistake cannot come back silently.
+* **`[MCDT] agcp mcdt clocl not available` is a teardown artifact, not the fault.** It appears *after*
+  `sprd_pcm_hw_free`, once `agdsp_access_disable()` has dropped the power domain and the AGCP AHB status reads
+  back empty. During setup the same block reports `mcdt_dac_dma_enable … mcdt_dma_ap_channel=1` and is fine.
+  `MODULE_EB0_STS` at `0x64900000` reads `0x2063e2d1` throughout, with `AUD_EB_V2` (bit 21), `AUDIF_CKG_AUTO_EN_V2`
+  (bit 22) and `VBC_EB_V2` (bit 15) all set.
+* **Where it actually stops** - measured from `/proc/asound/card1/pcm0p/sub0/status` during a playback attempt:
+
+      state: RUNNING   hw_ptr: 160   appl_ptr: 24160   avail: 0      (unchanged from t=2s to t=10s)
+
+  The DMA advances **once**, by 160 frames, and then freezes with the application blocked on a full buffer,
+  until ALSA gives up and `aplay` reports `write error: I/O error`. So the path is wired end to end and the DSP
+  takes a first chunk - what is missing is whatever makes it come back for the second. That is the open
+  question; it is not the firmware, the memory, the routes, or the profiles, all of which are now accounted for.
+* How the profile mechanism works, since the above depends on it: the parameters come from the Whale HAL on
+  Android, and `vbc_profile_loading()` fetches them with `request_firmware()` under the bare names `audio_structure`,
   `dsp_vbc`, `cvs` and `dsp_smartamp`, and checks a magic - so the kernel will load them from `/lib/firmware`
   with no HAL involved, and writing 1 to the matching `… Profile Update` mixer control is what triggers it:
 
@@ -1033,8 +1054,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
   The community's donor-params module ships the same three as XML for `/odm/etc/audio_params/sprd`, and those
   carry exactly what the header needs - `<dsp_vbc … num_mode="0x48" struct_size="0x6c4">` and then every field
-  with its `offset`, `bits` and `val`. Converting XML to this binary is the open piece of work that replaces
-  the HAL here.
+  with its `offset`, `bits` and `val`. `tools/vbc-profile` converts one to the other.
 * The F50 has no `l_agdsp` partition to take an image from (the list has `ch_sys`, `pm_sys`, `nr_modem`,
   `nr_phy` and nothing for audio). A genuine Qogirn6pro image does exist and is easy to fetch: Motorola's
   Moto G35 (UMS9620, codename *manila*) ships `QogirN6Pro_AUDCP_DSP_lit_dm.bin`, 6 MiB, in its official
