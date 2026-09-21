@@ -724,6 +724,35 @@ would log as "Power down" rather than "Restarting system".
   runs `up` again after two failed checks; `mobile-data down` sets `/run/mu300-mobile-data-down` so a manual disconnect
   is respected. Verified by switching the radio off: data returned without intervention.
 
+### 26d. USSD, and the AT lock that made the channel look dead
+Three separate traps, and the first one hid the other two for an evening. `mu300-ussd` handles all three.
+
+* **The AT lock meant two things at once.** `/run/mu300-at/lock` was both "`mu300-atd` holds the channel", which
+  lasts for the life of the system, and "one client at a time", which lasts for one command. Whichever ran second
+  won: a client removed the daemon's directory as it exited, after which the lock behaved as a plain client mutex
+  and everything worked — so the collision stayed invisible. Restart the daemon and it takes the directory back,
+  and from that moment every client waits out its full 90 s and prints `mu300-at: busy` at a completely idle
+  modem. Ownership is now `/run/mu300-at/owner`; `lock` is the client mutex alone.
+  * The failure looks exactly like a wedged SIPC channel, which sends you after the modem instead of the lock.
+    What tells them apart: `cat /run/mu300-at/owner/pid` against `ps`, and whether `+CSQ` is still ticking in
+    `urc/stty_nr0.log` — a wedged channel goes quiet, a blocked lock does not.
+  * Do not diagnose this by polling `mu300-at` in a loop. Each call takes the client lock, so the loop queues up
+    behind the command already waiting for its answer and genuinely jams what was only blocked.
+* **A USSD code has to be sent as hex.** `AT+CUSD=1,"*101#",15` answers `+CME ERROR: 3`, and still does after
+  `AT+CSCS="GSM"` — so this is not the character set behaving as documented. `AT+CUSD=1,"2A31303123",15` is
+  accepted whatever `AT+CSCS` says.
+* **The answer arrives on a different channel than the command.** The command gets a bare `OK` on `/dev/stty_nr1`;
+  the `+CUSD` turns up seconds later on nr0, the unsolicited channel. Anything waiting for it on nr1 waits for
+  ever. `mu300-atd`'s drainer logs nr0 to `/run/mu300-at/urc/stty_nr0.log`, and that log is what to read — waiting
+  on a file also costs the modem nothing, which is the point after the trap above.
+* `drain()` in `mu300-atd` now appends what it reads to `urc/stty_nr1.log` instead of discarding it, so a late
+  answer on the command channel is recoverable too. `+CMTI` (a new SMS) lands there the same way.
+* The third `+CUSD` field is a **CBS** coding scheme, not an SMS one: 15 is the GSM alphabet, 72 is UCS2, which is
+  what a Turkish menu comes back as. The body is hex-dumped one byte per character, not packed septets.
+  `awk -v mode=ussd -v hex=... -v dcs=... -f sms-pdu.awk` decodes both.
+* Verified end to end: `mu300-ussd '*101#'` returns the SIM's own number, and a `dcs=72` body decodes with its
+  Turkish characters intact.
+
 ### 27. Where the missing ~550 MiB of RAM goes
 * `Memory: 1430144K/2097084K available ... 617788K reserved`. The device tree reserves 464 MiB for the modem firmware
   (`cp-modem@88000000`, needed for 4G/5G), 24 MiB for Trusty (`tos-mem`), 8 MiB SIPC shared memory, 3 MiB DDR training
