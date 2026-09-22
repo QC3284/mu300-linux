@@ -679,8 +679,14 @@ rule prefs and table (9000-9010, table 2022): Xray's own sockets carry mark `0x2
 and the server's address; everything else goes to `xtun`. The device's own DNS - dnsmasq's upstream, which is the
 carrier resolver and does not answer from the far end of a tunnel - is DNAT'd to `REMOTE_DNS`. Every exit path
 removes all of it, because routing left behind by a dead engine is what made sing-box's crashes look like a dead
-modem. The same mark means the kill switch should apply unchanged, but that has not been measured with Xray yet,
-so the example config ships with `KILL_SWITCH=0`.
+modem.
+
+The kill switch does **not** carry over, even though Xray's sockets carry the same mark: before the tunnel exists
+the server's name is resolved through dnsmasq and its certificate fetched with openssl, both unmarked, and the kill
+switch drops both - the engine never comes up and the device is left with nothing. sing-box does its bootstrap
+lookup on its own marked socket, which is why it never had this problem. So an unset `ENGINE` picks sing-box when
+`KILL_SWITCH=1` (what an updated device with an old `vpn.conf` has), and `ENGINE=xray` with the kill switch on
+runs without it and says so.
 
 Measured on OpenWrt: the device's exit IP is the server's, `apk add` works through the tunnel, and a Wi-Fi client's
 flows are forwarded into `xtun`. The Ubuntu side uses the same script but has not been run on the device.
