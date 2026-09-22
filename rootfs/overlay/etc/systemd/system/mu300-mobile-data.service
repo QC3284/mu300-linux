@@ -10,6 +10,8 @@ Wants=mu300-vendor.service mu300-atd.service
 Type=oneshot
 RemainAfterExit=yes
 # the modem needs a little time after "Modem Alive" before the SIM answers
+# APN and PDP type, if the carrier needs them set; absent is fine (the leading - makes it optional)
+EnvironmentFile=-/etc/mu300/mobile-data.conf
 ExecStartPre=/bin/sleep 15
 ExecStart=/opt/mu300/bin/mobile-data up
 ExecStop=/opt/mu300/bin/mobile-data down

@@ -8,6 +8,8 @@ Wants=mu300-mobile-data.service
 
 [Service]
 Type=simple
+# APN and PDP type, if the carrier needs them set; absent is fine (the leading - makes it optional)
+EnvironmentFile=-/etc/mu300/mobile-data.conf
 ExecStart=/opt/mu300/bin/mobile-data watch
 Restart=always
 RestartSec=30
