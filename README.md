@@ -45,11 +45,14 @@ Your device must already be **rooted and unlocked** (it must already boot a modi
 need `adb` on your computer. Getting to that point is not part of this project.
 
 > **Warning.** Installing writes to the `boot_b` and `misc` partitions. If something goes badly wrong you may need a
-> recovery tool (SPD/BROM) to revive the device. Android, its data and the partition table are never modified, but
-> there is always some risk. Nothing here is endorsed by ZTE or Unisoc.
+> recovery tool (SPD/BROM) to revive the device. On the usual 64 GB device Android, its data and the partition table
+> are never modified. The **32 GB variant** is the exception: it has no free space at all, and the installer offers to
+> make some by shrinking `userdata` — that rewrites the partition table and erases everything in Android, it is
+> experimental, and it asks first. Take a full backup with `tools/backup-device.sh` before going that way.
+> There is always some risk. Nothing here is endorsed by ZTE or Unisoc.
 
 **What protects you:**
-* Linux is installed into empty, unused space on the internal storage; Android's partitions are not touched.
+* Linux is installed into empty, unused space on the internal storage; Android's partitions are not touched (except on the 32 GB variant, where you can choose to shrink `userdata` to create that space).
 * Linux starts as a "trial boot". If it fails to start, the bootloader returns to Android by itself.
 * `./uninstall.sh` puts everything back.
 
@@ -80,8 +83,13 @@ repository: it contains your IMEI.
 .\install.ps1 -Check          # Windows (PowerShell)
 ```
 
-It reports the storage size, where Android's partitions end and how much free space follows them. On the tested
-devices that is about 32 GiB. If yours shows much less, stop and open an issue.
+It reports the storage size, where Android's partitions end and how much free space follows them. On the 64 GB
+device that is about 32 GiB.
+
+If it reports none at all, you have the **32 GB variant**, where `userdata` fills the disk. The installer can make
+room by shrinking it — that erases everything in Android and rewrites the partition table, so it is experimental
+and it asks first. Back the device up with `tools/backup-device.sh` before saying yes. If the numbers look like
+neither case, stop and open an issue with what `--check` printed; they identify the variant.
 
 **Step 2 — install.**
 
@@ -125,6 +133,7 @@ copied from Android.
 | Make it faster, or cooler and quieter | `sudo mu300-toolkit profile performance` (also `eco`, `balanced`) |
 | Test stability under load | `sudo mu300-toolkit stress all 10` |
 | Check the mobile connection | `sudo mobile-data status` |
+| Set the APN | Ubuntu: `/etc/mu300/mobile-data.conf` (`MU300_APN`, `MU300_PDP_TYPE`). OpenWrt: LuCI → Network → Interfaces → wan, or `uci set network.wan.apn='…'; uci commit network; ifup wan`. Leave it empty to keep the context the SIM defines, which is what most carriers expect |
 | Change the Wi-Fi name or password | edit `/etc/mu300/hotspot.conf`, then `sudo systemctl restart mu300-hotspot` |
 | Connect the device to someone else's Wi-Fi | `sudo mu300-toolkit` → Network → Wi-Fi → "Join a network", or `sudo wifi-client scan` then `sudo wifi-client connect "NAME" "PASSWORD"` |
 | Update to the newest release | `sudo mu300-update check` then `sudo mu300-update apply` |
@@ -180,12 +189,16 @@ With the device back in Android:
 ```
 
 It makes Android the boot system again, restores the second boot partition and erases the Linux filesystem. Your
-Android data is left alone. You choose how thorough the erase is:
+Android data is left alone, unless you ask it to give the space back (see below). You choose how thorough the erase is:
 
-* **secure** (default) — overwrites the whole 32 GiB region and then verifies it is empty, so your files are really
+* **secure** (default) — overwrites the whole Linux region and then verifies it is empty, so your files are really
   gone. Takes a few minutes.
 * **quick** — only erases the filesystem headers; the files stay readable on the flash until the space is reused.
 * **keep** — leaves the Linux filesystem alone; it simply never boots again.
+
+If you shrank `userdata` to make room on the 32 GB variant, it then offers to grow it back over the freed space.
+That is off by default and asks twice, because on the 64 GB device the same answer would hand Android the free
+area it has always had — and like the shrink, it erases Android's data again.
 
 Like the installer, it offers to reboot the device from Linux into Android first.
 
@@ -200,12 +213,12 @@ Like the installer, it offers to reboot the device from Linux into Android first
 | SSH, telnet | ✅ |
 | Bluetooth | ✅ BlueZ, scanning works |
 | GPU (Mali-G57) | ✅ OpenCL 3.0, headless |
-| Storage | ✅ about 32 GB in the unused area of the internal eMMC |
+| Storage | ✅ about 32 GB in the unused area of the internal eMMC on the 64 GB device; on the 32 GB one you choose the split with Android |
 | RAM | ✅ 1.4 GB usable (the modem firmware keeps the rest) |
 | Temperature control, status LEDs, SIM tray | ✅ |
 | Back to Android, automatic rollback | ✅ |
 | Screen output (HDMI over USB-C) | ✗ the USB-C power chip never answers, so no display |
-| Sound | 🚧 the Unisoc card comes up (`sprdphone-sc2730`, 19 PCM devices) and `snd-aloop` gives a virtual one; the board has no speaker and the audio DSP is not started yet |
+| Sound | 🚧 the card comes up (`sprdphone-sc2730`, 19 PCM devices), the audio DSP loads and answers, and calls connect — but no audio moves: every scene takes one buffer and stops. Android does not get further on this board either ([FINDINGS 24](docs/FINDINGS.md)) |
 | Mainline kernel (6.18) | 🚧 experimental, see [`upstream/`](upstream/) |
 
 ## How it works, in short
