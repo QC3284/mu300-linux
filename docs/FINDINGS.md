@@ -459,6 +459,54 @@ are easy to misread:
   `flow_ctrl` the per-FIFO enter/exit counts, and `sipa_eth/sipa_eth0/stats` the driver's own packet counters -
   which are the ones to trust, since a route pointing at the interface is not the same as packets reaching it.
 
+### 13g. The same dead downlink, a different cause: the PDP context, not the IPA
+The downlink stopped again, and every counter read exactly like 13f's "before" column: `rx_packets` 0 since
+boot, `SIPA_RM_RES_PROD_CP` released with ref 0, `suspend_stage = 0x3f`, `nic`'s `nrt = 1`. That invites the
+13f diagnosis a second time. It was wrong. `AT+CGACT?` answered:
+
+    +CGACT:1,0
+    +CGACT:11,1
+
+The internet context was gone while the IMS context stayed up, and `sipa_eth0` still carried the address from
+the previous call - so `ip addr` and every check built on it kept passing. `mobile-data up` brought cid 1 back,
+the interface took a new address, and `rx_packets` moved on the first DNS query. Nothing about the IPA, the
+delegate or the kernel was involved.
+
+**An idle link reads as a broken one.** SIPA runtime-suspends a few seconds after the last packet. Suspended,
+`suspend_stage` is `0x3f` (`SIPA_SUSPEND_MASK`, the value `sipa_probe` starts from), every resource is
+Released and `alloc_skb_cnt` is 0, because the receive buffers are posted on resume and handed back on
+suspend. That is the normal idle state, not a fault: `docs/reference/android-ipa-state.txt` section 15 shows
+Android cycling through it every few seconds. In `sipa/nic`, `rc` and `sc` count resumes and suspends - awake
+is `rc == sc + 1`, and `rc == sc` only means nothing has been sent lately. **None of these counters mean
+anything unless traffic is actually leaving while you read them.** Drive the link first, then look.
+
+Two things make "traffic is leaving" much harder to establish than it sounds, and both produced false
+positives here before the real cause turned up:
+
+* **sing-box's tun answers ICMP itself.** Its `ip rule` set sends locally generated packets into table 2022
+  as well (pref 9001 `lookup 2022 suppress_prefixlength 0`, and the tunnel routes are `0.0.0.0/1` and
+  `128.0.0.0/2`, which a prefix-length-0 suppression does not catch), so binding the source with
+  `ping -I <cellular address>` does not escape it either. Every ping then succeeds in well under a
+  millisecond while `sipa_eth0`'s `tx_packets` never moves. A sub-millisecond reply from a public address is
+  the tell. Stop sing-box before believing any ping, and check `tx_packets` alongside it.
+* **The kill-switch turns the next attempt into a different lie.** With sing-box stopped but the firewall up,
+  the same ping returns `sendto: Operation not permitted` - an EPERM from `table inet mu300_vpn`, which reads
+  like the modem refusing traffic. Both have to be down, or the test has to be a hole punched in
+  `accept_to_wan` and taken straight back out.
+
+The carrier answers DNS but drops ICMP to 8.8.8.8, so a failed ping is not evidence either way on this SIM.
+Resolve a name against the address `AT+CGCONTRDP` hands back and watch `rx_packets`; that is the cheap test
+that does not lie.
+
+**A cosmetic write could take the data call down with it.** `mobile-data`'s `up()` ends by putting the blue
+LED on. The PMIC rejected that write once (`echo: write error: Invalid argument`), and under `set -euo
+pipefail` the `&&` list failing ended the function one line before it reported success - after the context was
+already up. So the call was live and the caller saw a failure. The LED writes go through a `led()` helper now
+that cannot fail. Worth remembering for any other cosmetic side effect in a path that matters.
+
+Still open: `mobile-data watch` was running and its check does look at `AT+CGACT?`, so it should have caught
+the dropped context and reconnected. It did not, and this round did not establish why.
+
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
 at 89 s - and stayed quiet until a reboot. It was neither the modem nor the channel: writing an AT command left
