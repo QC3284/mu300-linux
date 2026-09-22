@@ -15,7 +15,7 @@
 [CmdletBinding()]
 param(
     [switch]$Check,
-    [string]$Release = 'v2026.09.22',
+    [string]$Release = '',   # empty: the newest published release
     [string]$ReleaseUrl,
     [string]$Repo = 'dikeckaan/mu300-linux',
     [string]$Work = (Join-Path $PSScriptRoot 'work')
@@ -279,6 +279,13 @@ if ($gpu -eq 'yes' -and -not (Test-Path "$Work\android-gpu-subset")) {
     Python "$Top\android-vendor\pull_closure.py" /vendor/lib64/libOpenCL.so /vendor/lib64/egl/libGLES_mali.so /vendor/lib64/hw/vulkan.ums9620.so
 }
 
+if (-not $Release) {
+    if ($ReleaseUrl) { $Release = 'custom' }
+    else {
+        try { $Release = (Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing).tag_name }
+        catch { Die "cannot find the newest release of $Repo (use -Release <tag> to pick one)" }
+    }
+}
 Say "Downloading release $Release"
 $REL = "$Work\release\$Release"
 New-Item -ItemType Directory -Force -Path $REL | Out-Null

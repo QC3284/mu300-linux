@@ -9,7 +9,8 @@
 #   ./install.sh                 install Ubuntu, OpenWrt or both from the prebuilt release images
 #   ./install.sh --build         build kernel outputs/root filesystems locally instead (see README "Build and run")
 #
-# Prebuilt: needs adb, python3, lz4, curl. Downloads the images of release $MU300_RELEASE and checks their sha256.
+# Prebuilt: needs adb, python3, lz4, curl. Downloads the images of the newest release (or $MU300_RELEASE) and checks
+# their sha256.
 # Build:    needs adb, docker, python3, lz4 and the kernel outputs in $MU300_KERNEL_OUT (default: out/, kernel/build-all.sh).
 # The published images contain no proprietary files: Wi-Fi/Bluetooth firmware and the Android modem/GPU userspace are
 # pulled from *your* device into $MU300_WORK (default: work/), never leave the host except to your device.
@@ -18,7 +19,9 @@ TOP=$(cd "$(dirname "$0")" && pwd)
 KOUT=${MU300_KERNEL_OUT:-$TOP/out}
 WORK=${MU300_WORK:-$TOP/work}
 OWRT_VER=25.12.5
-RELEASE=${MU300_RELEASE:-v2026.09.22}
+# empty: the newest published release, looked up when it is needed. It used to be a fixed tag that nobody
+# remembered to move, so new installs kept getting an old release long after fixes were published.
+RELEASE=${MU300_RELEASE:-}
 REPO=${MU300_REPO:-dikeckaan/mu300-linux}
 T=/data/local/tmp
 MODE=prebuilt; CHECK_ONLY=0
@@ -363,6 +366,14 @@ fi
 
 if [ $MODE = prebuilt ]; then
 # ---------------------------------------------------------------- prebuilt images
+if [ -z "$RELEASE" ]; then
+    if [ -n "${MU300_RELEASE_URL:-}" ]; then RELEASE=custom
+    else
+        RELEASE=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+            | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+        [ -n "$RELEASE" ] || die "cannot find the newest release of $REPO (set MU300_RELEASE=<tag> to pick one)"
+    fi
+fi
 REL=$WORK/release/$RELEASE
 mkdir -p "$REL"
 # MU300_RELEASE_URL: another location with the same files (e.g. a local test server)
