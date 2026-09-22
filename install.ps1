@@ -220,6 +220,25 @@ if ($OSES.Count -eq 2) {
     if ($BOOT_OS -notin @('ubuntu', 'openwrt')) { Die 'invalid system' }
 }
 $DEFAULT_LINUX = if ((Ask 'Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)' 'yes') -eq 'yes') { 1 } else { 0 }
+$BOOT_ATTEMPTS = 5
+if ($DEFAULT_LINUX -eq 1) {
+    Write-Host ''
+    Write-Host '  How many failed Linux boots in a row before the device goes back to Android by itself?'
+    Write-Host ''
+    Write-Host '  A boot counts as failed when it never finishes starting up - the power goes, the battery runs out, or'
+    Write-Host '  Linux hangs - before about a minute after power-on. One boot that does finish resets the count.'
+    Write-Host ''
+    Write-Host '  * Higher is more forgiving: a flaky cable or a couple of power cuts while it is starting will not throw you'
+    Write-Host '    back into Android.'
+    Write-Host '  * Lower gets you to Android sooner if Linux is really broken.'
+    Write-Host '  * It is also your way back to Android with no computer at hand: cut the power while it is starting this'
+    Write-Host '    many times in a row.'
+    Write-Host ''
+    Write-Host '  1 is how this project used to behave (a single interrupted boot returns to Android). 1-6; the device''s'
+    Write-Host '  boot counter has no room for more. It can be changed later with: mu300-next-boot attempts N'
+    $BOOT_ATTEMPTS = Ask 'Failed boots before Android (1-6)' '5'
+    if ($BOOT_ATTEMPTS -notmatch '^[1-6]$') { Die 'enter a number from 1 to 6' }
+}
 $IMPORT_HOTSPOT = if ((Ask "Copy Android's hotspot name and password to Linux? (yes/no)" 'yes') -eq 'yes') { 1 } else { 0 }
 $gpu = Ask 'Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)' 'yes'
 $FORMAT = 0; $WIPE_LEGACY = 0; $UPDATE = 0
@@ -306,7 +325,7 @@ Python "$Top\boot\build-boot-image.py" --stock-boot "$Work\dumps\boot_a.img" --m
 Say 'Ready to install'
 Write-Host "  source:         prebuilt release $Release + vendor files from this device"
 Write-Host "  systems:        $($OSES -join ' ') (boots: $BOOT_OS)"
-Write-Host "  default boot:   $(if ($DEFAULT_LINUX -eq 1) { 'Linux' } else { 'Android, Linux on demand' })"
+Write-Host "  default boot:   $(if ($DEFAULT_LINUX -eq 1) { "Linux (Android after $BOOT_ATTEMPTS failed boots in a row)" } else { 'Android, Linux on demand' })"
 Write-Host "  filesystem:     $(if ($FORMAT -eq 1) { 'CREATE new ext4 (erases the Linux region)' } else { 'keep existing' })"
 if ($UPDATE -eq 1) { Write-Host '  update:         settings and user data of the chosen systems are kept, everything else is replaced' }
 Write-Host "  writes:         Linux region at offset $OFF, boot_b, 32 bytes of misc (boot_a, GPT and userdata are not touched)"
@@ -320,7 +339,7 @@ foreach ($os in $OSES) {
 }
 $envFile = "$Work\mu300-install.env"
 $lines = @("OFF=$OFF", "SIZE=$SIZE", "OFF_S=$($OFF / 512)", "SIZE_S=$($SIZE / 512)", "FORMAT=$FORMAT",
-    "OSES=`"$($OSES -join ' ')`"", "WIPE_LEGACY=$WIPE_LEGACY", "UPDATE=$UPDATE", "BOOT_OS=$BOOT_OS", "DEFAULT_LINUX=$DEFAULT_LINUX",
+    "OSES=`"$($OSES -join ' ')`"", "WIPE_LEGACY=$WIPE_LEGACY", "UPDATE=$UPDATE", "BOOT_OS=$BOOT_OS", "DEFAULT_LINUX=$DEFAULT_LINUX", "BOOT_ATTEMPTS=$BOOT_ATTEMPTS",
     "IMPORT_HOTSPOT=$IMPORT_HOTSPOT", "PWHASH='$PWHASH'")
 WriteUnix $envFile (($lines -join "`n") + "`n")
 & adb push $envFile "$T/mu300-install.env" | Out-Null

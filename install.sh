@@ -289,6 +289,27 @@ BOOT_OS=${OSES%% *}
 [ "$choice" = 3 ] && { ask BOOT_OS "Which one should boot (ubuntu/openwrt)" ubuntu; case $BOOT_OS in ubuntu|openwrt) ;; *) die "invalid system" ;; esac; }
 ask dl "Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)" yes
 DEFAULT_LINUX=0; [ "$dl" = yes ] && DEFAULT_LINUX=1
+BOOT_ATTEMPTS=5
+if [ $DEFAULT_LINUX = 1 ]; then
+    cat <<'TXT'
+
+  How many failed Linux boots in a row before the device goes back to Android by itself?
+
+  A boot counts as failed when it never finishes starting up - the power goes, the battery runs out, or
+  Linux hangs - before about a minute after power-on. One boot that does finish resets the count.
+
+  * Higher is more forgiving: a flaky cable or a couple of power cuts while it is starting will not throw you
+    back into Android.
+  * Lower gets you to Android sooner if Linux is really broken.
+  * It is also your way back to Android with no computer at hand: cut the power while it is starting this
+    many times in a row.
+
+  1 is how this project used to behave (a single interrupted boot returns to Android). 1-6; the device's
+  boot counter has no room for more. It can be changed later with: mu300-next-boot attempts N
+TXT
+    ask BOOT_ATTEMPTS "Failed boots before Android (1-6)" 5
+    case $BOOT_ATTEMPTS in [1-6]) ;; *) die "enter a number from 1 to 6" ;; esac
+fi
 ask hs "Copy Android's hotspot name and password to Linux? (yes/no)" yes  # kept as-is when updating
 IMPORT_HOTSPOT=0; [ "$hs" = yes ] && IMPORT_HOTSPOT=1
 ask gpu "Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)" yes
@@ -427,7 +448,7 @@ python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --
 say "Ready to install"
 echo "  source:         $([ $MODE = prebuilt ] && echo "prebuilt release $RELEASE + vendor files from this device" || echo "local build")"
 echo "  systems:        $OSES (boots: $BOOT_OS)"
-echo "  default boot:   $([ $DEFAULT_LINUX = 1 ] && echo Linux || echo Android, Linux on demand)"
+echo "  default boot:   $([ $DEFAULT_LINUX = 1 ] && echo "Linux (Android after $BOOT_ATTEMPTS failed boots in a row)" || echo Android, Linux on demand)"
 echo "  filesystem:     $([ $FORMAT = 1 ] && echo "CREATE new ext4 (erases the Linux region)" || echo "keep existing")"
 [ $UPDATE = 1 ] && echo "  update:         settings and user data of the chosen systems are kept, everything else is replaced"
 [ $UPDATE = 0 ] && [ $FORMAT = 0 ] && echo "  note:           the chosen systems are installed fresh; their previous files and settings are replaced"
@@ -446,8 +467,8 @@ for os in $OSES; do
     fi
 done
 env=$(mktemp)
-printf 'OFF=%s\nSIZE=%s\nOFF_S=%s\nSIZE_S=%s\nFORMAT=%s\nOSES="%s"\nWIPE_LEGACY=%s\nUPDATE=%s\nBOOT_OS=%s\nDEFAULT_LINUX=%s\nIMPORT_HOTSPOT=%s\nPWHASH='"'"'%s'"'"'\n' \
-  "$OFF" "$SIZE" "$((OFF / 512))" "$((SIZE / 512))" "$FORMAT" "$OSES" "$WIPE_LEGACY" "$UPDATE" "$BOOT_OS" "$DEFAULT_LINUX" "$IMPORT_HOTSPOT" "$PWHASH" > "$env"
+printf 'OFF=%s\nSIZE=%s\nOFF_S=%s\nSIZE_S=%s\nFORMAT=%s\nOSES="%s"\nWIPE_LEGACY=%s\nUPDATE=%s\nBOOT_OS=%s\nDEFAULT_LINUX=%s\nBOOT_ATTEMPTS=%s\nIMPORT_HOTSPOT=%s\nPWHASH='"'"'%s'"'"'\n' \
+  "$OFF" "$SIZE" "$((OFF / 512))" "$((SIZE / 512))" "$FORMAT" "$OSES" "$WIPE_LEGACY" "$UPDATE" "$BOOT_OS" "$DEFAULT_LINUX" "$BOOT_ATTEMPTS" "$IMPORT_HOTSPOT" "$PWHASH" > "$env"
 adb push "$env" $T/mu300-install.env >/dev/null; rm -f "$env"
 su_do "sh $T/android-install.sh" | tee "$WORK/device-install.log"
 grep -q MU300-INSTALL-OK "$WORK/device-install.log" || die "installation on the device failed; boot_b and misc were not changed"

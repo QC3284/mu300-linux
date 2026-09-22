@@ -9,6 +9,7 @@
 #   UPDATE=0|1         keep the settings and user data of the systems being reinstalled
 #   BOOT_OS            system started by the initramfs
 #   DEFAULT_LINUX=0|1  keep booting Linux (otherwise every Linux boot is one-shot and returns to Android)
+#   BOOT_ATTEMPTS=1-6  with DEFAULT_LINUX=1: failed boots in a row before Android (.mu300/boot-attempts)
 #   PWHASH             SHA-512 crypt hash for the "ubuntu" (Ubuntu) and "root" (OpenWrt) accounts
 #   IMPORT_HOTSPOT=0|1 copy Android's hotspot SSID/passphrase into each system
 set -e
@@ -143,6 +144,7 @@ for os in $OSES; do
 done
 mkdir -p $M/.mu300
 echo "$BOOT_OS" > $M/.mu300/boot-os
+case ${BOOT_ATTEMPTS:-} in [1-6]) echo "$BOOT_ATTEMPTS" > $M/.mu300/boot-attempts ;; esac
 [ -n "$ssid" ] && say "hotspot: SSID $ssid imported (passphrase ${#psk} chars)"
 say "installed: $(ls -d $M/ubuntu $M/openwrt 2>/dev/null | sed "s|$M/||g" | tr '\n' ' ')boot-os=$BOOT_OS default-linux=$DEFAULT_LINUX"
 rm -f $T/mu300-install.env

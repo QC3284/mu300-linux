@@ -720,6 +720,33 @@ address around it: `ip rule add pref 8999 to <addr> lookup main`, test, delete t
 * Verified: `mu300-next-boot linux` + reboot returned to Linux and re-armed slot b; `mu300-next-boot android` + reboot
   booted slot a.
 
+**One interrupted boot was enough to lose Linux.** Re-arming with `tries = 2` gives Linux exactly one boot that
+may fail. `mu300-boot-ok` runs about a minute after power-on, so pulling the plug once during that minute - or
+a power cut, or a crash - sent the next boot to Android. The initramfs has its own counter meant to allow five
+such boots, but LK always got there first, so it never mattered. (`uboot_log` shows it plainly: `bootable slot 1
+... tries_remaining: 1, successful_boot: 0`, `check rollback slot 1 tries: 1`, `Booting slot_a`.)
+
+Now the user picks N, 1-6, at install (default 5; stored in `.mu300/boot-attempts` on the Linux disk, changed
+later with `mu300-next-boot attempts N`), and slot b is re-armed with `tries = N + 1`. LK decrements on every boot
+and rolls back at 1, so N boots in a row that never reach boot-ok are allowed and the next one is Android. The
+field is three bits, hence the upper limit. The initramfs counter now reads the same N and fires on the same
+boot, as a backstop.
+
+* The block is rebuilt at run time from the initramfs' `tries = 2` block, because `mu300-update` does not replace
+  the boot image and an older one carries only that block. Byte 14 is slot b's `prio | tries << 4 |
+  successful << 7`; the CRC-32 over the first 28 bytes comes from `gzip`, whose stream trailer is the same
+  CRC-32. Before writing anything the script rebuilds `tries = 2` and requires it to match the initramfs' block
+  byte for byte, and falls back to that block otherwise.
+* An older boot image still has the initramfs counter fixed at five, which sends a device to Android after four
+  failed boots whatever N says.
+* Measured with N = 5 on OpenWrt, with boot-ok suppressed for two boots: LK booted slot b from `tries = 6`, then
+  from 5, then from 4 - two unconfirmed boots in a row stayed in Linux - and the next good boot re-armed 6. Not
+  run to exhaustion; the rollback at `tries = 1` is the LK behaviour above.
+
+`mu300-os` also carries `default-boot` to the system it switches to. The initramfs reads it from the system it
+boots, so switching from one where Linux is the default to one where it was never set made the first reboot
+there go to Android.
+
 ## Parity with Android
 
 ### 18. Services and drivers Android runs that the minimal port lacked

@@ -138,6 +138,7 @@ copied from Android.
 | Connect the device to someone else's Wi-Fi | `sudo mu300-toolkit` → Network → Wi-Fi → "Join a network", or `sudo wifi-client scan` then `sudo wifi-client connect "NAME" "PASSWORD"` |
 | Update to the newest release | `sudo mu300-update check` then `sudo mu300-update apply` |
 | Switch between OpenWrt and Ubuntu | `sudo mu300-os openwrt` / `sudo mu300-os ubuntu` |
+| Failed boots in a row before it falls back to Android (1-6, default 5) | `sudo mu300-next-boot attempts N` |
 | Go back to Android | `sudo mu300-next-boot android`, then `sudo reboot` |
 | Return to Linux from Android | `su -c mu300-linux` on the device (see below), or `boot/android-boot-linux.sh boot-linux-slotb.img` from a computer |
 | Send all traffic through a VPN | see below |
