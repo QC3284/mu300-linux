@@ -2,6 +2,10 @@
 # MU300 / ZTE F50 Linux installer. Run on a macOS/Linux host with the device booted in rooted Android (adb + su).
 #
 #   ./install.sh --check         only inspect the device: is the free eMMC region there and empty? (writes nothing)
+#
+# On the 32 GB variant there is no free region at all (userdata fills the disk). The installer then offers
+# to shrink userdata to make one - EXPERIMENTAL, it rewrites the partition table and erases everything in
+# Android, so take a full backup with tools/backup-device.sh first.
 #   ./install.sh                 install Ubuntu, OpenWrt or both from the prebuilt release images
 #   ./install.sh --build         build kernel outputs/root filesystems locally instead (see README "Build and run")
 #
@@ -95,6 +99,118 @@ echo "device: $model"
 case "$model" in *MU300*|*F50*|*mu300*) ;; *) ask go "This does not look like a ZTE F50/MU300. Continue anyway? (yes/no)" no; [ "$go" = yes ] || exit 1 ;; esac
 [ "$(su_do 'getprop ro.boot.slot_suffix')" = _a ] || die "Android must be running from slot a"
 
+
+# ---------------------------------------------------------------- making room on a small eMMC (EXPERIMENTAL)
+# The 32 GB variant ships with userdata filling the disk, so there is no gap behind it and nothing to install
+# into. Space can be made by shrinking userdata, and only userdata: it is the **last** partition, so its end
+# moves and nothing else does - every other partition keeps its offset, and the AVB descriptors and the boot
+# chain stay valid. That is the entire safety argument, and it is why this refuses to touch anything else.
+#
+# It is still the most dangerous thing this installer can do. It rewrites the partition table and it erases
+# everything in Android. Reported and first done by hand in issue #2; treat it as experimental.
+offer_repartition() {
+    say "Not enough free space - this looks like the 32 GB variant"
+    mkdir -p "$WORK/gpt"
+    su_do "dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/gpt.head" >/dev/null
+    su_do "dd if=/dev/block/mmcblk0 bs=512 skip=$((disk - 33)) count=33 2>/dev/null > /data/local/tmp/gpt.tail" >/dev/null
+    adb pull /data/local/tmp/gpt.head "$WORK/gpt/gpt.head" >/dev/null 2>&1
+    adb pull /data/local/tmp/gpt.tail "$WORK/gpt/gpt.tail" >/dev/null 2>&1
+    su_do 'rm -f /data/local/tmp/gpt.head /data/local/tmp/gpt.tail' >/dev/null
+    [ -s "$WORK/gpt/gpt.head" ] && [ -s "$WORK/gpt/gpt.tail" ] || die "could not read the partition table"
+
+    # resize-last-partition.py validates both GPT copies and every CRC before it says anything
+    info=$(python3 "$TOP/tools/resize-last-partition.py" "$WORK/gpt/gpt.head,$WORK/gpt/gpt.tail" \
+             --disk-sectors "$disk" --name userdata --show) || die "$info"
+    LAST_FIRST=$(echo "$info" | sed -n 's/^LAST_FIRST=//p')
+    LAST_END=$(echo "$info" | sed -n 's/^LAST_END=//p')
+    USABLE_END=$(echo "$info" | sed -n 's/^USABLE_END=//p')
+    [ -n "$LAST_FIRST" ] && [ -n "$USABLE_END" ] || die "could not read the userdata entry from the partition table"
+
+    total=$((USABLE_END - LAST_FIRST + 1))         # sectors that userdata and Linux have to share
+    MIN_ANDROID=$((4 * 1024 * 1024 * 1024 / 512))  # below this Android has nowhere to put apps or updates
+    MIN_LINUX=$((800 * 1024 * 1024 / 512))         # OpenWrt alone, with room for one update
+    max_linux=$((total - MIN_ANDROID))
+    [ $max_linux -ge $MIN_LINUX ] || die "there is not enough room to split: $(gib $((total * 512))) in total,
+and Android needs at least $(gib $((MIN_ANDROID * 512))) of it. Nothing is changed."
+
+    echo
+    echo "  eMMC:                 $(gib $((disk * 512)))"
+    echo "  userdata now:         $(gib $((LAST_END - LAST_FIRST + 1))) (sectors $LAST_FIRST..$LAST_END)"
+    echo "  free behind it:       $(gib $(( (USABLE_END - LAST_END) * 512 )))"
+    echo "  to share:             $(gib $((total * 512)))"
+    echo
+    echo "  Linux needs at least  $(gib $((MIN_LINUX * 512))) (OpenWrt) / 1.6 GiB (Ubuntu) / 2.4 GiB (both)"
+    echo "  Android keeps at least $(gib $((MIN_ANDROID * 512)))"
+    echo
+    echo "  THIS IS EXPERIMENTAL. It rewrites the partition table and ERASES everything in Android -"
+    echo "  apps, photos, accounts, settings. Take a full backup first:  sh tools/backup-device.sh"
+    echo "  Only userdata changes size; it is the last partition, so nothing else moves."
+    echo
+    if [ $CHECK_ONLY = 1 ]; then
+        echo "  --check writes nothing. Run the installer without it to make room."
+        exit 0
+    fi
+    ask go "Make room by shrinking userdata? (yes/no)" no
+    [ "$go" = yes ] || die "nothing was changed."
+
+    while :; do
+        ask lin "How many GiB for Linux? (the rest stays with Android)" 4
+        case "$lin" in ''|*[!0-9.]*) echo "  give a number, like 4 or 2.5"; continue ;; esac
+        lin_s=$(awk -v g="$lin" 'BEGIN { printf "%d", (g * 1073741824) / 512 }')
+        lin_s=$(( (lin_s / 4096) * 4096 ))   # keep the boundary on a 2 MiB alignment
+        if [ "$lin_s" -lt $MIN_LINUX ]; then
+            echo "  too small: Linux needs at least $(gib $((MIN_LINUX * 512)))"
+        elif [ "$lin_s" -gt $max_linux ]; then
+            echo "  too large: Android would be left with less than $(gib $((MIN_ANDROID * 512)))"
+        else
+            break
+        fi
+    done
+    new_end=$((USABLE_END - lin_s))
+    echo
+    echo "  userdata (Android):   $(gib $(( (new_end - LAST_FIRST + 1) * 512 )))"
+    echo "  Linux region:         $(gib $((lin_s * 512)))"
+    echo
+    ask sure "Type ERASE to rewrite the partition table and wipe Android's data" ""
+    [ "$sure" = ERASE ] || die "nothing was changed."
+
+    say "Rewriting the partition table"
+    python3 "$TOP/tools/resize-last-partition.py" "$WORK/gpt/gpt.head,$WORK/gpt/gpt.tail" \
+        --disk-sectors "$disk" --name userdata --end-sector "$new_end" --out "$WORK/gpt/new" || die "the resize was refused; nothing is changed"
+    adb push "$WORK/gpt/new.head" /data/local/tmp/new.head >/dev/null 2>&1
+    adb push "$WORK/gpt/new.tail" /data/local/tmp/new.tail >/dev/null 2>&1
+    # the backup copy first: if power is lost between the two, the primary is still the old table and the
+    # device boots, which is the recoverable order
+    su_do "dd if=/data/local/tmp/new.tail of=/dev/block/mmcblk0 bs=512 seek=$((disk - 33)) conv=fsync 2>/dev/null" >/dev/null
+    su_do "dd if=/data/local/tmp/new.head of=/dev/block/mmcblk0 bs=512 conv=fsync 2>/dev/null" >/dev/null
+    su_do 'sync; rm -f /data/local/tmp/new.head /data/local/tmp/new.tail' >/dev/null
+
+    say "Verifying"
+    su_do "dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/gpt.head" >/dev/null
+    su_do "dd if=/dev/block/mmcblk0 bs=512 skip=$((disk - 33)) count=33 2>/dev/null > /data/local/tmp/gpt.tail" >/dev/null
+    adb pull /data/local/tmp/gpt.head "$WORK/gpt/after.head" >/dev/null 2>&1
+    adb pull /data/local/tmp/gpt.tail "$WORK/gpt/after.tail" >/dev/null 2>&1
+    su_do 'rm -f /data/local/tmp/gpt.head /data/local/tmp/gpt.tail' >/dev/null
+    check=$(python3 "$TOP/tools/resize-last-partition.py" "$WORK/gpt/after.head,$WORK/gpt/after.tail" \
+              --disk-sectors "$disk" --name userdata --show) || die "the table on the device does not read back as valid GPT.
+The backup copy at the end of the disk was written first, so Android's own repair may still fix this. Do not power off."
+    got=$(echo "$check" | sed -n 's/^LAST_END=//p')
+    [ "$got" = "$new_end" ] || die "the table did not take (userdata still ends at $got). Nothing else was changed."
+    echo "  userdata now ends at sector $got"
+
+    # Android cannot mount a filesystem that claims to be larger than its partition; clearing the superblocks
+    # is what makes it format /data cleanly on the next boot instead of bootlooping on a repair attempt.
+    say "Clearing Android's data filesystem so it is recreated on the next boot"
+    su_do "dd if=/dev/zero of=/dev/block/by-name/userdata bs=1M count=32 conv=fsync 2>/dev/null" >/dev/null
+
+    say "Done - the device has to reboot before the new layout is visible"
+    echo "  Android will set up its data partition again on this boot, which takes a few minutes."
+    echo "  When it is back, run this installer again and it will find the free space."
+    ask rb "Reboot now? (yes/no)" yes
+    [ "$rb" = yes ] && adb reboot
+    exit 0
+}
+
 # ---------------------------------------------------------------- free eMMC region
 say "Locating free eMMC space after the last partition"
 set -- $(su_do 'e=0; for p in /sys/block/mmcblk0/mmcblk0p*; do x=$(( $(cat $p/start) + $(cat $p/size) )); [ $x -gt $e ] && e=$x; done; echo $e $(cat /sys/block/mmcblk0/size)')
@@ -113,8 +229,9 @@ echo "eMMC: $(gib $((disk * 512))) ($disk sectors), partitions end at $(gib $((l
 # check the real requirement once the systems are known. There is nowhere else to put this region on these
 # devices: userdata is metadata-encrypted (dm-default-key), so an image file inside it cannot be read from
 # Linux, and the spare-looking blackbox and fulldumpdb partitions are written by the firmware itself.
-[ $SIZE -ge $((700 * 1024 * 1024)) ] || die "only $((SIZE / 1048576)) MiB of free space after the last partition: this device has a different layout, nothing is changed.
-Please report the numbers above (eMMC size and where the partitions end); they identify the variant."
+if [ $SIZE -lt $((700 * 1024 * 1024)) ]; then
+    offer_repartition   # exits, either by installing nothing or by rebooting for a second pass
+fi
 # an existing installation defines the region (it may have been created with a slightly different size)
 existing=no
 for cand in $OFF 27762098176; do

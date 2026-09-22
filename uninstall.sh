@@ -138,6 +138,63 @@ fi
 
 # never delete through a still mounted Linux filesystem
 su_do "grep -q \" $T/mu300root \" /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" >/dev/null
+
+# ---------------------------------------------------------------- giving the space back (EXPERIMENTAL)
+# Only for a device where the installer shrank userdata to make room (the 32 GB variant). Growing it back is
+# the same one-entry edit in reverse: userdata is the last partition, so its end moves and nothing else does.
+# Off by default, because on a device that was never shrunk this would hand the factory gap to Android - the
+# numbers below are printed so the choice is made on what is actually there.
+say "Checking whether userdata was shrunk to make room"
+GPTW=$(mktemp -d)
+su_do "dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/gpt.head" >/dev/null
+su_do "dd if=/dev/block/mmcblk0 bs=512 skip=$((disk - 33)) count=33 2>/dev/null > /data/local/tmp/gpt.tail" >/dev/null
+adb pull /data/local/tmp/gpt.head "$GPTW/gpt.head" >/dev/null 2>&1
+adb pull /data/local/tmp/gpt.tail "$GPTW/gpt.tail" >/dev/null 2>&1
+su_do 'rm -f /data/local/tmp/gpt.head /data/local/tmp/gpt.tail' >/dev/null
+if [ -s "$GPTW/gpt.head" ] && [ -s "$GPTW/gpt.tail" ] &&
+   info=$(python3 "$TOP/tools/resize-last-partition.py" "$GPTW/gpt.head,$GPTW/gpt.tail" \
+            --disk-sectors "$disk" --name userdata --show 2>/dev/null); then
+    u_first=$(echo "$info" | sed -n 's/^LAST_FIRST=//p')
+    u_end=$(echo "$info" | sed -n 's/^LAST_END=//p')
+    u_usable=$(echo "$info" | sed -n 's/^USABLE_END=//p')
+    free_gib=$(awk -v s=$((u_usable - u_end)) 'BEGIN { printf "%.1f", s * 512 / 1073741824 }')
+    echo "  userdata: sectors $u_first..$u_end ($(awk -v s=$((u_end - u_first + 1)) 'BEGIN { printf "%.1f GiB", s * 512 / 1073741824 }'))"
+    echo "  unused after it: $free_gib GiB"
+    echo
+    echo "  On the 64 GB variant about 32 GiB behind userdata is free from the factory - growing userdata"
+    echo "  there changes the device away from its original layout. Say yes only if this installer shrank it."
+    echo "  EXPERIMENTAL, and it erases Android's data again (the filesystem has to be recreated)."
+    ask grow "Grow userdata back over the freed space? (yes/no)" no
+    if [ "$grow" = yes ]; then
+        ask sure2 "Type ERASE to rewrite the partition table and wipe Android's data" ""
+        [ "$sure2" = ERASE ] || die "nothing was changed."
+        python3 "$TOP/tools/resize-last-partition.py" "$GPTW/gpt.head,$GPTW/gpt.tail" \
+            --disk-sectors "$disk" --name userdata --fill --out "$GPTW/new" || die "the resize was refused; nothing is changed"
+        adb push "$GPTW/new.head" /data/local/tmp/new.head >/dev/null 2>&1
+        adb push "$GPTW/new.tail" /data/local/tmp/new.tail >/dev/null 2>&1
+        # backup copy first, so a power cut between the two leaves the old primary table and a bootable device
+        su_do "dd if=/data/local/tmp/new.tail of=/dev/block/mmcblk0 bs=512 seek=$((disk - 33)) conv=fsync 2>/dev/null" >/dev/null
+        su_do "dd if=/data/local/tmp/new.head of=/dev/block/mmcblk0 bs=512 conv=fsync 2>/dev/null" >/dev/null
+        su_do 'sync; rm -f /data/local/tmp/new.head /data/local/tmp/new.tail' >/dev/null
+        su_do "dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/gpt.head" >/dev/null
+        su_do "dd if=/dev/block/mmcblk0 bs=512 skip=$((disk - 33)) count=33 2>/dev/null > /data/local/tmp/gpt.tail" >/dev/null
+        adb pull /data/local/tmp/gpt.head "$GPTW/after.head" >/dev/null 2>&1
+        adb pull /data/local/tmp/gpt.tail "$GPTW/after.tail" >/dev/null 2>&1
+        su_do 'rm -f /data/local/tmp/gpt.head /data/local/tmp/gpt.tail' >/dev/null
+        chk=$(python3 "$TOP/tools/resize-last-partition.py" "$GPTW/after.head,$GPTW/after.tail" \
+                --disk-sectors "$disk" --name userdata --show) || die "the table on the device does not read back as valid GPT.
+The backup copy was written first, so Android's own repair may still fix this. Do not power off."
+        [ "$(echo "$chk" | sed -n 's/^LAST_END=//p')" = "$u_usable" ] || die "the table did not take; nothing else was changed."
+        echo "  userdata now ends at sector $u_usable"
+        say "Clearing Android's data filesystem so it is recreated on the next boot"
+        su_do "dd if=/dev/zero of=/dev/block/by-name/userdata bs=1M count=32 conv=fsync 2>/dev/null" >/dev/null
+        echo "  Android will set its data partition up again on the next boot; that takes a few minutes."
+    fi
+else
+    echo "  could not read the partition table; leaving it alone"
+fi
+rm -rf "$GPTW"
+
 # the on-device switch would point at a boot_b that is Android again
 say "Removing the on-device switch (Magisk module)"
 sh "$TOP/tools/install-magisk-module.sh" --remove || true

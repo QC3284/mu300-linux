@@ -124,12 +124,22 @@ Asked for often, because a smaller eMMC variant leaves less free space behind `u
   for 800 MiB, 1.6 GiB or 2.4 GiB depending on the choice, and prints the eMMC size and the end of the last
   partition, which identifies the variant when it still does not fit.
 
-* **On the 32 GB variant the space can be made, by shrinking `userdata`.** Reported in issue #2 on a unit whose
-  eMMC is 29.12 GiB (61079552 sectors) with partitions ending at sector 40095744 and `userdata` filling the rest,
-  so `--check` computed a negative free size and refused. Shrinking `userdata`'s GPT entry left 10 GiB behind it
-  and the installer then ran unmodified. `userdata` is the **last** partition, so nothing else moves and the AVB
-  descriptors and boot chain stay valid - which is what makes it safe to do, and would not be for any other
-  partition. It erases `userdata`.
+* **On the 32 GB variant the space can be made, by shrinking `userdata` - EXPERIMENTAL.** Reported in issue #2
+  on a unit whose eMMC is 29.12 GiB (61079552 sectors) with partitions ending at sector 40095744 and `userdata`
+  filling the rest, so `--check` computed a negative free size and refused. Shrinking `userdata`'s GPT entry
+  left 10 GiB behind it and the installer then ran unmodified.
+  * Why only `userdata`: it is the **last** partition, so its end moves and nothing else does. Every other
+    partition keeps its offset and the AVB descriptors and the boot chain stay valid. That is the entire
+    safety argument, and it does not transfer to any other partition on these devices.
+  * `install.sh` offers it when there is no room, asks how many GiB to give Linux and keeps at least 4 GiB for
+    Android and 800 MiB for Linux, and requires ERASE to be typed. `uninstall.sh` offers to grow it back, off
+    by default because on the 64 GB variant that would hand the factory gap to Android.
+    `tools/resize-last-partition.py` does the edit: it validates both GPT copies and every CRC first, refuses
+    if the named partition is not the last one, and re-reads what it produced before handing it over. The
+    backup GPT is written before the primary, so a power cut between the two leaves the old table and a device
+    that still boots.
+  * **It rewrites the partition table and erases everything in Android.** Take a full backup first
+    (`tools/backup-device.sh`), and treat the path as experimental: it has been done by hand on one device.
 
 ### 10. Mounting gotchas
 * busybox `mount -o loop,offset=` only creates a loop for regular files; for a block device the options go to
