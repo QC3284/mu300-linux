@@ -64,6 +64,21 @@ fetch() {
 # adb shell/exec-out read stdin; never let them eat the answers typed (or piped) into this script
 su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
 
+# Never stream a binary through `adb exec-out "su -c ..."`. On some devices su gives the command a pty, and
+# the tty layer's ONLCR rewrites every LF as CRLF: the bytes arrive inflated by about one in 256 and nothing
+# reports an error. It is silent and it is ruinous - a boot image built from such a dump is the wrong size,
+# and Wi-Fi firmware mangled this way loads without complaint and simply never brings up a phy.
+#
+# Writing the file on the device and pulling it keeps the bytes off any pty. It costs one round trip and is
+# correct whether or not that device's su allocates one. Reported with proof in issue #2, on a device whose
+# su does; the maintainer's does not, which is why this survived so long.
+dev_pull() {  # dev_pull DEVICE_PATH LOCAL_PATH   (DEVICE_PATH may be a block device)
+    su_do "cat $1 > /data/local/tmp/mu300-pull.bin" >/dev/null
+    adb pull /data/local/tmp/mu300-pull.bin "$2" >/dev/null 2>&1
+    su_do 'rm -f /data/local/tmp/mu300-pull.bin' >/dev/null
+    [ -s "$2" ] || die "could not read $1 from the device"
+}
+
 # ---------------------------------------------------------------- preflight
 say "Checking host tools and device"
 need="adb"
@@ -185,14 +200,25 @@ printf 'Password for the "ubuntu" user (Ubuntu) and "root" (OpenWrt): '
 # ---------------------------------------------------------------- pull vendor data from the device
 mkdir -p "$WORK/dumps" "$WORK/firmware"
 say "Pulling device data into $WORK (stays on this computer)"
-adb exec-out "su -c 'cat /dev/block/by-name/boot_a'" </dev/null > "$WORK/dumps/boot_a.img"
-adb exec-out "su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null'" </dev/null > "$WORK/dumps/misc-head.bin"
+dev_pull /dev/block/by-name/boot_a "$WORK/dumps/boot_a.img"
+su_do 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin' >/dev/null
+adb pull /data/local/tmp/mu300-pull.bin "$WORK/dumps/misc-head.bin" >/dev/null 2>&1
+su_do 'rm -f /data/local/tmp/mu300-pull.bin' >/dev/null
+[ -s "$WORK/dumps/misc-head.bin" ] || die "could not read the misc header from the device"
 [ -d "$WORK/android-subset" ] || sh "$TOP/android-vendor/extract-subset.sh" "$WORK/android-subset"
 for f in wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.ini bt_configure_pskey.ini bt_configure_rf.ini; do
     for d in /odm/firmware /vendor/firmware /vendor/etc; do
-        if [ "$(su_do "[ -f $d/$f ] && echo y")" = y ]; then adb exec-out "su -c 'cat $d/$f'" </dev/null > "$WORK/firmware/$f"; break; fi
+        if [ "$(su_do "[ -f $d/$f ] && echo y")" = y ]; then dev_pull "$d/$f" "$WORK/firmware/$f"; break; fi
     done
 done
+# Nothing downstream notices a firmware file that was never found: the system installs, boots, brings up 5G
+# and has no hotspot, with nothing in any log pointing at it. Say so here instead.
+missing=
+for f in wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.ini bt_configure_pskey.ini bt_configure_rf.ini; do
+    [ -s "$WORK/firmware/$f" ] || missing="$missing $f"
+done
+[ -z "$missing" ] || die "these firmware files could not be read from the device:$missing
+Wi-Fi and Bluetooth need them; without them the system installs and boots but has no hotspot."
 if [ "$gpu" = yes ] && [ ! -d "$WORK/android-gpu-subset" ]; then
     sh "$TOP/android-vendor/extract-gpu-subset.sh" "$WORK/android-gpu-subset"
 fi

@@ -22,7 +22,14 @@ function Ask($question, $default) {
     if ([string]::IsNullOrWhiteSpace($a)) { return $default } else { return $a.Trim() }
 }
 function SuDo($cmd) { (& adb shell "su -c '$cmd'" 2>$null) -join "`n" -replace "`r", '' }
-function SuDoToFile($cmd, $path) { & cmd.exe /c "adb exec-out ""su -c '$cmd'"" > ""$path""" | Out-Null }
+# see install.ps1: `su -c` may run on a pty that rewrites LF as CRLF, so binaries are written on the device
+# and pulled rather than streamed (issue #2)
+function SuDoToFile($cmd, $path) {
+    $dev = '/data/local/tmp/mu300-pull.bin'
+    & adb shell "su -c '$cmd > $dev'" | Out-Null
+    & adb pull $dev "$path" 2>$null | Out-Null
+    & adb shell "su -c 'rm -f $dev'" | Out-Null
+}
 $script:PyExe = $null
 function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[]]$PyArgs)
     if (-not $script:PyExe) {

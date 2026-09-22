@@ -36,16 +36,23 @@ function Ask($question, $default) {
 function SuDo($cmd) {
     (& adb shell "su -c '$cmd'" 2>$null) -join "`n" -replace "`r", ''
 }
-# binary-safe: cmd.exe redirection keeps the byte stream intact (PowerShell pipelines do not)
+# Write the file on the device and pull it. cmd.exe redirection does keep the byte stream intact on this
+# side, but the damage happens on the other one: some devices give `su -c` a pty, whose ONLCR rewrites every
+# LF as CRLF, so the bytes are already corrupt before they reach the host (issue #2).
 function SuDoToFile($cmd, $path) {
-    & cmd.exe /c "adb exec-out ""su -c '$cmd'"" > ""$path""" | Out-Null
+    $dev = '/data/local/tmp/mu300-pull.bin'
+    & adb shell "su -c '$cmd > $dev'" | Out-Null
+    & adb pull $dev "$path" 2>$null | Out-Null
+    & adb shell "su -c 'rm -f $dev'" | Out-Null
 }
 $script:PyExe = $null
 function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[]]$PyArgs)
     if (-not $script:PyExe) {
         foreach ($n in 'python', 'python3', 'py') {
             $c = Get-Command $n -ErrorAction SilentlyContinue
-            if ($c) { $script:PyExe = $c.Source; break }
+            # the Microsoft Store's python.exe is an app-execution alias whose .Source is empty, so a
+            # working interpreter was reported as "not found" - fall back to .Path
+            if ($c) { $script:PyExe = if ($c.Source) { $c.Source } else { $c.Path }; break }
         }
         if (-not $script:PyExe) { Die 'Python 3 not found (install it from python.org or the Microsoft Store)' }
     }
@@ -285,7 +292,9 @@ foreach ($os in $OSES) {
     if ($gpu -eq 'yes' -and (Test-Path "$Work\android-gpu-subset")) { $argv += @('--gpu-subset', "$Work\android-gpu-subset") }
     Python @argv
 }
-$PWHASH = ($p1 | Python "$Top\tools\sha512crypt.py").Trim()
+# not `| Python ...`: that helper is an advanced function with no pipeline-bound parameter, so the
+# binding fails, and its body would not forward $input to the child's stdin even if it bound
+$PWHASH = ($p1 | & $script:PyExe "$Top\tools\sha512crypt.py").Trim()
 
 Say 'Building the boot image'
 WriteUnix "$Work\init" (((Get-Content -Raw "$Top\boot\init") -replace '(?m)^ROOT_OFFSET=[0-9]*', "ROOT_OFFSET=$OFF"))

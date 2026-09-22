@@ -124,6 +124,13 @@ Asked for often, because a smaller eMMC variant leaves less free space behind `u
   for 800 MiB, 1.6 GiB or 2.4 GiB depending on the choice, and prints the eMMC size and the end of the last
   partition, which identifies the variant when it still does not fit.
 
+* **On the 32 GB variant the space can be made, by shrinking `userdata`.** Reported in issue #2 on a unit whose
+  eMMC is 29.12 GiB (61079552 sectors) with partitions ending at sector 40095744 and `userdata` filling the rest,
+  so `--check` computed a negative free size and refused. Shrinking `userdata`'s GPT entry left 10 GiB behind it
+  and the installer then ran unmodified. `userdata` is the **last** partition, so nothing else moves and the AVB
+  descriptors and boot chain stay valid - which is what makes it safe to do, and would not be for any other
+  partition. It erases `userdata`.
+
 ### 10. Mounting gotchas
 * busybox `mount -o loop,offset=` only creates a loop for regular files; for a block device the options go to
   ext4 and fail with `EINVAL`. Use `losetup -o` and verify `/sys/block/loopN/loop/offset`.

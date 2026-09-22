@@ -75,7 +75,9 @@ ask confirm "Type UNINSTALL to continue" no
 
 say "Making slot a the boot slot"
 MISC_TMP=$(mktemp)
-adb exec-out "su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null'" </dev/null > "$MISC_TMP"
+adb shell "su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+adb pull /data/local/tmp/mu300-pull.bin "$MISC_TMP" >/dev/null 2>&1
+adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
 NEW=$(python3 - "$MISC_TMP" <<'PY'
 import struct, sys, zlib
 head = open(sys.argv[1], 'rb').read()

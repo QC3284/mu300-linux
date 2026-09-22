@@ -65,7 +65,9 @@ for os in $found; do
     case $os in ubuntu) user=ubuntu ;; openwrt) user=root ;; esac
     # the hash contains $ and /, which the device shell would expand inside su -c: edit the file on this computer
     tmp=$(mktemp)
-    adb exec-out "su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null > "$tmp"
+    adb shell "su -c 'cat $T/mu300root/$os/etc/shadow > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+    adb pull /data/local/tmp/mu300-pull.bin "$tmp" >/dev/null 2>&1
+    adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
     [ -s "$tmp" ] || { rm -f "$tmp"; die "$os: could not read /etc/shadow"; }
     HASH=$HASH USER=$user python3 - "$tmp" <<'PY' || { rm -f "$tmp"; die "$os: no line for that account in /etc/shadow"; }
 import os, sys
@@ -86,7 +88,7 @@ PY
     rm -f "$tmp"
     # write through the existing file so owner and mode stay as they are
     su_do "cat $T/shadow.new > $T/mu300root/$os/etc/shadow && rm -f $T/shadow.new"
-    ok=$(adb exec-out "su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
+    ok=$(adb shell "su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null | tr -d '\r' | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
     [ "$ok" = 1 ] || die "$os: the password line was not rewritten"
     say "$os: password of \"$user\" reset"
 done
