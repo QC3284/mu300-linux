@@ -507,6 +507,16 @@ that cannot fail. Worth remembering for any other cosmetic side effect in a path
 Still open: `mobile-data watch` was running and its check does look at `AT+CGACT?`, so it should have caught
 the dropped context and reconnected. It did not, and this round did not establish why.
 
+### 13h. Ubuntu never started the delegate at all
+The fix in 13f moved `sipa-dele.ko` out of the module list into `extra-modules`, which starts `sipa-dele-start` when
+it finds `$M/sipa-dele.ko` with `M=/lib/modules/$(uname -r)`. OpenWrt keeps its modules flat in that directory; the
+Ubuntu image keeps them under `extra/`. The test was false on Ubuntu, nothing was started and nothing was logged
+(not even the log file the redirection would have created), and every Ubuntu image since then came up with an
+address on `sipa_eth0`, a finished `mobile-data` and no downlink. What made it look like working on the test unit
+was a VPN still pointed at an HTTP proxy on the computer at the other end of the USB cable: `wget` succeeded with
+`sipa_eth0` at rx 0 **and tx 0**. Both scripts now look in both places. Measured on Ubuntu afterwards: the delegate
+loads at boot, `rx_packets` climbs, and the Xray tunnel reaches its server over the bearer.
+
 ### 13e. The mailbox stops sending after one slow delivery (mainline)
 On the mainline kernel the modem went quiet about ninety seconds into every boot - `+CSQ: 44,26` at 67 s, nothing
 at 89 s - and stayed quiet until a reboot. It was neither the modem nor the channel: writing an AT command left
@@ -742,6 +752,11 @@ boot, as a backstop.
 * Measured with N = 5 on OpenWrt, with boot-ok suppressed for two boots: LK booted slot b from `tries = 6`, then
   from 5, then from 4 - two unconfirmed boots in a row stayed in Linux - and the next good boot re-armed 6. Not
   run to exhaustion; the rollback at `tries = 1` is the LK behaviour above.
+
+**Boot-ok used to wait for every service.** It was ordered `After=multi-user.target`, so one service that never
+finished - `mobile-data` stuck on a busy AT channel in an older Ubuntu image - kept the boot unconfirmed however
+usable it was, and the next reboot counted it as failed. It now follows only the USB network and SSH: a boot you
+can log in to is a good one. Measured on Ubuntu: SSH at 47 s, boot-ok at 79 s, independent of the rest.
 
 `mu300-os` also carries `default-boot` to the system it switches to. The initramfs reads it from the system it
 boots, so switching from one where Linux is the default to one where it was never set made the first reboot
