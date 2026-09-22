@@ -672,6 +672,36 @@ not always first, and the language element never is.
 Sending picks the encoding from the text - GSM 7-bit while every character fits it, UCS-2 otherwise, which is
 what makes `ığşçöü ÇĞİÖŞÜ` survive. Verified by sending to the SIM's own number and reading it back intact.
 
+### 26e. The Xray engine, and a connectivity test that could only say no
+`mu300-vpn` now defaults to `ENGINE=xray`: Xray-core does VLESS, hev-socks5-tunnel owns a plain kernel TUN (`xtun`)
+and hands each flow to Xray's SOCKS port on loopback. Neither installs routes, so the script does, with sing-box's
+rule prefs and table (9000-9010, table 2022): Xray's own sockets carry mark `0x2d0` and go to `main`, as do the LAN
+and the server's address; everything else goes to `xtun`. The device's own DNS - dnsmasq's upstream, which is the
+carrier resolver and does not answer from the far end of a tunnel - is DNAT'd to `REMOTE_DNS`. Every exit path
+removes all of it, because routing left behind by a dead engine is what made sing-box's crashes look like a dead
+modem. The same mark means the kill switch should apply unchanged, but that has not been measured with Xray yet,
+so the example config ships with `KILL_SWITCH=0`.
+
+Measured on OpenWrt: the device's exit IP is the server's, `apk add` works through the tunnel, and a Wi-Fi client's
+flows are forwarded into `xtun`. The Ubuntu side uses the same script but has not been run on the device.
+
+**allowInsecure is gone in Xray 26.** Its replacement, `pinnedPeerCertSha256`, accepts exactly one leaf
+certificate. For a link that asks for allowInsecure the script manages the pin: fetched once with openssl when
+there is none and stored as `TLS_PIN_SHA256` in `vpn.conf`, left alone on later starts, and fetched again only when
+Xray reports `peer cert is unrecognized (against pinnedPeerCertSha256)` - a renewal - after which the service
+restarts itself. Xray reports that failure at **info** level, which a `warning` log level hides completely; the
+script runs Xray at info with the access log off and passes only warnings and worse to the system log. `xray tls
+ping` is no substitute for openssl here: it tries without SNI first, and a server that ignores that attempt keeps it
+waiting past any sensible timeout. (The server this was tested against presents a Let's Encrypt certificate that
+expired in December 2025 - which is why its link asks for allowInsecure. The pin skips the expiry check.)
+
+**busybox `nc` on this OpenWrt has no `-w`.** `nc -w 6 HOST PORT` prints the usage text and exits 1, so a
+reachability test built on its exit status reports every destination as closed. That produced a confident and
+wrong "this SIM reaches nothing but the carrier's DNS" - the same bearer carried the VPN minutes later. Test TCP
+with `wget -T` or `curl -m`, check the tool's own exit status rather than a pipe's, and run the test once against
+something that must succeed before believing a failure. To test the bearer while a tunnel runs, route a single
+address around it: `ip rule add pref 8999 to <addr> lookup main`, test, delete the rule.
+
 ## Default boot
 
 ### 17. Linux as default without losing the Android fallback

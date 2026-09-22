@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 iputils-ping net-tools nftables dnsmasq-base ethtool \
     openssh-server busybox-static \
     wpasupplicant hostapd iw wireless-regdb rfkill bluez \
-    ca-certificates curl wget nano vim-tiny less htop sudo bash-completion \
+    ca-certificates openssl curl wget nano vim-tiny less htop sudo bash-completion \
     libcap2-bin locales tzdata e2fsprogs dosfstools file procps psmisc lsof strace usbutils pciutils \
  && rm -rf /var/lib/apt/lists/*
 RUN sed -i 's/^# *\(en_US.UTF-8\|tr_TR.UTF-8\)/\1/' /etc/locale.gen && locale-gen \

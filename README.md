@@ -151,8 +151,11 @@ button that reboots the device into Linux, and `su -c mu300-linux` does the same
 
 ### VPN
 
-The device can send its own traffic **and** everything from connected clients through a VLESS server (sing-box),
-with a kill switch so nothing leaks over mobile data if the tunnel drops.
+The device can send its own traffic **and** everything from connected clients through a VLESS server. The default
+engine is [Xray](https://github.com/XTLS/Xray-core) behind [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+on a kernel TUN; `ENGINE=sing-box` in the config switches back to sing-box. Links that ask for `allowInsecure`
+work: Xray 26 dropped that option, so the server's certificate is fetched once, pinned, and re-fetched by itself
+when the server renews it. The kill switch (`KILL_SWITCH=1`) is off by default until it is re-tested with Xray.
 
 ```sh
 sudo cp /etc/mu300/vpn.conf.example /etc/mu300/vpn.conf
