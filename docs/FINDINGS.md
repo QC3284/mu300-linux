@@ -1381,6 +1381,12 @@ board under stock Android: VoLTE drops a call that sends no media, and the modem
 DSP. That is the same symptom one layer down: the DSP runs, answers commands, and moves no audio in any scene.
 The one route known to work on Android is a Bluetooth headset over SCO, where the BT controller clocks the IIS.
 
+**The DSP-side registers are not AP-addressable.** The driver's `/proc/asound/<card>/vbc` dump reads DSP-side
+registers (base `0x01700000` in the driver's numbering) through the DSP, by IPC (`SND_VBC_DSP_IO`). Reading the same
+offset directly from the AP at `0x56510000 + 0xe7c` - outside the 1 KiB AP VBC window - hangs the bus: the board
+drops off USB and the network. To change a DSP-side register, write `"<reg> <val>"` in hex to that proc file
+instead (`vbc_proc_write` -> `dsp_vbc_reg_write`, e.g. `echo 1700eb0 1`); never map it from the AP.
+
 ## Bluetooth
 
 ### 25. SC2355 Bluetooth on BlueZ
