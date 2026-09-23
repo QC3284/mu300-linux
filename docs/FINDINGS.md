@@ -1319,6 +1319,68 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   Whale audio HAL, not the kernel - `sprd_audcp_boot` has no `request_firmware()` and no path of its own.
 * A2DP over BlueZ needs none of this.
 
+### 24b. A second board, from a clean install: where the stall actually is
+Everything in 24 was measured on one hand-built unit. On 2026-09-23 the audio stack was put on a second F50 from a
+clean `install.sh` (the audio kernel, its modules, the donor firmware, and profiles converted from the U30 Air's
+native XML), and the stall was taken apart further. Audio still does not move; what follows is what is now known.
+
+**Two traps on the way in, both in how the modules get loaded.**
+* Running `depmod -a` with the audio modules in `/lib/modules/<release>/audio` makes them visible to `modprobe`, and
+  from then on udev and the kernel's own `request_module()` load them first - without parameters. `audio_mem`
+  comes up with no memory region (`memory-region 1 unavailable!(-19)`), `snd_soc_sprd_card` without
+  `dummy_on_defer`, both are `[permanent]`, and the card never registers. `mu300-audio-dsp` does pass both
+  parameters; it just never gets to. `/etc/modprobe.d/mu300-audio.conf` now keeps `modprobe` away from all 23
+  (`install <name> /bin/false`); `mu300-audio-dsp` uses `insmod` and is not affected.
+* Closing a voice stream can panic the kernel: `Asynchronous SError Interrupt` in `regmap_read <-
+  check_agcp_mcdt_clock <- mcdt_dac_dma_disable <- fe_hw_free`. The MCDT driver reads an AGCP register on the way
+  down, after the AGDSP domain has already dropped - the same bus hang as in 24, from inside the driver. Holding
+  the domain with the `agdsp_access_en` mixer control for the length of a call avoids it; `mu300-voice` does.
+
+**Reading the hardware without hanging it.**
+* `/proc/asound/card1/vbc` dumps the DSP-side VBC registers (the DSP copies them to shared memory on request) and
+  the AP-side ones with the domain held. Safe at any time, and the best single view of the stall.
+* The codec's analog half and its AUDIF interface live in the PMIC and are always powered. Their registers are in
+  `/sys/kernel/debug/regmap/spi4.0/registers` at `codec register - 0x3000 + 0x1000` (`CODEC_REG`, codec offset
+  0x1000): `AUD_CFGA_CLK_EN` is PMIC 0x100, `AUD_CFGA_DAC_FIFO_STS` 0x144, the analog clocks 0x1068. Reading
+  the whole file takes minutes over ADI; it seeks, though - lines are 15 bytes and registers 4 apart, so
+  `dd bs=15 skip=$((reg / 4)) count=1` reads one.
+* The digital codec (`unisoc,audio-codec-dig-agcp`, 0x56360000) and the AGCP gates at 0x56200000 are inside the
+  domain: read them only while a PCM holds it, and check the stream is still RUNNING just before the read.
+
+**What the stall is not** - each measured with a stream stalled at `hw_ptr` 160:
+* not the DSP powering down: during the stall the domain is up (`0x64910544` reads 0, idle it reads 0x70700), and
+  the auto-shutdown bit in `coreshutdown` is cleared by the running side itself;
+* not the IIS being routed to USB (`VBC_IIS_INF_SYS_SEL` defaults to `vbc_iis_to_aon_usb`; `vbc_iis_to_pad` changes
+  nothing), nor the codec being off: with the vendor route below, DAPM and the PMIC agree it is fully on;
+* not the audio PLL: nothing requests it (`AUDPLL_REL_CFG` 0x64910a48 reads 0; bit 5 is `AUDIO_SEL`), but forcing
+  it on (`FRC_ON`) locks it (`lock_done` at 0x64320068 bit 17) and changes nothing;
+* not the AGCP clock gates (`vbc-24m`, `tmr-26m`, `dma-cp`, `iis0-2`, `src48k` are all on during a stream).
+
+**The vendor route, from the U30 Air.** `/odm/etc/audio_route.xml` on the U30 Air (the same ums9620) says what the
+HAL sets for a codec playback device: `ag_iis0_ext_sel_v2 = aud_4ad_iis0_da0` (AGCP IIS0 into the codec's DA0 -
+this board had it at `pad_top`, i.e. out to pins with nothing on them), every `S_*_P_CODEC SWITCH`, 24-bit IIS
+with `VBC_IIS_TX0_LRMOD_SEL = RIGHT_HIGH`, DAC0/DAC1 on IIS port 0, and the device's own mixers (`Speaker Function`
+and the AO mixer). Applied in full, the codec powers up and clocks (PMIC 0x100 = 0x2, analog clocks on, DAC
+enabled) - and its DAC FIFO stays empty with the write pointer at 0 (0x144 = 0x80): **nothing arrives over AUDIF
+from the digital codec.** `AUDIF_EB` (0x56390000 bit 3) is only ever set by the VAD/ADC clock widget, and setting
+it by hand, with its pad clock, does not change that either.
+
+**With VBC as IIS master, the pipeline moves - slowly.** `VBC_IIS_MASTER_ENALBE = enable` with `VBC_IIS_MST_SEL_0_TYPE
+= VBC_MASTER_INTERNAL` is the first setting in all of this that gets past `hw_ptr` 160: about 23000 frames go at
+once, then 80-120 frames/s, i.e. one 160-frame burst about every two seconds. The DSP-side dump shows why it is
+not the DA side any more: the IIS async FIFO moves (0xf88) and DAC0's FIFO reads empty (0xe7c) - DA is starved,
+not stuck. What is missing is the DSP being told the AP FIFO has data: `AUD_INT_EN` (0x44) has no play-FIFO
+interrupt enabled and the DSP-side DMA enable (0xeb0) is 0; neither is written by any AP driver - the firmware
+sets them, and here it does not, so it falls back to polling. With the codec as master (VBC slave), nothing moves.
+
+**Calls.** The call scene is the hostless `FE_VOICE` (device 5), which Android's HAL starts with `pcm_start()`;
+`tools/pcmhost` does the same and the scene goes RUNNING during a real call. `FE_VOICE_PCM_P` (what the far end
+should hear) still stops after its first burst, with the scene running, with every `AT+SSAM` mode 0-8, and in
+master mode. And the call itself **ends after about 20 seconds** - which, the owner reports, it also does on this
+board under stock Android: VoLTE drops a call that sends no media, and the modem never gets uplink frames from the
+DSP. That is the same symptom one layer down: the DSP runs, answers commands, and moves no audio in any scene.
+The one route known to work on Android is a Bluetooth headset over SCO, where the BT controller clocks the IIS.
+
 ## Bluetooth
 
 ### 25. SC2355 Bluetooth on BlueZ
