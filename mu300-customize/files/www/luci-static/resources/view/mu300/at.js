@@ -8,7 +8,9 @@ return view.extend({
 
 	render: function() {
 		// 配色跟随主题:用半透明灰,不要在深色主题下糊一块浅底色(用户反馈过"眼瞎")
-		var out = E('pre', { style: 'white-space:pre-wrap;word-break:break-all;background:var(--background-color,var(--background-color-high,rgba(127,127,127,.10)));padding:10px;border:1px solid var(--border-color,var(--border-color-low,rgba(127,127,127,.30)));border-radius:4px;min-height:8em' }, '还没有执行过命令。');
+		// 输出块交给主题的 .cbi-section 上色(argon 会给它卡片底色+阴影),我们自己不再画背景色
+		var out = E('pre', { style: 'white-space:pre-wrap;word-break:break-all;background:transparent;color:inherit;font-family:monospace;margin:0;padding:10px;min-height:8em;max-height:26em;overflow:auto' }, '还没有执行过命令。');
+		var outBox = E('div', { class: 'cbi-section', style: 'border:1px solid var(--border-color,var(--border-color-low,rgba(127,127,127,.25)));border-radius:4px' }, out);
 
 		var input = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:60%;font-family:monospace', placeholder: 'AT+CSQ / AT+COPS? / AT+SP5GCMDS="get nr support_band"' });
 
@@ -35,7 +37,8 @@ return view.extend({
 				E('p', {}, '直接向 MU300 模组发 AT 命令。查询类安全;写类(锁频、改 APN、复位)请谨慎。'),
 				E('div', {}, [ input, ' ', E('button', { class: 'cbi-button cbi-button-apply', click: run }, '执行'), ' ', E('button', { class: 'cbi-button', click: refresh }, '刷新输出') ])
 			]),
-			E('div', { class: 'cbi-section' }, [ E('h4', {}, '输出'), out ])
+			E('h4', {}, '输出'),
+			outBox
 		]);
 	},
 
