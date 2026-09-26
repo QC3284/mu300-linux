@@ -18,23 +18,31 @@ param(
     [string]$Release = '',   # empty: the newest published release
     [string]$ReleaseUrl,
     [string]$Repo = 'dikeckaan/mu300-linux',
-    [string]$Work = (Join-Path $PSScriptRoot 'work')
+    [string]$Work = ''       # empty: .\work next to this script
 )
 
 $ErrorActionPreference = 'Stop'
 $T = '/data/local/tmp'
-$Top = $PSScriptRoot
+# $PSScriptRoot can be empty in Windows PowerShell 5.1 (param defaults, `powershell -File` from cmd.exe)
+$Top = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $Work) { $Work = Join-Path $Top 'work' }
 $MU300_IP = '192.168.77.1'
 
 function Say($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
+# Windows PowerShell 5.1 turns every stderr line of a native command into an ErrorRecord once stderr is
+# redirected, and with ErrorActionPreference Stop that aborts the script (adb's "daemon not running",
+# "no devices", push progress). Run such commands with Continue and drop their stderr.
+function Quiet([scriptblock]$Cmd) { $ErrorActionPreference = 'Continue'; & $Cmd 2>$null }
+# [string]: with no device adb prints nothing, and `-notmatch` on that empty result is falsy, not true
+function AdbState { [string](Quiet { adb get-state }) }
 function Ask($question, $default) {
     $a = Read-Host "$question [$default]"
     if ([string]::IsNullOrWhiteSpace($a)) { return $default } else { return $a.Trim() }
 }
 # adb shell with root; stdin is never forwarded so prompts of this script are not eaten
 function SuDo($cmd) {
-    (& adb shell "su -c '$cmd'" 2>$null) -join "`n" -replace "`r", ''
+    (Quiet { adb shell "su -c '$cmd'" }) -join "`n" -replace "`r", ''
 }
 # Write the file on the device and pull it. cmd.exe redirection does keep the byte stream intact on this
 # side, but the damage happens on the other one: some devices give `su -c` a pty, whose ONLCR rewrites every
@@ -42,14 +50,16 @@ function SuDo($cmd) {
 function SuDoToFile($cmd, $path) {
     $dev = '/data/local/tmp/mu300-pull.bin'
     & adb shell "su -c '$cmd > $dev'" | Out-Null
-    & adb pull $dev "$path" 2>$null | Out-Null
+    Quiet { adb pull $dev "$path" } | Out-Null
     & adb shell "su -c 'rm -f $dev'" | Out-Null
 }
 $script:PyExe = $null
 function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[]]$PyArgs)
     if (-not $script:PyExe) {
         foreach ($n in 'python', 'python3', 'py') {
-            $c = Get-Command $n -ErrorAction SilentlyContinue
+            # -CommandType Application: command lookup is case-insensitive and functions win, so a bare
+            # `Get-Command python` resolves to this very function and never reaches python.exe (issue #3)
+            $c = Get-Command $n -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
             # the Microsoft Store's python.exe is an app-execution alias whose .Source is empty, so a
             # working interpreter was reported as "not found" - fall back to .Path
             if ($c) { $script:PyExe = if ($c.Source) { $c.Source } else { $c.Path }; break }
@@ -94,11 +104,11 @@ foreach ($c in 'adb', 'tar') { if (-not (Get-Command $c -ErrorAction SilentlyCon
 Python -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' | Out-Null
 if ($LASTEXITCODE -ne 0) { Die 'Python 3.8 or newer is required' }
 if (-not $Check) {
-    Python -c 'import lz4.block' 2>$null | Out-Null
+    Quiet { Python -c 'import lz4.block' } | Out-Null
     if ($LASTEXITCODE -ne 0) { Die 'the lz4 Python module is required to build the boot image: pip install lz4' }
 }
-& adb start-server 2>$null | Out-Null
-if ((& adb get-state 2>$null) -notmatch 'device') {
+Quiet { adb start-server } | Out-Null
+if ((AdbState) -notmatch 'device') {
     # the device may be running MU300 Linux right now: then only SSH on the USB network answers
     $linux = Test-NetConnection -ComputerName $MU300_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue
     if (-not $linux) { Die 'no adb device (boot Android, enable USB debugging)' }
@@ -120,10 +130,10 @@ if ((& adb get-state 2>$null) -notmatch 'device') {
     }
     Write-Host '  waiting for Android'
     for ($i = 0; $i -lt 60; $i++) {
-        if ((& adb get-state 2>$null) -match 'device') { break }
+        if ((AdbState) -match 'device') { break }
         Start-Sleep 5
     }
-    if ((& adb get-state 2>$null) -notmatch 'device') { Die 'the device did not come back as Android; boot it yourself (mu300-next-boot android)' }
+    if ((AdbState) -notmatch 'device') { Die 'the device did not come back as Android; boot it yourself (mu300-next-boot android)' }
     Write-Host '  Android is up'
 }
 if ((SuDo 'id -u') -ne '0') { Die 'su does not work on the device' }
@@ -370,12 +380,12 @@ $ModSrc = Join-Path $Top 'android\magisk\mu300-linux-switch'
 $Mod = '/data/adb/modules/mu300_linux_switch'
 $MTmp = "$T/mu300-magisk"
 if ((SuDo 'magisk -v')) {
-    & adb shell "rm -rf $MTmp" 2>$null | Out-Null
-    & adb shell "mkdir -p $MTmp/system/bin" 2>$null | Out-Null
+    Quiet { adb shell "rm -rf $MTmp" } | Out-Null
+    Quiet { adb shell "mkdir -p $MTmp/system/bin" } | Out-Null
     foreach ($f in 'module.prop', 'switch.sh', 'action.sh') {
-        & adb push (Join-Path $ModSrc $f) "$MTmp/$f" 2>$null | Out-Null
+        Quiet { adb push (Join-Path $ModSrc $f) "$MTmp/$f" } | Out-Null
     }
-    & adb push (Join-Path $ModSrc 'system\bin\mu300-linux') "$MTmp/system/bin/mu300-linux" 2>$null | Out-Null
+    Quiet { adb push (Join-Path $ModSrc 'system\bin\mu300-linux') "$MTmp/system/bin/mu300-linux" } | Out-Null
     SuDo "rm -rf $Mod && mkdir -p $Mod/system/bin && cp -a $MTmp/module.prop $MTmp/switch.sh $MTmp/action.sh $Mod/ && cp -a $MTmp/system/bin/mu300-linux $Mod/system/bin/ && chown -R 0:0 $Mod && chmod 755 $Mod/switch.sh $Mod/action.sh $Mod/system/bin/mu300-linux && chmod 644 $Mod/module.prop && rm -rf $MTmp && sync" | Out-Null
     if ((SuDo "[ -x $Mod/switch.sh ] && echo yes") -eq 'yes') {
         Write-Host "  installed: 'su -c mu300-linux' on the device starts Linux after the next Android boot"
