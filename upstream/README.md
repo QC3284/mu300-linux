@@ -52,7 +52,10 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 ## Newer kernels (7.x)
 
 The whole port - kernel and all 31 out-of-tree modules - also builds against **7.2.8**, the newest stable release
-(2026-09-26), from the same sources as 6.18; it has not been run on the device yet. One source serves both:
+(2026-09-26), from the same sources as 6.18, and runs on the device: four boots out of four (2026-09-27) with the
+Wi-Fi access point, mobile data (18.7 MB/s), Bluetooth, the Mali GPU, cpufreq and the modem's AT channel working,
+and no warning or oops in the log. (7.2 is a stable, not a longterm release: 6.18 stays the base, 7.x is how the
+next jump is kept small.) One source serves both:
 
 * `port/install.py` recognises the layout of what it edits (`sprd-sc27xx-spi.c` was reworked in 7.x), and every
   edit is checked afterwards, so a drifted anchor stops the build instead of being skipped.
@@ -63,7 +66,8 @@ The whole port - kernel and all 31 out-of-tree modules - also builds against **7
 * `.github/workflows/mainline.yml` builds the port every week against the current longterm and the newest stable
   release, so the next break shows up as a red run rather than at the next jump.
 
-To try another version: `KV=7.2.8` for `build.sh` and `build-modules.sh`.
+To try another version: `KV=7.2.8` for `build.sh` and `build-modules.sh`, then `make-bundle.sh` and, on the
+device, `MU300_KERNEL_BUNDLE=<bundle> mu300-update boot` (`mu300-update rollback-boot` goes back).
 
 ## Remaining mainline work (as of 2026-09-26)
 
