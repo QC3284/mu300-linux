@@ -135,6 +135,7 @@ for os in $OSES; do
     fi
     if [ "$DEFAULT_LINUX" = 1 ]; then echo linux > $R/etc/mu300/default-boot; else rm -f $R/etc/mu300/default-boot; fi
     if [ -n "$PWHASH" ]; then
+        rm -f $R/etc/.mu300-accounts-from-image   # the password is the one just chosen, not one to carry over
         case $os in
             ubuntu) sed -i "s|^ubuntu:[^:]*:|ubuntu:$PWHASH:|" $R/etc/shadow ;;
             openwrt) sed -i "s|^root:[^:]*:|root:$PWHASH:|" $R/etc/shadow ;;

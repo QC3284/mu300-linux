@@ -191,8 +191,9 @@ nothing from Android are needed. The previous image is kept for `rollback-boot`,
 sends the device back to Android on its own after the usual number of failed boots.
 
 **Installed before this existed?** Your `mu300-update` does not know about the boot image yet. Run
-`sudo mu300-update apply` twice: the first run installs the new system, which brings the new `mu300-update`, and
-the second one updates the kernel and the boot image (and skips the system, which is already current).
+`sudo mu300-update apply`, reboot, and run `sudo mu300-update apply` once more: the first run installs the new
+system, which brings the new `mu300-update` - it is in use after the reboot - and the second one updates the
+kernel and the boot image (and skips the system, which is already current). Reboot again to start the new kernel.
 
 ## Uninstall
 
