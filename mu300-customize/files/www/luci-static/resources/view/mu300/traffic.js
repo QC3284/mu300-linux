@@ -67,7 +67,8 @@ return view.extend({
 					return E('tr', { class: 'tr' }, [
 						E('td', { class: 'td left', style: 'white-space:nowrap' }, r[0]),
 						E('td', { class: 'td left', style: 'white-space:nowrap' }, '%s / %s'.format(fbytes(r[1]), fbytes(r[2]))),
-						E('td', { class: 'td left', width: '40%' }, E('div', { style: 'background:var(--card-accent,var(--primary,#4a90d9));border-radius:3px;height:14px;width:%d%%'.format(Math.round((r[1] + r[2]) * 90 / max)) }, ''))
+						E('td', { class: 'td left', width: '40%' }, E('div', { style: 'background:rgba(127,127,127,.22);border-radius:3px;height:14px;width:100%;overflow:hidden' },
+							E('div', { style: 'background:var(--card-accent,var(--primary,#4a90d9));border-radius:3px;height:14px;width:%d%%'.format(Math.max(2, Math.round((r[1] + r[2]) * 100 / max))) }, '')))
 					]);
 				}))))
 			] : [ E('p', {}, '还没有数据(守护每 30 秒采一次)。') ]);

@@ -4,9 +4,18 @@
 'require poll';
 
 // 5G(NR) 已知映射(来自 ZTE 框架日志实测)
-var NR_KNOWN = [ { band: 1, mask: 0, bit: 0 }, { band: 28, mask: 0, bit: 9 }, { band: 41, mask: 2, bit: 4 }, { band: 78, mask: 2, bit: 8 } ];
+// 5G 频段位映射。已知 4 个点 + 用 AT+SPLBAND=4 返回的 553(bit0/3/5/9)交叉验证:
+//   mask0 = 低段,顺序表 [n1, n2, n3, n5, n7, n8, n20, n25, n26, n28, ...]
+//     → bit0=n1、bit3=n5、bit5=n8、bit9=n28   (553 = 0b1000101001 = 这四个 ✓)
+//   mask2 = 高段 → bit4=n41、bit8=n78
+// n6 只出现在 "get nr support_band" 里,掩码中没有对应位(补上行频段,不需要单独锁)
+var NR_KNOWN = [
+	{ band: 1, mask: 0, bit: 0 }, { band: 5, mask: 0, bit: 3 }, { band: 8, mask: 0, bit: 5 }, { band: 28, mask: 0, bit: 9 },
+	{ band: 41, mask: 2, bit: 4 }, { band: 78, mask: 2, bit: 8 }
+];
 // 4G(LTE) 标准 E-UTRA 位图(已实测:mask3=band1-32,mask1=band33-64)
-var LTE_BANDS = [ 1, 3, 5, 8, 34, 38, 39, 40, 41 ];
+// 4G:mask3 = band1-32、mask1 = band33-64(已实测),所以 1-64 都能列出来
+var LTE_BANDS = [ 1, 2, 3, 4, 5, 7, 8, 12, 13, 17, 18, 19, 20, 25, 26, 28, 30, 34, 38, 39, 40, 41, 42, 43 ];
 function ltePos(b) {
 	if (b >= 1 && b <= 32) return { mask: 3, bit: b - 1 };
 	if (b >= 33 && b <= 64) return { mask: 1, bit: b - 33 };
@@ -39,15 +48,17 @@ return view.extend({
 		var dirty = false;
 		function mkBoxes(list, prefix) {
 			return list.map(function(item) {
-				var cb = E('input', { type: 'checkbox' });
+				var cb = E('input', { type: 'checkbox', style: 'margin:0;vertical-align:middle;position:static' });
 				cb.addEventListener('change', function() { dirty = true; say('已修改选择(点“应用”生效;先写入配置,重启后才真正生效)'); });
-				return { cb: cb, pos: item.pos, node: E('label', { style: 'display:inline-block;min-width:5.5em;margin:.15em .8em .15em 0;white-space:nowrap' }, [ cb, ' ' + prefix + item.band ]) };
+				return { cb: cb, pos: item.pos, node: E('label', { style: 'display:inline-flex;align-items:center;line-height:1.3;gap:.4em;white-space:nowrap' }, [ cb, E('span', { style: 'line-height:1.3' }, prefix + item.band) ]) };
 			});
 		}
 		var nrBoxes = mkBoxes(NR_KNOWN.map(function(k) { return { band: k.band, pos: { mask: k.mask, bit: k.bit } }; }), 'n');
 		var lteBoxes = mkBoxes(LTE_BANDS.map(function(b) { return { band: b, pos: ltePos(b) }; }), 'B');
-		var nrBoxNode = E('div', {}, nrBoxes.map(function(x) { return x.node; }));
-		var lteBoxNode = E('div', {}, lteBoxes.map(function(x) { return x.node; }));
+		// grid 排列:每个频段占等宽一列,视觉上整齐对齐(主题/字体差异也不会参差)
+		var GRID = 'display:grid;grid-template-columns:repeat(auto-fill,6em);justify-content:start;gap:.35em .6em';
+		var nrBoxNode = E('div', { style: GRID }, nrBoxes.map(function(x) { return x.node; }));
+		var lteBoxNode = E('div', { style: GRID }, lteBoxes.map(function(x) { return x.node; }));
 
 		var lastNr = '', lastLte = '';
 		function setChecked(boxes, masks) {
@@ -130,7 +141,7 @@ return view.extend({
 						if (confirm('放开全部 5G 频段(取消 5G 锁频)?')) runAT('AT+SPLBAND=2,4294967295,4294967295,4294967295,4294967295,4294967295');
 					} }, '放开全部 5G')
 				]),
-				E('p', { style: 'opacity:.75' }, '已知映射:n1 / n28 / n41 / n78(其余频段位未知,可用下面的掩码直接写)')
+				E('p', { style: 'opacity:.75' }, '已知映射:n1 / n5 / n8 / n28(低段)与 n41 / n78(高段);n6 是补上行频段,掩码里没有独立位')
 			]),
 			E('div', { class: 'cbi-section' }, [
 				E('h4', {}, '4G (LTE) 频段'),

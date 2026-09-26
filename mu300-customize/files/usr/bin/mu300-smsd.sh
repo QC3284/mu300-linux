@@ -10,6 +10,8 @@ HOOK=/usr/bin/mu300-sms-hook
 mkdir -p /etc/mu300
 
 # ---- ① 收件:厂商脚本负责 PDU 解码/多段拼接,我们只负责把结果落成 JSON ----
+# 重启后 /tmp 是空的,先主动刷一次,否则页面在收到新短信之前一直显示"没有数据"
+/usr/bin/mu300-sms-refresh >/dev/null 2>&1
 ( sms watch "$HOOK" >/dev/null 2>&1 ) &
 WATCH=$!
 
