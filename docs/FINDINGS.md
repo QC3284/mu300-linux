@@ -1490,6 +1490,22 @@ the call returns 0, and none of this happens. Fixed in the module: `-EINPROGRESS
 `sipa_delegator_start()` is checked, the Wi-Fi offload dependencies (unused here) are warnings, and the delegator
 is no longer devm-allocated.
 
+### 31g. Three warnings on every boot, three vendor bugs
+6.18 printed three `WARNING:`s on every boot; each one is a bug in the vendor drivers:
+* `kernel/softirq.c:429 __local_bh_enable_ip` from `sc2355_free_cmd_buf`: the Wi-Fi command list's `complock` is
+  taken with `spin_lock_bh` in the PCIe tx-complete interrupt, and the same lock is taken with only bottom halves off
+  in process context - that interrupt arriving on the CPU holding it spins forever. Both places now use
+  `spin_lock_irqsave`.
+* `tty_port_link_device` from `mtty_probe` (`sprdbt_tty`): the tty driver is allocated with one line and a second,
+  never used port is linked at index 1 - past the end of `driver->ports[]`. 5.4 has no check there and writes it;
+  6.18 refuses with the warning. The second port is no longer linked.
+* `dev_addr_check`, "sipa_eth0: Incorrect netdev->dev_addr": `sipa_eth`, `seth` and `sipa_usb` wrote their random
+  MAC straight into `netdev->dev_addr`; `eth_hw_addr_random()` sets it through `dev_addr_set()`.
+
+The 6.18 bundle also carries `modules.builtin` and `modules.builtin.modinfo` now: without them depmod warned and
+`modprobe` of a built-in driver failed. Three boots after the fixes: no warnings, Wi-Fi AP, mobile data, Bluetooth
+(24 devices in a scan) up.
+
 ## Updating on the device
 
 ### 32. Old kernels, an idle IPA, and an update that ended in Android
