@@ -71,7 +71,7 @@ jobs:
           ./scripts/config --file $O/.config --disable CFI_CLANG --disable CFI_CLANG_SHADOW
           KCONFIG_CONFIG=$O/.config ./scripts/kconfig/merge_config.sh -m -O $O $O/.config \
             "$GITHUB_WORKSPACE/kernel/mu300-linux.fragment" > /src/merge.log 2>&1
-          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld olddefconfig
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="clang --target=aarch64-linux-gnu" LD=ld.lld CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           echo "== 确认 CFI 已关 =="
           grep -E "^CONFIG_(CFI_CLANG|LTO|LTO_CLANG_THIN|UBSAN)" $O/.config || true
 
@@ -81,7 +81,7 @@ jobs:
           O=/src/out-linux
           start=$(date +%s)
           # 不截断输出:上一次就是被 tail -30 吃掉了真正的报错
-          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" Image modules 2>&1 | tail -200
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="clang --target=aarch64-linux-gnu" LD=ld.lld CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" Image modules 2>&1 | tail -200
           echo "BUILD_SECONDS $(( $(date +%s) - start ))"
           ls -la $O/arch/arm64/boot/Image
           echo "内建模块数: $(find $O -name '*.ko' | wc -l)"
@@ -90,11 +90,11 @@ jobs:
         run: |
           cd /src/zte-u30air
           O=/src/out-linux
-          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" \
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="clang --target=aarch64-linux-gnu" LD=ld.lld CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" \
                M=/src/ext-wlan_combo BSP_BOARD_UNISOC_WCN_SOCKET=pcie modules 2>&1 | tail -8
-          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" \
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="clang --target=aarch64-linux-gnu" LD=ld.lld CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" \
                M=/src/ext-sprdbt BSP_BOARD_UNISOC_WCN_SOCKET=pcie modules 2>&1 | tail -8
-          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" M=/src/ext-mali \
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC="clang --target=aarch64-linux-gnu" LD=ld.lld CROSS_COMPILE=aarch64-linux-gnu- -j"$(nproc)" M=/src/ext-mali \
                src=/src/ext-mali CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_NAME=qogirn6pro \
                CONFIG_MALI_DEVFREQ=y CONFIG_DEVFREQ_THERMAL=y CONFIG_MALI_DEBUG=n \
                CONFIG_MALI_FENCE_DEBUG=n BUILD=no modules 2>&1 | tail -8
