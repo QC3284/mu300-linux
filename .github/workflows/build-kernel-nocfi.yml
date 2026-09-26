@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-24.04
     container: ubuntu:20.04
     timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash          # 容器默认是 dash;time/算术等 bash 语法会挂(上一次就是 "time: not found")
     steps:
       - name: 装工具链
         run: |
@@ -76,7 +79,9 @@ jobs:
         run: |
           cd /src/zte-u30air
           O=/src/out-linux
-          time make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" Image modules 2>&1 | tail -30
+          start=$(date +%s)
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" Image modules 2>&1 | tail -30
+          echo "BUILD_SECONDS $(( $(date +%s) - start ))"
           ls -la $O/arch/arm64/boot/Image
           echo "内建模块数: $(find $O -name '*.ko' | wc -l)"
 
