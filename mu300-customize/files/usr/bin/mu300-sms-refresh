@@ -1,0 +1,5 @@
+#!/bin/sh
+# 重新读一遍收件箱 -> 重建 sms-messages.json(持久)/ tmp/mu300-sms.json(页面)
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+sms list 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' > /tmp/mu300-sms-list.raw
+ucode /usr/bin/mu300-sms-refresh.uc

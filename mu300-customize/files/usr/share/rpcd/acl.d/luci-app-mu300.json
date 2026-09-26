@@ -1,6 +1,6 @@
 {
 	"luci-app-mu300": {
-		"description": "MU300 5G 状态 / 流量 / AT 控制台",
+		"description": "MU300 5G 状态 / 流量 / 短信 / AT 控制台",
 		"read": {
 			"ubus": {},
 			"file": {
@@ -8,6 +8,12 @@
 					"read"
 				],
 				"/tmp/mu300-traffic.json": [
+					"read"
+				],
+				"/tmp/mu300-sms.json": [
+					"read"
+				],
+				"/tmp/mu300-sms.out": [
 					"read"
 				],
 				"/tmp/mu300-atweb.out": [
@@ -18,6 +24,9 @@
 		"write": {
 			"file": {
 				"/tmp/mu300-atweb.req": [
+					"write"
+				],
+				"/tmp/mu300-sms.req": [
 					"write"
 				]
 			}

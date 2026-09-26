@@ -21,7 +21,8 @@ HOST=root@192.168.5.9 bash install.sh
 | `files/usr/bin/mu300-*` | 自研脚本:状态采集、流量累计、LED、AT 控制台、IPv6 透传、AT 白名单 |
 | `files/etc/init.d/mu300-*` | 五个守护(开机自启) |
 | `files/etc/hotplug.d/iface/99-mu300-ipv6` | IPv6 相关:WAN 起来后设 `fe80::1`、accept_ra、MTU 1432 |
-| `files/www/luci-static/resources/view/mu300/*.js` | LuCI 三个页面(5G 状态 / 流量统计 / AT 控制台) |
+| `files/www/luci-static/resources/view/mu300/*.js` | LuCI 四个页面(5G 状态 / 流量统计 / 短信 / AT 控制台) |
+| `files/usr/bin/mu300-sms*`、`files/etc/init.d/mu300-smsd` | 短信:包装厂商的 `/opt/mu300/bin/sms`(收件/发送/删除),落库成 JSON 给页面读 |
 | `files/usr/share/luci/menu.d/luci-app-mu300.json` | 菜单(父项带 `firstchild`,避免 404) |
 | `files/usr/share/rpcd/acl.d/luci-app-mu300.json` | ACL(只放行 `/tmp` 下四个文件) |
 | `install.sh` | 一键安装 + 配置 + 启服务 + 验证 |

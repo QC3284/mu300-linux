@@ -1,0 +1,38 @@
+#!/usr/bin/ucode
+// mu300-sms-hook: 由 `sms watch` 每条新消息调用一次(SMS_FROM/SMS_DATE/SMS_TEXT/SMS_INDEX 走环境变量)
+// 作用:把消息追加进 /etc/mu300/sms-messages.json(持久)+ /tmp/mu300-sms.json(给页面)
+let fs = require('fs');
+let DB = '/etc/mu300/sms-messages.json';
+let LIVE = '/tmp/mu300-sms.json';
+let MAX = 200;
+
+function read_db() {
+	let d = {};
+	try { d = json(fs.readfile(DB) || '{}'); } catch (e) { d = {}; }
+	return d.messages || [];
+}
+
+function write_db(list) {
+	let o = { updated: time(), messages: list };
+	let s = sprintf('%.J', o);
+	fs.writefile(DB + '.tmp', s) ;
+	fs.rename(DB + '.tmp', DB);
+	fs.writefile(LIVE, s);
+}
+
+let list = read_db();
+let index = getenv('SMS_INDEX') || '';
+let m = {
+	index: index,
+	from: getenv('SMS_FROM') || '',
+	date: getenv('SMS_DATE') || '',
+	text: getenv('SMS_TEXT') || ''
+};
+// 去重(同一个 index 只留一条)
+let out = [];
+for (let i = 0; i < length(list); i++)
+	if (String(list[i].index) != String(index)) push(out, list[i]);
+unshift(out, m);
+while (length(out) > MAX) pop(out);
+write_db(out);
+print(sprintf('sms: stored #%s from %s (%d bytes)\n', index, m.from, length(m.text)));

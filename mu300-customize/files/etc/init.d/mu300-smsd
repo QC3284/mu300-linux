@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+# MU300 短信守护
+START=98
+STOP=10
+PIDFILE=/var/run/mu300-smsd.pid
+stop() {
+    [ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+    rm -f $PIDFILE
+    for p in $(ps w | grep '/usr/bin/mu300-smsd.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
+    # 连带把 sms watch 的子进程也收掉
+    for p in $(ps w | grep '[s]ms watch' | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
+}
+start() { stop; sleep 1; setsid /usr/bin/mu300-smsd.sh >/dev/null 2>&1 < /dev/null & sleep 1; echo $(pidof mu300-smsd.sh | awk '{print $1}') > $PIDFILE; }
+restart() { stop; sleep 1; start; }
