@@ -174,9 +174,10 @@ mu300-vpn status
 The device can update itself from a published release, without a computer:
 
 ```sh
-sudo mu300-update check      # installed version vs newest release
-sudo mu300-update apply      # download, unpack, switch; then reboot
-sudo mu300-update rollback   # back to the previous version
+sudo mu300-update check           # installed version vs newest release
+sudo mu300-update apply           # system, kernel and boot image: download, unpack, switch; then reboot
+sudo mu300-update rollback        # back to the previous system
+sudo mu300-update rollback-boot   # back to the previous kernel and boot image
 ```
 
 `mu300-toolkit` offers the same under System -> Software update. Your settings, users, `/usr/local` and the vendor
@@ -184,8 +185,14 @@ files (Wi-Fi firmware, Android modem userspace) are carried over, and the previo
 a rollback until you run `mu300-update clean`. The new filesystem is unpacked beside the old one and only swapped in
 at the end, so an interrupted download cannot leave a half-updated system.
 
-The kernel and the boot image are **not** updated this way: they have to be built with your device's own Android
-files, which only `./install.sh` on a computer can do.
+The kernel and the boot image are updated too. The boot image keeps your device's own part (its Android files and
+the stock header) as it is and gets the release's kernel and the generic part of its ramdisk, so no computer and
+nothing from Android are needed. The previous image is kept for `rollback-boot`, and a kernel that does not start
+sends the device back to Android on its own after the usual number of failed boots.
+
+**Installed before this existed?** Your `mu300-update` does not know about the boot image yet. Run
+`sudo mu300-update apply` twice: the first run installs the new system, which brings the new `mu300-update`, and
+the second one updates the kernel and the boot image (and skips the system, which is already current).
 
 ## Uninstall
 
