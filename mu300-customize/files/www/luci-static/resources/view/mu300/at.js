@@ -7,7 +7,8 @@ return view.extend({
 	load: function() { return null; },
 
 	render: function() {
-		var out = E('pre', { style: 'white-space:pre-wrap;word-break:break-all;background:#f5f5f5;padding:10px;border:1px solid #ddd;min-height:8em' }, '还没有执行过命令。');
+		// 配色跟随主题:用半透明灰,不要在深色主题下糊一块浅底色(用户反馈过"眼瞎")
+		var out = E('pre', { style: 'white-space:pre-wrap;word-break:break-all;background:var(--background-color,var(--background-color-high,rgba(127,127,127,.10)));padding:10px;border:1px solid var(--border-color,var(--border-color-low,rgba(127,127,127,.30)));border-radius:4px;min-height:8em' }, '还没有执行过命令。');
 
 		var input = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:60%;font-family:monospace', placeholder: 'AT+CSQ / AT+COPS? / AT+SP5GCMDS="get nr support_band"' });
 

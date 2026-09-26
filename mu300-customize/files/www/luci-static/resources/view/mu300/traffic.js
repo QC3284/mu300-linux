@@ -65,7 +65,7 @@ return view.extend({
 				return E('div', { style: 'margin:4px 0' }, [
 					E('span', { style: 'display:inline-block;width:11em' }, r[0]),
 					E('span', { style: 'display:inline-block;width:16em' }, '%s / %s'.format(fbytes(r[1]), fbytes(r[2]))),
-					E('span', { style: 'display:inline-block;background:#4a90d9;height:14px;width:%d%%'.format(Math.round((r[1] + r[2]) * 60 / max)) }, '')
+					E('span', { style: 'display:inline-block;background:var(--card-accent,var(--primary,#4a90d9));border-radius:3px;height:14px;width:%d%%'.format(Math.round((r[1] + r[2]) * 60 / max)) }, '')
 				]);
 			}) : [ E('p', {}, '还没有数据(守护每 30 秒采一次)。') ]);
 		}
