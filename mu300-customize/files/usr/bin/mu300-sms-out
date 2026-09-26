@@ -13,8 +13,9 @@ let text = join(' ', slice(argv, 1));
 let list = [];
 try { let d = json(fs.readfile(DB) || '{}'); list = d.messages || []; } catch (e) { list = []; }
 
+// ⚠️ ucode localtime 用 mon(1-12)/mday,不是 month/day(C 那套),写错会变成 2026-01-00
 let t = localtime(time());
-let date = sprintf('%04d-%02d-%02d %02d:%02d:%02d', t.year, t.month + 1, t.day, t.hour, t.min, t.sec);
+let date = sprintf('%04d-%02d-%02d %02d:%02d:%02d', t.year, t.mon, t.mday, t.hour, t.min, t.sec);
 
 unshift(list, { index: '-', dir: 'out', from: to, to: to, date: date, text: text });
 while (length(list) > MAX) pop(list);
