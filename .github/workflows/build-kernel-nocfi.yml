@@ -40,7 +40,9 @@ jobs:
           git remote add origin "$KREPO"
           git fetch -q --depth 1 origin "$KREV"
           git checkout -q FETCH_HEAD
-          for p in bluetooth-marlin3-link-policy of-reserved-mem-skip of-reserved-mem-add regdb-wens-certificate; do
+          # sipa-delegate-uaf-fix 是我们自己那个补丁(probe 失败后 devm 释放 delegator,而 conn_thread 还在跑 -> UAF -> panic)。
+          # 第一版 CI 漏了它,结果设备上装的 sipa_dele 是没修的版本:每 2 分钟左右 pc=0x0 崩一次。
+          for p in bluetooth-marlin3-link-policy of-reserved-mem-skip of-reserved-mem-add regdb-wens-certificate sipa-delegate-uaf-fix; do
             echo "== $p"; patch -p1 -s -f < "$GITHUB_WORKSPACE/kernel/patches/$p.patch"
           done
           echo "-gb50db5b6224c" > .scmversion
@@ -124,7 +126,10 @@ jobs:
           echo "== 模块 vermagic(应等于 5.4.254-gb50db5b6224c)=="
           modinfo /src/out/modules/sipa-dele.ko 2>/dev/null | grep -E 'vermagic|name' || true
           echo "== 内核大小 =="; ls -la /src/out/Image
-          cd /src/out && tar czf /src/mu300-kernel-nocfi.tar.gz Image modules.builtin modules.builtin.modinfo modules
+          # 顺手把 Module.symvers 也带上:以后要本地单独编某个模块时,没有它编出来的模块
+          # 没有符号 CRC,设备会拒绝加载("no symbol version for module_layout")
+          cp $O/Module.symvers /src/out/ 2>/dev/null || true
+          cd /src/out && tar czf /src/mu300-kernel-nocfi.tar.gz Image modules.builtin modules.builtin.modinfo modules Module.symvers
           ls -la /src/mu300-kernel-nocfi.tar.gz
           sha256sum /src/mu300-kernel-nocfi.tar.gz
 
