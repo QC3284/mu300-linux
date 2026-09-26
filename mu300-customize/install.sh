@@ -29,6 +29,8 @@ ssh_() { ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Conn
 echo '=== 1/5 推送文件 ==='
 ( cd "$HERE/files" && tar czf - . ) | ssh_ 'tar xzf - -C / && echo "  文件已解包"'
 ssh_ 'chmod 755 /usr/bin/mu300-* /etc/init.d/mu300-* 2>/dev/null; echo "  权限已设置"'
+# 数据目录 + 空状态文件(新装时页面/守护读不到也不要报错)
+ssh_ 'mkdir -p /etc/mu300; for f in schedule.json celllock.json; do [ -f /etc/mu300/$f ] || echo "{}" > /etc/mu300/$f; done; echo "  数据目录就绪"'
 
 echo '=== 2/5 应用 uci 配置(必须项)==='
 ssh_ '
