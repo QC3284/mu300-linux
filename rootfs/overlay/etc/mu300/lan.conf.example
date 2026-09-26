@@ -1,0 +1,4 @@
+# Copy to /etc/mu300/lan.conf to change the device's LAN address (USB and Wi-Fi clients).
+# Useful when two MU300s are plugged into one PC: give each its own subnet.
+# Always a /24; DHCP serves .2-.200 of it. Apply with: systemctl restart mu300-lan
+LAN_IP=192.168.77.1
