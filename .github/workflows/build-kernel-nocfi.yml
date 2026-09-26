@@ -1,0 +1,114 @@
+name: build kernel (CFI off) + modules
+
+# 目的:编一套「CFI 关闭」的内核 + 全套模块,消掉偶发的
+#   "Kernel panic - not syncing: CFI failure" (vendor 模块间接调用类型不匹配 -> CFI abort -> 重启)
+# 内核与模块必须成套重编,否则带 CFI 的模块配不带 CFI 的内核会加载失败。
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 'qc/kernel-nocfi' ]
+
+env:
+  KREPO: https://github.com/Enceka/android_kernel_zte_ums9620_mifi_u30air.git
+  KREV: b50db5b6224c11db42a246e8fcdaad1e1d59f478
+  MREPO: https://github.com/realme-kernel-opensource/realme_C51_C53_Narzo-N53-AndroidT-kernel-source.git
+  MREV: 4381465ccaf87fcf3215b9cd42f4a685df40e5e0
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    container: ubuntu:20.04
+    timeout-minutes: 240
+    steps:
+      - name: 装工具链
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            clang-12 lld-12 llvm-12 build-essential bc bison flex libssl-dev libelf-dev \
+            python3 python-is-python3 cpio git kmod ca-certificates rsync lz4 xz-utils file patch
+          echo "/usr/lib/llvm-12/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+
+      - name: 拉内核源码(pinned)+ 打上游的 4 个补丁
+        run: |
+          git init -q /src/zte-u30air
+          cd /src/zte-u30air
+          git remote add origin "$KREPO"
+          git fetch -q --depth 1 origin "$KREV"
+          git checkout -q FETCH_HEAD
+          for p in bluetooth-marlin3-link-policy of-reserved-mem-skip of-reserved-mem-add regdb-wens-certificate; do
+            echo "== $p"; patch -p1 -s -f < "$GITHUB_WORKSPACE/kernel/patches/$p.patch"
+          done
+          echo "-gb50db5b6224c" > .scmversion
+
+      - name: 拉 realme 的 WiFi/BT/GPU 模块树(sparse)
+        run: |
+          M=kernel_modules/kernel5.4
+          git init -q /src/realme
+          cd /src/realme
+          git remote add origin "$MREPO"
+          git sparse-checkout init --cone
+          git sparse-checkout set $M/wcn/wlan/wlan_combo $M/wcn/bluetooth/driver $M/gpu/natt/mali
+          git config extensions.partialClone origin
+          git config remote.origin.promisor true
+          git config remote.origin.partialclonefilter blob:none
+          git fetch -q --depth 1 --filter=blob:none origin "$MREV"
+          git checkout -q FETCH_HEAD
+          cp -r $M/wcn/wlan/wlan_combo /src/ext-wlan_combo
+          cp -r $M/wcn/bluetooth/driver /src/ext-sprdbt
+          cp -r $M/gpu/natt/mali /src/ext-mali
+
+      - name: 配置(**关掉 CFI**)
+        run: |
+          cd /src/zte-u30air
+          O=/src/out-linux; mkdir -p $O
+          cp "$GITHUB_WORKSPACE/kernel/f50-stock-B09.config" $O/.config
+          ./scripts/config --file $O/.config --enable THINLTO
+          ./scripts/config --file $O/.config --disable CFI_CLANG --disable CFI_CLANG_SHADOW
+          KCONFIG_CONFIG=$O/.config ./scripts/kconfig/merge_config.sh -m -O $O $O/.config \
+            "$GITHUB_WORKSPACE/kernel/mu300-linux.fragment" > /src/merge.log 2>&1
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld olddefconfig
+          echo "== 确认 CFI 已关 =="
+          grep -E "^CONFIG_(CFI_CLANG|LTO|LTO_CLANG_THIN|UBSAN)" $O/.config || true
+
+      - name: 编内核 + 内建模块(耗时步骤)
+        run: |
+          cd /src/zte-u30air
+          O=/src/out-linux
+          time make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" Image modules 2>&1 | tail -30
+          ls -la $O/arch/arm64/boot/Image
+          echo "内建模块数: $(find $O -name '*.ko' | wc -l)"
+
+      - name: 编 WiFi/BT/GPU 外部模块
+        run: |
+          cd /src/zte-u30air
+          O=/src/out-linux
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" \
+               M=/src/ext-wlan_combo BSP_BOARD_UNISOC_WCN_SOCKET=pcie modules 2>&1 | tail -8
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" \
+               M=/src/ext-sprdbt BSP_BOARD_UNISOC_WCN_SOCKET=pcie modules 2>&1 | tail -8
+          make O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j"$(nproc)" M=/src/ext-mali \
+               src=/src/ext-mali CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_NAME=qogirn6pro \
+               CONFIG_MALI_DEVFREQ=y CONFIG_DEVFREQ_THERMAL=y CONFIG_MALI_DEBUG=n \
+               CONFIG_MALI_FENCE_DEBUG=n BUILD=no modules 2>&1 | tail -8
+
+      - name: 收集产物
+        run: |
+          O=/src/out-linux
+          rm -rf /src/out && mkdir -p /src/out/modules
+          cp $O/arch/arm64/boot/Image $O/modules.builtin $O/modules.builtin.modinfo /src/out/ 2>/dev/null || true
+          find $O -name "*.ko" -exec cp {} /src/out/modules/ \;
+          cp /src/ext-wlan_combo/sprd_wlan_combo.ko /src/ext-sprdbt/sprdbt_tty.ko /src/out/modules/ 2>/dev/null || true
+          llvm-strip --strip-debug /src/out/modules/*.ko || true
+          echo "模块数: $(ls /src/out/modules | wc -l)"
+          strings /src/out/Image | grep -m1 "^Linux version"
+          cd /src/out && tar czf /src/mu300-kernel-nocfi.tar.gz Image modules.builtin modules.builtin.modinfo modules
+          ls -la /src/mu300-kernel-nocfi.tar.gz
+          sha256sum /src/mu300-kernel-nocfi.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mu300-kernel-nocfi
+          path: /src/mu300-kernel-nocfi.tar.gz
+          if-no-files-found: error
