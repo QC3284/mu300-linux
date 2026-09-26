@@ -1,0 +1,10 @@
+#!/bin/sh
+# MU300:CP(modem)是 fe80::2、AP 侧要 fe80::1 才收得到 RA(照 Android RIL 的做法)
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] || exit 0
+IF=sipa_eth0
+[ -d /proc/sys/net/ipv6/conf/$IF ] || exit 0
+sysctl -qw net.ipv6.conf.$IF.disable_ipv6=0 2>/dev/null
+sysctl -qw net.ipv6.conf.$IF.accept_ra=2 2>/dev/null
+ip -6 addr replace fe80::1/64 dev $IF 2>/dev/null
+# WAN MTU:运营商 RA 下发 1432,而接口默认 1500 -> 大包被丢、下载中途卡死(apk update 就是这样挂的)
+ip link set sipa_eth0 mtu 1432 2>/dev/null

@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+# MU300 IPv6 透传守护(全球前缀 + NDP 代理)
+START=97
+STOP=10
+PIDFILE=/var/run/mu300-v6.pid
+stop() {
+    [ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+    rm -f $PIDFILE
+    for p in $(ps w | grep '/usr/bin/mu300-v6-relay.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
+}
+start() {
+    stop; sleep 1
+    /usr/bin/mu300-v6-relay.sh >/dev/null 2>&1 &
+    echo $! > $PIDFILE
+}
+restart() { stop; sleep 1; start; }
+status() { [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null && echo running || echo stopped; }

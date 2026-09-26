@@ -1,0 +1,12 @@
+#!/bin/sh
+# 单条 AT 命令的执行包装(给 LuCI 的 AT 控制台用)
+# 只允许 AT 开头的命令,限制长度,避免误用把数据面搞乱
+cmd="$1"
+[ -n "$cmd" ] || { echo "用法: mu300-at-cmd \"AT+CMD\"" >&2; exit 2; }
+case "$cmd" in
+  AT*|at*) ;;
+  *) echo "只允许 AT 开头的命令" >&2; exit 2 ;;
+esac
+[ ${#cmd} -le 200 ] || { echo "命令过长(>200 字符)" >&2; exit 2; }
+export PATH=$PATH:/opt/mu300/bin
+exec mu300-at -t 8 "$cmd" 2>&1

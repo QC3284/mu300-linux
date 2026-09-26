@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+# MU300 流量统计守护
+START=98
+STOP=10
+PIDFILE=/var/run/mu300-trafd.pid
+stop() {
+    [ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+    rm -f $PIDFILE
+    for p in $(ps w | grep '/usr/bin/mu300-trafd.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
+}
+start() { stop; sleep 1; setsid /usr/bin/mu300-trafd.sh >/dev/null 2>&1 < /dev/null & sleep 1; echo $(pidof mu300-trafd.sh | awk '{print $1}') > $PIDFILE; }
+restart() { stop; sleep 1; start; }

@@ -1,0 +1,26 @@
+#!/bin/sh /etc/rc.common
+# MU300 / F50 数据灯服务(用 PID 文件管理,避免同名进程杀不干净导致多实例互相打架)
+START=95
+STOP=10
+PIDFILE=/var/run/mu300-led.pid
+
+stop() {
+    [ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+    rm -f $PIDFILE
+    for p in $(ps w | grep '/usr/bin/mu300-led.sh' | grep -v grep | awk '{print $1}'); do
+        kill -9 $p 2>/dev/null
+    done
+}
+
+start() {
+    stop
+    sleep 1
+    /usr/bin/mu300-led.sh >/dev/null 2>&1 &
+    echo $! > $PIDFILE
+}
+
+restart() { stop; sleep 1; start; }
+
+status() {
+    [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null && echo running || echo stopped
+}

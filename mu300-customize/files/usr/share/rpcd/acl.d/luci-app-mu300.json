@@ -1,0 +1,26 @@
+{
+	"luci-app-mu300": {
+		"description": "MU300 5G 状态 / 流量 / AT 控制台",
+		"read": {
+			"ubus": {},
+			"file": {
+				"/tmp/mu300-status.json": [
+					"read"
+				],
+				"/tmp/mu300-traffic.json": [
+					"read"
+				],
+				"/tmp/mu300-atweb.out": [
+					"read"
+				]
+			}
+		},
+		"write": {
+			"file": {
+				"/tmp/mu300-atweb.req": [
+					"write"
+				]
+			}
+		}
+	}
+}

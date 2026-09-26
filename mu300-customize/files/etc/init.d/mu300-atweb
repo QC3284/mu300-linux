@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+# Web AT 控制台执行守护(区别于上游的 mu300-atd:那个是 AT 通道守护)
+START=98
+STOP=10
+PIDFILE=/var/run/mu300-atweb.pid
+stop() {
+    [ -f $PIDFILE ] && kill -9 $(cat $PIDFILE) 2>/dev/null
+    rm -f $PIDFILE
+    for p in $(ps w | grep '/usr/bin/mu300-atweb.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
+}
+start() { stop; sleep 1; setsid /usr/bin/mu300-atweb.sh >/dev/null 2>&1 < /dev/null & sleep 1; echo $(pidof mu300-atweb.sh | awk '{print $1}') > $PIDFILE; }
+restart() { stop; sleep 1; start; }
