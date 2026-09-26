@@ -2,6 +2,10 @@
 'require view';
 'require fs';
 'require poll';
+'require rpc';
+
+var CELLDB = '/etc/mu300/celllock.json';
+var callReboot = rpc.declare({ object: 'system', method: 'reboot' });
 
 // 5G(NR) 已知映射(来自 ZTE 框架日志实测)
 // 5G 频段位映射。已知 4 个点 + 用 AT+SPLBAND=4 返回的 553(bit0/3/5/9)交叉验证:
@@ -121,6 +125,53 @@ return view.extend({
 				runAT('AT+SPLBAND=' + mode + ',' + fromMasks(m));
 		}
 
+		// ---------- 小区锁(AT+SPFORCEFRQ)----------
+		// 命令已实测:锁 = <rat>,1,<earfcn>,<pci>;解锁 = <rat>,0(rat: 16=NR / 12=LTE)
+		// 模组没有可用的"读已锁小区"命令(16,3 只回显),所以本页自己记一份到 /etc/mu300/celllock.json
+		var cellRat = E('select', { class: 'cbi-select', style: 'width:7em;margin:0' }, [
+			E('option', { value: '16' }, 'NR (5G)'), E('option', { value: '12' }, 'LTE (4G)')
+		]);
+		var cellEarfcn = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:9em;margin:0', placeholder: '如 422910' });
+		var cellPci = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:6em;margin:0', placeholder: '如 111' });
+		var cellNow = E('div', { style: 'margin:.4em 0 .6em' }, '(读取中…)');
+		var cellHint = E('span', { style: 'opacity:.75;margin-left:.8em' }, '');
+		function sayCell(s) { cellHint.textContent = s || ''; }
+
+		function loadCell() {
+			fs.read(CELLDB).then(function(s) {
+				var o = {};
+				try { o = JSON.parse(s) || {}; } catch (e) { o = {}; }
+				if (o && o.rat && o.earfcn && o.pci) {
+					cellNow.replaceChildren(E('span', {}, '已锁定 ' + (o.rat == '16' ? 'NR' : 'LTE') + ':earfcn ' + o.earfcn + ',pci ' + o.pci));
+					cellRat.value = o.rat; cellEarfcn.value = o.earfcn; cellPci.value = o.pci;
+				} else {
+					cellNow.replaceChildren(E('span', { style: 'opacity:.75' }, '未锁定(或不是通过本页锁的)'));
+				}
+			}).catch(function() {
+				cellNow.replaceChildren(E('span', { style: 'opacity:.75' }, '未锁定(或不是通过本页锁的)'));
+			});
+		}
+
+		function lockCell() {
+			var rat = cellRat.value, ea = (cellEarfcn.value || '').trim(), pc = (cellPci.value || '').trim();
+			if (!/^\d+$/.test(ea) || !/^\d+$/.test(pc)) { sayCell('earfcn 和 pci 都要填数字'); return; }
+			var name = (rat == '16' ? 'NR' : 'LTE');
+			if (!confirm('锁定到 ' + name + ' earfcn=' + ea + ' pci=' + pc + '?\n\n注意:锁死一个小区会失去移动性(信号变差也不会自动切换);写入后需要重启设备才生效。')) return;
+			var cmd = 'AT+SPFORCEFRQ=' + rat + ',1,' + ea + ',' + pc;
+			runAT(cmd);
+			fs.write(CELLDB, JSON.stringify({ rat: rat, earfcn: ea, pci: pc, at: cmd, ts: Math.floor(Date.now() / 1000) }, null, '\t') + '\n')
+				.then(function() { loadCell(); sayCell('已提交 ' + cmd + ';重启设备后生效'); })
+				.catch(function(e) { sayCell('记录失败: ' + e); });
+		}
+
+		function unlockCell() {
+			if (!confirm('解除小区锁?')) return;
+			var rat = cellRat.value;
+			runAT('AT+SPFORCEFRQ=' + rat + ',0');
+			fs.write(CELLDB, '{}\n').then(function() { loadCell(); sayCell('已提交解锁;重启设备后生效'); });
+		}
+
+		loadCell();
 		refresh();
 		poll.add(refresh, 10);
 
@@ -154,6 +205,25 @@ return view.extend({
 					} }, '放开全部 4G')
 				]),
 				E('p', { style: 'opacity:.75' }, '已实测:mask3 = band1-32(bit=band-1)、mask1 = band33-64(bit=band-33)')
+			]),
+			E('div', { class: 'cbi-section' }, [
+				E('h4', {}, '小区锁(锁基站)'),
+				cellNow,
+				E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.5em' }, [
+					cellRat, cellEarfcn, cellPci,
+					E('button', { class: 'cbi-button cbi-button-apply', click: lockCell }, '锁定'),
+					E('button', { class: 'cbi-button cbi-button-remove', click: unlockCell }, '解锁'),
+					cellHint
+				]),
+				E('p', { style: 'opacity:.75' }, '直接对模组发 AT+SPFORCEFRQ(rat: 16=NR、12=LTE)。earfcn/pci 可以在安卓侧的 UFI-TOOLS 或工程模式里查到。'),
+				E('p', { style: 'opacity:.75' }, '⚠ 锁死一个小区就没有移动性了(信号变差也不会自动切换),一般只在"附近有更强/更稳的指定基站"时用;写入后需要重启设备才生效。'),
+				E('div', { style: 'margin-top:.6em' }, [
+					E('button', { class: 'cbi-button cbi-button-remove', click: function(ev) {
+						if (!confirm('现在重启设备?5G 会断约 1 分钟,重启后新配置生效。')) return;
+						ev.target.disabled = true; ev.target.textContent = '重启中…';
+						callReboot().catch(function() { });
+					} }, '重启设备生效')
+				])
 			]),
 			E('div', { class: 'cbi-section' }, [
 				E('h4', {}, '高级:直接编辑掩码(5 个,逗号分隔)'),

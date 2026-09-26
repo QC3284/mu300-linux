@@ -79,8 +79,8 @@ return view.extend({
 			var radio = [
 				[ '信号强度', sig ],
 				[ '质量参数', sig2.join(', ') ],
-				[ '小区 ID', d.cell ],
-				[ '跟踪区 (TAC)', d.tac ]
+				[ '5G 小区 (NR)', d.nr_cell ? (d.nr_cell + (d.nr_tac ? '    TAC ' + d.nr_tac : '')) : '-' ],
+				[ '4G 小区 (LTE)', (d.lte_cell || d.cell || '-') + ((d.lte_tac || d.tac) ? '    TAC ' + (d.lte_tac || d.tac) : '') ]
 			];
 			var traf = [
 				[ '今日 收 / 发', '%s / %s'.format(fbytes(d.today_rx), fbytes(d.today_tx)) ],
@@ -110,11 +110,14 @@ return view.extend({
 		}
 
 		function draw_all() {
-			// 慢档:AT 采集(信号/制式/频段,90 秒一次)
+			// 慢档:制式/运营商/小区/频段(5 分钟一次)
 			readjson('/tmp/mu300-status.json', function(s) {
-				// 快档:纯 sysfs(速率/计数/在线时长/温度/WiFi,5 秒一次)—— 覆盖同名键,页面就是"活的"
+				// 中档:信号 RSRP/RSRQ/SINR(20 秒一次,1 条 AT)
+				readjson('/tmp/mu300-signal.json', function(sg) {
+					for (var k in sg) s[k] = sg[k];
+				// 快档:速率/计数/在线时长/温度/WiFi(5 秒一次,纯 sysfs)
 				readjson('/tmp/mu300-live.json', function(lv) {
-					for (var k in lv) s[k] = lv[k];
+					for (var k2 in lv) s[k2] = lv[k2];
 					readjson('/tmp/mu300-traffic.json', function(t) {
 						s.today_rx = 0; s.today_tx = 0;
 						if (t.days && t.today && t.days[t.today]) {
@@ -123,6 +126,7 @@ return view.extend({
 						}
 						draw(s);
 					});
+				});
 				});
 			});
 		}
@@ -133,7 +137,7 @@ return view.extend({
 		return E([], [
 			E('h2', {}, '5G 状态'),
 			cont,
-			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' }, '流量/速率/在线时长每 5 秒刷新;信号、制式、频段等需要查询模组,约 90 秒一次。'))
+			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' }, '流量/速率/在线时长每 5 秒;信号每 20 秒;制式、运营商、小区、频段每 5 分钟(这些要查询模组,查询本身需要几秒)。'))
 		]);
 	},
 

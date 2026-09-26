@@ -1,0 +1,24 @@
+#!/bin/sh
+# 快档信号:只发 1 条 AT(CESQ),约 3 秒 -> /tmp/mu300-signal.json
+# 原来信号和制式/频段一起采(要 ~20 秒),所以页面刷新慢;现在把信号单独拆出来频繁采
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+cesq=$(mu300-at -t 6 'AT+CESQ' 2>/dev/null | grep '^+CESQ:')
+rsrq_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$6); print $6}')
+rsrp_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$7); print $7}')
+ssrsrq_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$8); print $8}')
+ssrsrp_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$9); print $9}')
+sssinr_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$10); print $10}')
+rsrp=''; rsrq=''; sinr=''; qual=''; src=''
+if [ -n "$rsrp_i" ] && [ "$rsrp_i" != 255 ] && [ "$rsrp_i" != 99 ]; then
+  rsrp=$((rsrp_i - 140)); rsrq=$(awk -v i="$rsrq_i" 'BEGIN{printf "%.1f", -19.5 + i*0.5}'); src='LTE'
+elif [ -n "$ssrsrp_i" ] && [ "$ssrsrp_i" != 255 ] && [ "$ssrsrp_i" != 99 ]; then
+  rsrp=$((ssrsrp_i - 156)); rsrq=$(awk -v i="$ssrsrq_i" 'BEGIN{printf "%.1f", -43 + i*0.5}')
+  [ -n "$sssinr_i" ] && [ "$sssinr_i" != 255 ] && sinr=$(awk -v i="$sssinr_i" 'BEGIN{printf "%.1f", -23 + i*0.5}')
+  src='5G'
+fi
+if [ -n "$rsrp" ]; then
+  if [ "$rsrp" -ge -85 ]; then qual='极好'; elif [ "$rsrp" -ge -95 ]; then qual='良好'
+  elif [ "$rsrp" -ge -105 ]; then qual='一般'; elif [ "$rsrp" -ge -115 ]; then qual='较弱'; else qual='很弱'; fi
+fi
+printf '{\n  "updated": %s,\n  "rsrp": "%s", "rsrq": "%s", "sinr": "%s",\n  "quality": "%s", "signal_src": "%s"\n}\n' \
+  "$(date +%s)" "$rsrp" "$rsrq" "$sinr" "$qual" "$src"

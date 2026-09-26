@@ -13,6 +13,15 @@ rat=$(echo "$sig" | sed -n 's/^operator *[^ ]* (\(.*\))/\1/p')
 cell=$(echo "$sig" | sed -n 's/^cell *\([^ ]*\).*/\1/p')
 tac=$(echo "$sig" | sed -n 's/.*tracking area \([^)]*\).*/\1/p')
 
+# ---------- 小区标识/TAC:NR 与 LTE 各一条(AT+C5GREG / AT+CEREG)----------
+# 返回形如 +C5GREG: 0,1,"4A0084","4A1D4448C",11,...  → 引号内第 1 个是 TAC,第 2 个是小区 ID
+c5g=$(at 'AT+C5GREG?' | grep '^+C5GREG:' | head -1)
+creg=$(at 'AT+CEREG?' | grep '^+CEREG:' | head -1)
+nr_tac=$(printf '%s' "$c5g" | awk -F'"' '{print $2}')
+nr_cell=$(printf '%s' "$c5g" | awk -F'"' '{print $4}')
+lte_tac=$(printf '%s' "$creg" | awk -F'"' '{print $2}')
+lte_cell_=$(printf '%s' "$creg" | awk -F'"' '{print $4}')
+
 case "$oper" in
   46000|46002|46004|46007|46008|46020) opname='中国移动' ;;
   46001|46006|46009) opname='中国联通' ;;
@@ -28,25 +37,9 @@ case "$rat" in
   *) ratcn="$rat" ;;
 esac
 
-# ---------- 信号:优先 LTE 字段,退到 5G SS 字段 ----------
-cesq=$(at 'AT+CESQ' | grep '^+CESQ:')
-rsrq_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$6); print $6}')
-rsrp_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$7); print $7}')
-ssrsrq_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$8); print $8}')
-ssrsrp_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$9); print $9}')
-sssinr_i=$(echo "$cesq" | awk -F'[,:]' '{gsub(/ /,"",$10); print $10}')
-rsrp=''; rsrq=''; sinr=''; qualcn=''; src=''
-if [ -n "$rsrp_i" ] && [ "$rsrp_i" != 255 ] && [ "$rsrp_i" != 99 ]; then
-  rsrp=$((rsrp_i - 140)); rsrq=$(awk -v i="$rsrq_i" 'BEGIN{printf "%.1f", -19.5 + i*0.5}'); src='LTE'
-elif [ -n "$ssrsrp_i" ] && [ "$ssrsrp_i" != 255 ] && [ "$ssrsrp_i" != 99 ]; then
-  rsrp=$((ssrsrp_i - 156)); rsrq=$(awk -v i="$ssrsrq_i" 'BEGIN{printf "%.1f", -43 + i*0.5}')
-  [ -n "$sssinr_i" ] && [ "$sssinr_i" != 255 ] && sinr=$(awk -v i="$sssinr_i" 'BEGIN{printf "%.1f", -23 + i*0.5}')
-  src='5G'
-fi
-if [ -n "$rsrp" ]; then
-  if [ "$rsrp" -ge -85 ]; then qualcn='极好'; elif [ "$rsrp" -ge -95 ]; then qualcn='良好'
-  elif [ "$rsrp" -ge -105 ]; then qualcn='一般'; elif [ "$rsrp" -ge -115 ]; then qualcn='较弱'; else qualcn='很弱'; fi
-fi
+# ---------- 信号 ----------
+# 已拆到中档 mu300-status-signal(每 20 秒一条 AT+CESQ),这里不再重复查询(省 3 秒);
+# 页面会把 /tmp/mu300-signal.json 合并进来。rsrp/rsrq/sinr/quality 由那边提供。
 
 # ---------- 地址 / 速率 ----------
 v4=$(ip -4 -br addr show $WAN 2>/dev/null | awk '{print $3}')
@@ -82,8 +75,9 @@ cat <<EOF
 {
   "operator": "$(j "$oper")", "operator_name": "$(j "$opname")",
   "rat": "$(j "$ratcn")", "apn": "$(j "$apn")",
-  "rsrp": "$rsrp", "rsrq": "$rsrq", "sinr": "$sinr", "quality": "$(j "$qualcn")", "signal_src": "$src",
+  "signal_note": "见 /tmp/mu300-signal.json(中档采集)",
   "cell": "$(j "$cell")", "tac": "$(j "$tac")",
+  "nr_cell": "$(j "$nr_cell")", "nr_tac": "$(j "$nr_tac")", "lte_cell": "$(j "$lte_cell_")", "lte_tac": "$(j "$lte_tac")",
   "wan4": "$(j "$v4")", "wan6": "$(j "$v6")", "lan4": "$(j "$lan4")", "lan6": "$(j "$lan6")",
   "rx_rate": ${rxr:-0}, "tx_rate": ${txr:-0},
   "today_rx": ${today_rx_b:-0}, "today_tx": ${today_tx_b:-0},

@@ -1,13 +1,22 @@
 {
 	"luci-app-mu300": {
-		"description": "MU300 5G 状态 / 流量 / 短信 / 客户端 / 定时 / AT",
+		"description": "MU300 5G 状态 / 流量 / 短信 / 客户端 / 频段锁 / 小区锁 / 定时 / AT",
 		"read": {
 			"ubus": {},
 			"file": {
 				"/etc/mu300/schedule.json": [
 					"read"
 				],
+				"/etc/mu300/celllock.json": [
+					"read"
+				],
 				"/tmp/mu300-status.json": [
+					"read"
+				],
+				"/tmp/mu300-signal.json": [
+					"read"
+				],
+				"/tmp/mu300-live.json": [
 					"read"
 				],
 				"/tmp/mu300-traffic.json": [
@@ -38,6 +47,9 @@
 			},
 			"file": {
 				"/etc/mu300/schedule.json": [
+					"write"
+				],
+				"/etc/mu300/celllock.json": [
 					"write"
 				],
 				"/tmp/mu300-atweb.req": [
