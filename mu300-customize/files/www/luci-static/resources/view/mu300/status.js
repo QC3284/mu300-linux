@@ -71,7 +71,14 @@ return view.extend({
 			var nrm = mk(d.nr_band_mask), ltem = mk(d.lte_band_mask);
 			var nrLock = NRK.filter(function(k) { return (nrm[k.m] || 0) & (1 << k.bit); }).map(function(k) { return 'n' + k.b; }).join(', ');
 			var lteLock = LTE_B.filter(function(b) { var m = b <= 32 ? 3 : 1, bit = b <= 32 ? b - 1 : b - 33; return (ltem[m] || 0) & (1 << bit); }).map(function(b) { return 'B' + b; }).join(', ');
+			// "当前正在用哪个频段"模组不提供(UFI-TOOLS 那也是走安卓厂商接口)✗
+			// 能做的是:模组支持集 ∩ 锁定集 = 它实际可以在的频段集合 ✓(比只看锁定更准)
+			var nrsup = mk(d.nr_supported_mask), ltesup = mk(d.lte_supported_mask);
+			var nrUse = NRK.filter(function(k) { return ((nrm[k.m] || 0) & (1 << k.bit)) && ((nrsup[k.m] || 0) & (1 << k.bit)); }).map(function(k) { return 'n' + k.b; }).join(', ');
+			var lteUse = LTE_B.filter(function(b) { var m = b <= 32 ? 3 : 1, bit = b <= 32 ? b - 1 : b - 33; return ((ltem[m] || 0) & (1 << bit)) && ((ltesup[m] || 0) & (1 << bit)); }).map(function(b) { return 'B' + b; }).join(', ');
 			var band = [
+				[ '当前可用 5G', (d.nr_supported_mask ? (nrUse || '无(锁定的频段模组不支持?)') : '(采集稍后)') ],
+				[ '当前可用 4G', (d.lte_supported_mask ? (lteUse || '无') : '(采集稍后)') ],
 				[ '5G 锁定频段', nrLock ? nrLock + '   (掩码 ' + (d.nr_band_mask || '-') + ')' : (d.nr_band_mask ? '未锁(掩码 ' + d.nr_band_mask + ')' : '-') ],
 				[ '4G 锁定频段', lteLock ? lteLock + '   (掩码 ' + (d.lte_band_mask || '-') + ')' : (d.lte_band_mask ? '未锁(掩码 ' + d.lte_band_mask + ')' : '-') ],
 				[ '模组支持 5G', d.supported_nr ? 'n' + String(d.supported_nr).split(',').join(', n') : '-' ]

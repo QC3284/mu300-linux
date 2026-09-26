@@ -66,6 +66,9 @@ apn=$(uci -q get network.wan.apn); [ -z "$apn" ] && apn='(默认)'
 # 频段锁(AT+SPLBAND;掩码格式,已知 位->频段 映射见 mu300-band)
 nrmask=$(at 'AT+SPLBAND=3' | sed -n 's/^+SPLBAND: *//p' | head -1)
 ltemask=$(at 'AT+SPLBAND=0' | sed -n 's/^+SPLBAND: *//p' | head -1)
+# 模组支持的频段集合(4=NR、5=LTE;实测 4→553,0,528、5→0,482,0,149,0)
+nrsup=$(at 'AT+SPLBAND=4' | sed -n 's/^+SPLBAND: *//p' | head -1)
+ltesup=$(at 'AT+SPLBAND=5' | sed -n 's/^+SPLBAND: *//p' | head -1)
 
 temp=$(awk '{printf "%.1f", $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
 ctrl=$(sed -n 's/^DISTRIB_DESCRIPTION=//p' /etc/openwrt_release 2>/dev/null | tr -d "'")
@@ -85,6 +88,7 @@ cat <<EOF
   "ssid": "$(j "$ssid")", "channel": "$(j "$ch")", "wifi_band": "$(j "$band")", "clients": ${clients:-0},
   "temperature": "$temp",
   "firmware": "$(j "$ctrl")", "kernel": "$(j "$kernel")",
-  "nr_band_mask": "$nrmask", "lte_band_mask": "$ltemask", "supported_nr": "6,41,78,1,8,28,5"
+  "nr_band_mask": "$nrmask", "lte_band_mask": "$ltemask", "supported_nr": "6,41,78,1,8,28,5",
+  "nr_supported_mask": "$nrsup", "lte_supported_mask": "$ltesup"
 }
 EOF
