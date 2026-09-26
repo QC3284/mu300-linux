@@ -53,7 +53,7 @@ ssh_ '
   echo "  当前源: $(grep -h -m1 -v \"^#\" /etc/apk/repositories.d/*.list | head -c 80)"'
 
 echo '=== 4/5 启用并启动五个守护 ==='
-for s in mu300-led mu300-statusd mu300-trafd mu300-atweb mu300-v6-relay mu300-smsd; do
+for s in mu300-led mu300-statusd mu300-trafd mu300-atweb mu300-v6-relay mu300-smsd mu300-clientsd; do
   ssh_ "/etc/init.d/$s enable >/dev/null 2>&1; /etc/init.d/$s restart >/dev/null 2>&1; \",
        "n=\$(ps w | grep -c \"[m]u300-$(echo $s | sed 's/^mu300-//').sh\"); echo \"  $s -> 实例 \$n\"" 2>/dev/null || echo "  $s -> 启动失败(检查)"
 done

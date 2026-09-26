@@ -1,0 +1,14 @@
+#!/usr/bin/ucode
+// 设置某个 MAC 的备注名: mu300-clients-rename <mac> <名字...>
+let fs = require('fs');
+let DB = '/etc/mu300/clients.json';
+let argv = ARGV || [];
+let mac = lc(argv[0] || '');
+let name = join(' ', slice(argv, 1));
+if (!length(mac)) { print('用法: mu300-clients-rename <mac> <名字>\n'); exit(1); }
+let db = {};
+try { db = json(fs.readfile(DB) || '{}') || {}; } catch (e) { db = {}; }
+if (length(name)) db[mac] = name; else delete db[mac];
+fs.writefile(DB + '.tmp', sprintf('%.J', db));
+fs.rename(DB + '.tmp', DB);
+print(sprintf('renamed %s -> %s\n', mac, length(name) ? name : '(清除)'));

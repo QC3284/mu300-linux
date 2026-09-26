@@ -1,0 +1,6 @@
+#!/bin/sh
+# 采集客户端信息:DHCP 租约 + 无线站点 + 邻居表 -> mu300-clients-collect.uc 汇总成 JSON
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+iw dev wlan0 station dump > /tmp/mu300-wifi-stations.raw 2>/dev/null
+ip neigh show dev br-lan > /tmp/mu300-neigh.raw 2>/dev/null
+ucode /usr/bin/mu300-clients-collect.uc
