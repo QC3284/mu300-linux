@@ -40,7 +40,7 @@ return view.extend({
 				E('table', { class: 'table' }, E('tbody', {}, rows.map(function(r) {
 					return E('tr', { class: 'tr' }, [
 						E('td', { class: 'td left', width: '32%' }, E('strong', {}, r[0])),
-						E('td', { class: 'td left' }, (r[1] == null || r[1] === '') ? '-' : String(r[1]))
+						E('td', { class: 'td left', style: 'word-break:break-all;overflow-wrap:anywhere' }, (r[1] == null || r[1] === '') ? '-' : String(r[1]))
 					]);
 				})))
 			]);
@@ -63,6 +63,18 @@ return view.extend({
 				[ 'WAN IPv6', d.wan6 ],
 				[ '内网 IPv4', d.lan4 ],
 				[ '内网 IPv6 前缀', d.lan6 ]
+			];
+			// 频段锁(掩码解码:5G 已知 4 个频段;4G 用标准 E-UTRA 位图)
+			var NRK = [ { b: 1, m: 0, bit: 0 }, { b: 28, m: 0, bit: 9 }, { b: 41, m: 2, bit: 4 }, { b: 78, m: 2, bit: 8 } ];
+			var LTE_B = [ 1, 3, 5, 8, 34, 38, 39, 40, 41 ];
+			function mk(s) { return String(s || '').split(',').map(function(x) { return Number(x) || 0; }); }
+			var nrm = mk(d.nr_band_mask), ltem = mk(d.lte_band_mask);
+			var nrLock = NRK.filter(function(k) { return (nrm[k.m] || 0) & (1 << k.bit); }).map(function(k) { return 'n' + k.b; }).join(', ');
+			var lteLock = LTE_B.filter(function(b) { var m = b <= 32 ? 3 : 1, bit = b <= 32 ? b - 1 : b - 33; return (ltem[m] || 0) & (1 << bit); }).map(function(b) { return 'B' + b; }).join(', ');
+			var band = [
+				[ '5G 锁定频段', nrLock ? nrLock + '   (掩码 ' + (d.nr_band_mask || '-') + ')' : (d.nr_band_mask ? '未锁(掩码 ' + d.nr_band_mask + ')' : '-') ],
+				[ '4G 锁定频段', lteLock ? lteLock + '   (掩码 ' + (d.lte_band_mask || '-') + ')' : (d.lte_band_mask ? '未锁(掩码 ' + d.lte_band_mask + ')' : '-') ],
+				[ '模组支持 5G', d.supported_nr ? 'n' + String(d.supported_nr).split(',').join(', n') : '-' ]
 			];
 			var radio = [
 				[ '信号强度', sig ],
@@ -90,6 +102,7 @@ return view.extend({
 			cont.replaceChildren.apply(cont, [
 				section('网络', net),
 				section('信号', radio),
+				section('频段锁', band),
 				section('流量', traf),
 				section('无线热点', wifi),
 				section('设备', dev)

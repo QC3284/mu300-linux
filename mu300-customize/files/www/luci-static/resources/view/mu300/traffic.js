@@ -61,13 +61,16 @@ return view.extend({
 			var recent = list.slice(0, 7), max = 1;
 			recent.forEach(function(r) { if (r[1] + r[2] > max) max = r[1] + r[2]; });
 
-			bars.replaceChildren.apply(bars, recent.length ? recent.map(function(r) {
-				return E('div', { style: 'margin:4px 0' }, [
-					E('span', { style: 'display:inline-block;width:11em' }, r[0]),
-					E('span', { style: 'display:inline-block;width:16em' }, '%s / %s'.format(fbytes(r[1]), fbytes(r[2]))),
-					E('span', { style: 'display:inline-block;background:var(--card-accent,var(--primary,#4a90d9));border-radius:3px;height:14px;width:%d%%'.format(Math.round((r[1] + r[2]) * 60 / max)) }, '')
-				]);
-			}) : [ E('p', {}, '还没有数据(守护每 30 秒采一次)。') ]);
+			// 用表格排版(比固定宽度 inline-block 更抗窄屏,避免错位)
+			bars.replaceChildren.apply(bars, recent.length ? [
+				E('div', { style: 'overflow-x:auto' }, E('table', { class: 'table' }, E('tbody', {}, recent.map(function(r) {
+					return E('tr', { class: 'tr' }, [
+						E('td', { class: 'td left', style: 'white-space:nowrap' }, r[0]),
+						E('td', { class: 'td left', style: 'white-space:nowrap' }, '%s / %s'.format(fbytes(r[1]), fbytes(r[2]))),
+						E('td', { class: 'td left', width: '40%' }, E('div', { style: 'background:var(--card-accent,var(--primary,#4a90d9));border-radius:3px;height:14px;width:%d%%'.format(Math.round((r[1] + r[2]) * 90 / max)) }, ''))
+					]);
+				}))))
+			] : [ E('p', {}, '还没有数据(守护每 30 秒采一次)。') ]);
 		}
 
 		function draw_all() {

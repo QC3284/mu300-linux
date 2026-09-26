@@ -80,7 +80,8 @@ return view.extend({
 				]);
 			});
 
-			box.replaceChildren(E('table', { class: 'table' }, [ E('thead', {}, head), E('tbody', {}, rows) ]));
+			// 表格列多,包一层横向滚动,避免窄屏撑破布局(用户反馈过“错位”)
+			box.replaceChildren(E('div', { style: 'overflow-x:auto' }, E('table', { class: 'table' }, [ E('thead', {}, head), E('tbody', {}, rows) ])));
 		}
 
 		refresh();
