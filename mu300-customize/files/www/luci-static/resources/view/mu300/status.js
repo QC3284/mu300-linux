@@ -110,25 +110,30 @@ return view.extend({
 		}
 
 		function draw_all() {
+			// 慢档:AT 采集(信号/制式/频段,90 秒一次)
 			readjson('/tmp/mu300-status.json', function(s) {
-				readjson('/tmp/mu300-traffic.json', function(t) {
-					s.today_rx = 0; s.today_tx = 0;
-					if (t.days && t.today && t.days[t.today]) {
-						s.today_rx = Number(t.days[t.today].rx) || 0;
-						s.today_tx = Number(t.days[t.today].tx) || 0;
-					}
-					draw(s);
+				// 快档:纯 sysfs(速率/计数/在线时长/温度/WiFi,5 秒一次)—— 覆盖同名键,页面就是"活的"
+				readjson('/tmp/mu300-live.json', function(lv) {
+					for (var k in lv) s[k] = lv[k];
+					readjson('/tmp/mu300-traffic.json', function(t) {
+						s.today_rx = 0; s.today_tx = 0;
+						if (t.days && t.today && t.days[t.today]) {
+							s.today_rx = Number(t.days[t.today].rx) || 0;
+							s.today_tx = Number(t.days[t.today].tx) || 0;
+						}
+						draw(s);
+					});
 				});
 			});
 		}
 
 		draw_all();
-		poll.add(draw_all, 10);
+		poll.add(draw_all, 5);
 
 		return E([], [
 			E('h2', {}, '5G 状态'),
 			cont,
-			E('div', { class: 'cbi-section' }, E('p', {}, '数据每 10 秒自动刷新(mu300-statusd 每 60 秒采集一次)。'))
+			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' }, '流量/速率/在线时长每 5 秒刷新;信号、制式、频段等需要查询模组,约 90 秒一次。'))
 		]);
 	},
 

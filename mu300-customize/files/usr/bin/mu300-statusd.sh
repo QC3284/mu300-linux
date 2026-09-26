@@ -1,8 +1,13 @@
 #!/bin/sh
-# 把 MU300 状态定期写进 /tmp/mu300-status.json(给 LuCI 页面读)
-# 一次采集要 ~20 秒(AT 通道被数据面占着),而且 AT 打太频繁会把通道搞卡
-# -> 间隔取 120 秒,并且不要再手工高频探测 AT
+# MU300 状态采集守护(两档频率)
+#   快档:每 5 秒跑 mu300-status-live(纯 sysfs,~1 秒)   -> /tmp/mu300-live.json
+#   慢档:每 90 秒跑 mu300-status(要走 AT,~20 秒)        -> /tmp/mu300-status.json(信号/制式/频段等)
+# 为什么分开:AT 查询一次要好几秒,而且打太勤会把 AT 通道搞卡(踩过坑)
 while :; do
-  /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json
-  sleep 120
+  /usr/bin/mu300-status-live > /tmp/mu300-live.json.tmp 2>/dev/null && mv /tmp/mu300-live.json.tmp /tmp/mu300-live.json
+  n=$((n+1))
+  if [ $((n % 18)) -eq 1 ]; then
+    /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json
+  fi
+  sleep 4
 done
