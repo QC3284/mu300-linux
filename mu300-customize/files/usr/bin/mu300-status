@@ -70,6 +70,10 @@ chinfo=$(iw dev wlan0 info 2>/dev/null | awk '/channel/{print $2" "$4}')
 ch=$(echo "$chinfo" | awk '{print $1}'); band=$(echo "$chinfo" | awk '{print $2}')
 clients=$(iw dev wlan0 station dump 2>/dev/null | grep -c Station)
 apn=$(uci -q get network.wan.apn); [ -z "$apn" ] && apn='(默认)'
+# 频段锁(AT+SPLBAND;掩码格式,已知 位->频段 映射见 mu300-band)
+nrmask=$(at 'AT+SPLBAND=3' | sed -n 's/^+SPLBAND: *//p' | head -1)
+ltemask=$(at 'AT+SPLBAND=0' | sed -n 's/^+SPLBAND: *//p' | head -1)
+
 temp=$(awk '{printf "%.1f", $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
 ctrl=$(sed -n 's/^DISTRIB_DESCRIPTION=//p' /etc/openwrt_release 2>/dev/null | tr -d "'")
 kernel=$(uname -r)
@@ -86,6 +90,7 @@ cat <<EOF
   "uptime": ${up:-0},
   "ssid": "$(j "$ssid")", "channel": "$(j "$ch")", "wifi_band": "$(j "$band")", "clients": ${clients:-0},
   "temperature": "$temp",
-  "firmware": "$(j "$ctrl")", "kernel": "$(j "$kernel")"
+  "firmware": "$(j "$ctrl")", "kernel": "$(j "$kernel")",
+  "nr_band_mask": "$nrmask", "lte_band_mask": "$ltemask", "supported_nr": "6,41,78,1,8,28,5"
 }
 EOF

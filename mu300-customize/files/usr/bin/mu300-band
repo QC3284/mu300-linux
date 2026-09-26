@@ -1,0 +1,77 @@
+#!/bin/sh
+# 频段锁(Linux 侧,直接用模组的 AT+SPLBAND)
+#   mu300-band read                 读当前锁频(mode 3 = NR,mode 0 = 另一组)
+#   mu300-band write <m0..m4>       写入 5 个掩码(mode 2)
+#   mu300-band unlock               放开全部频段(全 1 掩码)
+#   mu300-band restore <m0..m4>     同 write(语义化别名)
+# 参考:官方后台 nr_band_lock=1,28,41,78 对应掩码 513,0,272
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+
+at() { mu300-at -t 12 "$1" 2>/dev/null; }
+
+# 已知的 位->频段 映射(从 ZTE 框架的解码日志实测到的 4 个点)
+known_nr() {
+  case "$1" in
+    "0:0") echo 1 ;;
+    "0:9") echo 28 ;;
+    "2:4") echo 41 ;;
+    "2:8") echo 78 ;;
+    *) echo '' ;;
+  esac
+}
+
+read_nr() {
+  out=$(at 'AT+SPLBAND=3')
+  echo "$out" | sed -n 's/^+SPLBAND: *//p' | head -1
+}
+
+read_lte() {
+  out=$(at 'AT+SPLBAND=0')
+  echo "$out" | sed -n 's/^+SPLBAND: *//p' | head -1
+}
+
+masks_json() {
+  # $1 = "a,b,c" -> JSON 数组 + 已知频段
+  i=0
+  printf '['
+  for m in $(echo "$1" | tr ',' ' '); do
+    [ $i -gt 0 ] && printf ','
+    printf '%s' "$m"
+    i=$((i+1))
+  done
+  printf ']'
+}
+
+decode_known() {
+  # 打印已知位对应的频段列表
+  n=0; first=1
+  for m in $(echo "$1" | tr ',' ' '); do
+    j=0
+    while [ $j -lt 32 ]; do
+      if [ $(( m & (1 << j) )) -ne 0 ] 2>/dev/null; then
+        b=$(known_nr "$n:$j")
+        [ -n "$b" ] && { [ $first -eq 0 ] && printf ','; printf '%s' "$b"; first=0; }
+      fi
+      j=$((j+1))
+    done
+    n=$((n+1))
+  done
+}
+
+case "${1:-read}" in
+  read)
+    nr=$(read_nr); lte=$(read_lte)
+    printf '{\n  "nr_masks": %s,\n  "nr_raw": "%s",\n  "nr_known_bands": "%s",\n  "lte_masks": %s,\n  "lte_raw": "%s",\n  "supported_nr": "6,41,78,1,8,28,5"\n}\n' \
+      "$(masks_json "$nr")" "$nr" "$(decode_known "$nr")" "$(masks_json "$lte")" "$lte" ;;
+  write|restore)
+    shift
+    [ $# -eq 5 ] || { echo '用法: mu300-band write <m0> <m1> <m2> <m3> <m4>'; exit 2; }
+    at "AT+SPLBAND=2,$1,$2,$3,$4,$5"
+    sleep 1
+    echo "after: $(read_nr)" ;;
+  unlock)
+    at 'AT+SPLBAND=2,4294967295,4294967295,4294967295,4294967295,4294967295'
+    sleep 1
+    echo "after: $(read_nr)" ;;
+  *) echo '用法: mu300-band read | write <m0..m4> | unlock'; exit 2 ;;
+esac
