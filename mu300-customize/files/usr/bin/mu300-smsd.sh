@@ -32,6 +32,10 @@ while :; do
         if [ -n "$number" ] && [ -n "$text" ]; then
           res=$(sms send "$number" "$text" 2>&1)
           reply send "$res"
+          # 厂商 sms list 只读收件箱,发件箱模组不一定存 -> 自己记一条(成功才记)
+          case $res in
+            sent*) /usr/bin/mu300-sms-out "$number" "$text" >/dev/null 2>&1 ;;
+          esac
           # 发完立刻刷新一次收件箱(把已发消息也带进来)
           /usr/bin/mu300-sms-refresh >/dev/null 2>&1
         else

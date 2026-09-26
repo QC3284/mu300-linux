@@ -36,12 +36,14 @@ return view.extend({
 			var msgs = (d && d.messages) || [];
 			if (!msgs.length) { box.replaceChildren(E('p', {}, '收件箱是空的。')); return; }
 			box.replaceChildren.apply(box, msgs.map(function(m) {
-				return E('div', { style: 'border:1px solid #ddd;border-radius:4px;padding:8px;margin:8px 0' }, [
+				var out = (m.dir == 'out');
+				return E('div', { style: 'border:1px solid ' + (out ? '#b9d3ee' : '#ddd') + ';background:' + (out ? '#f4f8fd' : 'transparent') + ';border-radius:4px;padding:8px;margin:8px 0' }, [
 					E('div', {}, [
-						E('strong', {}, m.from || '未知'),
+						E('span', { style: 'color:' + (out ? '#33689e' : '#333') + ';margin-right:.6em' }, out ? '已发送 →' : '收到'),
+						E('strong', {}, (out ? (m.to || m.from) : m.from) || '未知'),
 						E('span', { style: 'color:#888;margin-left:1em' }, m.date || ''),
-						E('span', { style: 'color:#aaa;margin-left:1em' }, '#' + (m.index || '')),
-						E('button', { class: 'cbi-button cbi-button-remove', style: 'float:right', click: function() {
+						E('span', { style: 'color:#aaa;margin-left:1em' }, out ? '' : ('#' + (m.index || ''))),
+						out ? '' : E('button', { class: 'cbi-button cbi-button-remove', style: 'float:right', click: function() {
 							if (confirm('删除这条短信?')) ask('action=delete\nindex=' + m.index);
 						} }, '删除')
 					]),

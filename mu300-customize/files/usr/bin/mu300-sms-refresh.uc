@@ -22,6 +22,17 @@ for (let i = 0; i < length(lines); i++) {
 	}
 }
 
+// 保留我们自己记录的【发件】(厂商 sms list 只有收件箱)
+let old = [];
+try { let d = json(fs.readfile(DB) || '{}'); old = d.messages || []; } catch (e) { old = []; }
+let outs = [];
+for (let i = 0; i < length(old); i++)
+	if (old[i].dir == 'out') push(outs, old[i]);
+let merged = [];
+for (let i = 0; i < length(outs); i++) push(merged, outs[i]);
+for (let i = 0; i < length(msgs); i++) push(merged, msgs[i]);
+msgs = merged;
+
 let o = { updated: time(), messages: msgs };
 let s = sprintf('%.J', o);
 fs.writefile(DB + '.tmp', s);

@@ -1,0 +1,26 @@
+#!/usr/bin/ucode
+// 记录一条【已发送】短信(厂商 sms list 只读收件箱,发件箱模组不一定存 —— 所以自己记)
+// 用法: mu300-sms-out <号码> <内容...>
+let fs = require('fs');
+let DB = '/etc/mu300/sms-messages.json';
+let LIVE = '/tmp/mu300-sms.json';
+let MAX = 200;
+
+let argv = ARGV || [];
+let to = argv[0] || '';
+let text = join(' ', slice(argv, 1));
+
+let list = [];
+try { let d = json(fs.readfile(DB) || '{}'); list = d.messages || []; } catch (e) { list = []; }
+
+let t = localtime(time());
+let date = sprintf('%04d-%02d-%02d %02d:%02d:%02d', t.year, t.month + 1, t.day, t.hour, t.min, t.sec);
+
+unshift(list, { index: '-', dir: 'out', from: to, to: to, date: date, text: text });
+while (length(list) > MAX) pop(list);
+
+let s = sprintf('%.J', { updated: time(), messages: list });
+fs.writefile(DB + '.tmp', s);
+fs.rename(DB + '.tmp', DB);
+fs.writefile(LIVE, s);
+print(sprintf('recorded outgoing to %s\n', to));
