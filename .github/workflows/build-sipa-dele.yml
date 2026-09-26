@@ -1,0 +1,87 @@
+name: build sipa-dele.ko (patched)
+
+# 自用构建:在云端编我们打过补丁的 vendor 内核模块,不占用本机(i5-3230M)的 CPU。
+# 产物 = sipa-dele.ko,vermagic 必须等于设备内核 5.4.254-gb50db5b6224c(否则拒绝加载)。
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, 'qc/**' ]
+    paths:
+      - '.github/workflows/build-sipa-dele.yml'
+      - 'patches/**'
+
+env:
+  KREPO: https://github.com/Enceka/android_kernel_zte_ums9620_mifi_u30air.git
+  KREV: b50db5b6224c11db42a246e8fcdaad1e1d59f478
+  KVER: 5.4.254-gb50db5b6224c
+  MODDIR: drivers/net/sprd/sipa_delegate
+
+jobs:
+  module:
+    runs-on: ubuntu-24.04
+    container: ubuntu:20.04          # 与上游 kernel/Dockerfile 相同的 clang-12 工具链
+    timeout-minutes: 90
+    steps:
+      - name: 装工具链
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            clang-12 lld-12 llvm-12 build-essential bc bison flex libssl-dev libelf-dev \
+            python3 python-is-python3 cpio git kmod ca-certificates rsync xz-utils file patch
+          echo "/usr/lib/llvm-12/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+
+      - name: 拉 vendor 内核(pinned commit)
+        run: |
+          git init -q /src/kernel
+          cd /src/kernel
+          git remote add origin "$KREPO"
+          git fetch -q --depth 1 origin "$KREV"
+          git checkout -q FETCH_HEAD
+          rm -rf .git                       # 免得 setlocalversion 追加 -dirty / +
+          echo "-gb50db5b6224c" > .scmversion
+
+      - name: 打我们的补丁
+        run: |
+          cd /src/kernel
+          for p in "$GITHUB_WORKSPACE"/patches/*.patch; do echo "== $p"; patch -p1 -s < "$p"; done
+
+      - name: 复用已 prepare 的 O 目录
+        uses: actions/cache@v4
+        with:
+          path: /src/out
+          key: kbuild-${{ env.KREV }}-${{ hashFiles('kernel/f50-stock-B09.config') }}
+          restore-keys: kbuild-${{ env.KREV }}-
+
+      - name: 配置 + prepare
+        run: |
+          T=/src/kernel; O=/src/out; mkdir -p "$O"
+          [ -s "$O/.config" ] || cp "$GITHUB_WORKSPACE/kernel/f50-stock-B09.config" "$O/.config"
+          sed -i 's|^CONFIG_LOCALVERSION=.*|CONFIG_LOCALVERSION="-gb50db5b6224c"|' "$O/.config"
+          sed -i 's|^CONFIG_LOCALVERSION_AUTO=y|# CONFIG_LOCALVERSION_AUTO is not set|' "$O/.config"
+          sed -i 's|^CONFIG_MODULE_SIG_FORCE=y|# CONFIG_MODULE_SIG_FORCE is not set|' "$O/.config"
+          sed -i 's|^CONFIG_MODULE_SIG_ALL=y|# CONFIG_MODULE_SIG_ALL is not set|' "$O/.config"
+          MAKE="make -C $T O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION="
+          $MAKE olddefconfig
+          # vermagic 里多一个 "+" 就装不上(见 BUILD-2026-09-26-local-module-build.md 坑 2)
+          rm -f "$O/include/config/kernel.release" "$O/include/generated/utsrelease.h"
+          $MAKE include/config/kernel.release include/generated/utsrelease.h
+          grep -qx "$KVER" "$O/include/config/kernel.release"
+          $MAKE modules_prepare -j"$(nproc)"
+
+      - name: 编模块
+        run: |
+          T=/src/kernel; O=/src/out
+          make -C $T O=$O ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= \
+               M=$MODDIR modules -j"$(nproc)"
+          KO="$O/$MODDIR/sipa-dele.ko"
+          modinfo "$KO" | grep -q "vermagic: *$KVER " || { modinfo "$KO"; echo "vermagic 不匹配,产物不可用"; exit 1; }
+          llvm-strip --strip-debug -o /src/sipa-dele.ko "$KO"
+          echo "== 产物 =="; ls -la /src/sipa-dele.ko; modinfo /src/sipa-dele.ko | grep -E 'vermagic|name'; sha256sum /src/sipa-dele.ko
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sipa-dele-ko
+          path: /src/sipa-dele.ko
+          if-no-files-found: error

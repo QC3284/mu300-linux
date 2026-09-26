@@ -1,0 +1,75 @@
+--- a/drivers/net/sprd/sipa_delegate/sipa_dele_cmn.c
++++ b/drivers/net/sprd/sipa_delegate/sipa_dele_cmn.c
+@@ -50,7 +50,8 @@
+ 
+ 	/* set connect status */
+ 	delegator->connected = true;
+-	delegator->on_open(delegator, 0, 0);
++	if (delegator->on_open)
++		delegator->on_open(delegator, 0, 0);
+ 
+ 	/* start listen the smsg events */
+ 	while (!kthread_should_stop()) {
+@@ -74,26 +75,31 @@
+ 			smsg_open_ack(delegator->dst, delegator->chan);
+ 			/* set connect status */
+ 			delegator->connected = true;
+-			delegator->on_open(delegator, mrecv.flag, mrecv.value);
++			if (delegator->on_open)
++				delegator->on_open(delegator, mrecv.flag, mrecv.value);
+ 			break;
+ 		case SMSG_TYPE_CLOSE:
+ 			/* handle channel close */
+ 			smsg_close_ack(delegator->dst, delegator->chan);
+ 			/* set disconnect status */
+ 			delegator->connected = false;
+-			delegator->on_close(delegator, mrecv.flag, mrecv.value);
++			if (delegator->on_close)
++				delegator->on_close(delegator, mrecv.flag, mrecv.value);
+ 			break;
+ 		case SMSG_TYPE_CMD:
+ 			/* handle commads */
+-			delegator->on_cmd(delegator, mrecv.flag, mrecv.value);
++			if (delegator->on_cmd)
++				delegator->on_cmd(delegator, mrecv.flag, mrecv.value);
+ 			break;
+ 		case SMSG_TYPE_DONE:
+ 			/* handle cmd done */
+-			delegator->on_done(delegator, mrecv.flag, mrecv.value);
++			if (delegator->on_done)
++				delegator->on_done(delegator, mrecv.flag, mrecv.value);
+ 			break;
+ 		case SMSG_TYPE_EVENT:
+ 			/* handle events */
+-			delegator->on_evt(delegator, mrecv.flag, mrecv.value);
++			if (delegator->on_evt)
++				delegator->on_evt(delegator, mrecv.flag, mrecv.value);
+ 			break;
+ 		default:
+ 			ret = 1;
+--- a/drivers/net/sprd/sipa_delegate/sipa_dele_cp_in_ap.c
++++ b/drivers/net/sprd/sipa_delegate/sipa_dele_cp_in_ap.c
+@@ -176,15 +176,21 @@
+ 	sipa_delegator_start(&s_cp_delegator->delegator);
+ 	pm_runtime_enable(s_cp_delegator->delegator.pdev);
+ 
++	/* MU300: the Wi-Fi data-path dependencies are optional here. Failing the
++	 * probe after sipa_delegator_start() leaves the delegator kthread running
++	 * in memory devm is about to free (probe != 0 -> devm_kzalloc is released),
++	 * and the thread then calls a NULL callback: CFI abort / kernel panic.
++	 * Warn and carry on instead.
++	 */
+ 	ret = sipa_rm_add_dependency(SIPA_RM_RES_CONS_WIFI_UL,
+ 				     s_cp_delegator->delegator.prod_id);
+ 	if (ret)
+-		return ret;
++		dev_warn(params->pdev, "add_dependency WIFI_UL failed: %d (continuing)\n", ret);
+ 
+ 	ret = sipa_rm_add_dependency(SIPA_RM_RES_CONS_WIFI_DL,
+ 				     s_cp_delegator->delegator.prod_id);
+ 	if (ret)
+-		return ret;
++		dev_warn(params->pdev, "add_dependency WIFI_DL failed: %d (continuing)\n", ret);
+ 
+ 	sipa_dele_init_sysfs(s_cp_delegator);
+ 
