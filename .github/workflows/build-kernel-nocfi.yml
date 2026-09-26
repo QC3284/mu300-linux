@@ -86,6 +86,17 @@ jobs:
           ls -la $O/arch/arm64/boot/Image
           echo "内建模块数: $(find $O -name '*.ko' | wc -l)"
 
+      - name: 给 WiFi 模块源码打上游补丁(漏了它 WCN 起不来)
+        run: |
+          # 上游 build-wlan.sh 会先打这些补丁;第一次做 CI 时我漏了,结果设备上
+          # "read prj_name_hw_param err" -> 找 wifi_board_config_hulk.ini -> WCN 掉电,WiFi 全废
+          cd /src/ext-wlan_combo
+          for p in "$GITHUB_WORKSPACE"/kernel/patches/wlan_combo-*.patch; do
+            echo "== $(basename "$p")"
+            patch -p1 -s -f < "$p" || echo "   (该补丁没打上/已打过,继续)"
+          done
+          ls -la sprd_wlan_combo.ko 2>/dev/null || true
+
       - name: 编 WiFi/BT/GPU 外部模块
         run: |
           cd /src/zte-u30air
