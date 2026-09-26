@@ -305,15 +305,15 @@ Track community adoption, download numbers, and repository traffic:
   * [Release Download Statistics Dashboard](https://tooomm.github.io/github-release-stats/?username=dikeckaan&repository=mu300-linux)
 
 <!-- STATS:START -->
-> *Last updated: **2026-09-25 04:43:23 UTC** (tracked automatically via GitHub Actions)*
+> *Last updated: **2026-09-26 04:45:27 UTC** (tracked automatically via GitHub Actions)*
 
 ### Overview
 
 | Metric | Count | Details |
 |---|---|---|
-| ⭐ **Stars** | **48** | Stargazers |
-| 🍴 **Forks** | **16** | Forks (33% fork-to-star ratio) |
-| 📥 **Release Asset Downloads** | **244** | 156 OS/Kernel images, 88 checksums |
+| ⭐ **Stars** | **52** | Stargazers |
+| 🍴 **Forks** | **16** | Forks (31% fork-to-star ratio) |
+| 📥 **Release Asset Downloads** | **260** | 169 OS/Kernel images, 91 checksums |
 | 👥 **Page Views (Archived)** | **1,154** | ~487 unique visitors |
 | 💻 **Git Clones (Archived)** | **668** | ~291 unique cloners |
 
@@ -342,10 +342,10 @@ Track community adoption, download numbers, and repository traffic:
 
 | Release | Asset | Size | Downloads |
 |---|---|---|---|
-| **v2026.09.26** | `mu300-kernel.tar.gz` | 22.7 MB | **12** |
-|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **11** |
-|  | `mu300-ubuntu-rootfs.tar.gz` | 119.5 MB | **4** |
-|  | `SHA256SUMS` | 273 B | **18** |
+| **v2026.09.26** | `mu300-kernel.tar.gz` | 22.7 MB | **18** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **15** |
+|  | `mu300-ubuntu-rootfs.tar.gz` | 119.5 MB | **7** |
+|  | `SHA256SUMS` | 273 B | **21** |
 | **v2026.09.25** | `mu300-kernel.tar.gz` | 22.7 MB | **2** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **1** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 116.2 MB | **2** |
