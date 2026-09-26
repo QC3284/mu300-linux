@@ -108,7 +108,11 @@ jobs:
           cp /src/ext-wlan_combo/sprd_wlan_combo.ko /src/ext-sprdbt/sprdbt_tty.ko /src/out/modules/ 2>/dev/null || true
           llvm-strip --strip-debug /src/out/modules/*.ko || true
           echo "模块数: $(ls /src/out/modules | wc -l)"
-          strings /src/out/Image | grep -m1 "^Linux version"
+          # 别用 strings|grep -m1:grep 提前退出会让上游 strings 吃 SIGPIPE,配合 pipefail 直接把这一步判失败(上次 141 就是它)
+          echo "== 内核配置里的 CFI =="; grep -E "^CONFIG_(CFI_CLANG|LTO|LTO_CLANG_THIN)" $O/.config || true
+          echo "== 模块 vermagic(应等于 5.4.254-gb50db5b6224c)=="
+          modinfo /src/out/modules/sipa-dele.ko 2>/dev/null | grep -E 'vermagic|name' || true
+          echo "== 内核大小 =="; ls -la /src/out/Image
           cd /src/out && tar czf /src/mu300-kernel-nocfi.tar.gz Image modules.builtin modules.builtin.modinfo modules
           ls -la /src/mu300-kernel-nocfi.tar.gz
           sha256sum /src/mu300-kernel-nocfi.tar.gz
