@@ -38,13 +38,13 @@ for a in "$@"; do
 done
 . "$TOP/tools/i18n.sh"
 choose_language
-. "$TOP/tools/self-update.sh"
-self_update "$0" "$@"
-
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\n%s %s\n' "$(t 'ERROR:' 2>/dev/null || echo ERROR:)" "$*" >&2; exit 1; }
 ask() { # ask VAR "question" default   (the question already translated; yes/no in any language count)
     printf '%s [%s]: ' "$2" "$(t "$3")"; read -r _a; [ -n "$_a" ] || _a=$3; _a=$(normalize_answer "$_a"); eval "$1=\$_a"; }
+# first of all, make this the newest installer (it restarts itself when it changed)
+. "$TOP/tools/self-update.sh"
+self_update "$0" "$@"
 # fetch URL OUT: GitHub's release CDN throttles a single connection hard in some regions (measured 0.2 MB/s
 # against a 180 Mbit/s line), so pull the file as parallel ranges and fall back to one stream when that fails.
 fetch() {
