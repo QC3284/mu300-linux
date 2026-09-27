@@ -133,7 +133,9 @@ return view.extend({
 		]);
 		var cellEarfcn = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:9em;margin:0', placeholder: '如 422910' });
 		var cellPci = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:6em;margin:0', placeholder: '如 111' });
-		var cellNow = E('div', { style: 'margin:.4em 0 .6em' }, '(读取中…)');
+		var cellNow = E('div', { style: 'margin:.4em 0 .2em' }, '(读取中…)');
+		// 可见小区(来自工程模式采集):点一下就把 earfcn/pci 填进锁定框 ✓
+		var nbrRow = E('div', { style: 'margin:.1em 0 .6em' }, E('span', { style: 'opacity:.75' }, '可见小区读取中…'));
 		var cellHint = E('span', { style: 'opacity:.75;margin-left:.8em' }, '');
 		function sayCell(s) { cellHint.textContent = s || ''; }
 
@@ -171,8 +173,32 @@ return view.extend({
 			fs.write(CELLDB, '{}\n').then(function() { loadCell(); sayCell('已提交解锁;重启设备后生效'); });
 		}
 
+		function loadNbrs() {
+			fs.read('/tmp/mu300-cells.json').then(function(s) {
+				var o = {};
+				try { o = JSON.parse(s) || {}; } catch (e) { o = {}; }
+				var list = (o.neighbors || []).slice();
+				if (!list.length) { nbrRow.replaceChildren(E('span', { style: 'opacity:.75' }, '可见小区:(暂未采到)')); return; }
+				var head = E('span', { style: 'opacity:.75' }, '可见小区(点一下填入 earfcn/pci): ');
+				var btns = list.map(function(n) {
+					return E('button', {
+						class: 'cbi-button', style: 'margin:.15em .3em;padding:.2em .6em',
+						title: 'RSRP ' + n.rsrp + ' dBm / RSRQ ' + n.rsrq + ' dB',
+						click: function() {
+							cellRat.value = '16'; cellEarfcn.value = n.arfcn; cellPci.value = n.pci;
+							sayCell('已填入 PCI ' + n.pci + ' @ ' + n.arfcn + '(' + n.band + ',RSRP ' + n.rsrp + 'dBm),点[锁定]生效');
+						}
+					}, 'PCI ' + n.pci + ' · ' + n.band + ' · ' + n.rsrp + 'dBm');
+				});
+				nbrRow.replaceChildren.apply(nbrRow, [ head ].concat(btns));
+			}).catch(function() {
+				nbrRow.replaceChildren(E('span', { style: 'opacity:.75' }, '可见小区:(还没采集到,守护 60 秒一轮)'));
+			});
+		}
+		loadNbrs();
 		loadCell();
 		refresh();
+		poll.add(loadNbrs, 30);
 		poll.add(refresh, 10);
 
 		return E([], [
@@ -209,6 +235,7 @@ return view.extend({
 			E('div', { class: 'cbi-section' }, [
 				E('h4', {}, '小区锁(锁基站)'),
 				cellNow,
+				nbrRow,
 				E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.5em' }, [
 					cellRat, cellEarfcn, cellPci,
 					E('button', { class: 'cbi-button cbi-button-apply', click: lockCell }, '锁定'),

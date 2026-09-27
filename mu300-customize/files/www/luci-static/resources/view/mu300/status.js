@@ -83,9 +83,16 @@ return view.extend({
 				[ '4G 锁定频段', lteLock ? lteLock + '   (掩码 ' + (d.lte_band_mask || '-') + ')' : (d.lte_band_mask ? '未锁(掩码 ' + d.lte_band_mask + ')' : '-') ],
 				[ '模组支持 5G', d.supported_nr ? 'n' + String(d.supported_nr).split(',').join(', n') : '-' ]
 			];
+			// 服务小区 / 邻区(来自 /tmp/mu300-cells.json:工程模式 60 秒采一次)
+			var cl = d.cells || {};
+			var srv = cl.serving || {}, nbrs = cl.neighbors || [];
+			var srvTxt = srv.pci ? ('PCI ' + srv.pci + ' @ ARFCN ' + srv.arfcn + '  (' + srv.band + ')' + (srv.rsrp ? '   RSRP ' + srv.rsrp + ' dBm' : '')) : '(采集稍后)';
+			var nbrTxt = nbrs.map(function(n) { return 'PCI ' + n.pci + ' ' + n.band + ' ' + n.rsrp + 'dBm'; }).join('  /  ');
 			var radio = [
 				[ '信号强度', sig ],
 				[ '质量参数', sig2.join(', ') ],
+				[ '服务小区', srvTxt ],
+				[ '可见小区', nbrTxt || '-' ],
 				[ '5G 小区 (NR)', d.nr_cell ? (d.nr_cell + (d.nr_tac ? '    TAC ' + d.nr_tac : '')) : '-' ],
 				[ '4G 小区 (LTE)', (d.lte_cell || d.cell || '-') + ((d.lte_tac || d.tac) ? '    TAC ' + (d.lte_tac || d.tac) : '') ]
 			];
@@ -122,6 +129,9 @@ return view.extend({
 				// 中档:信号 RSRP/RSRQ/SINR(20 秒一次,1 条 AT)
 				readjson('/tmp/mu300-signal.json', function(sg) {
 					for (var k in sg) s[k] = sg[k];
+				// 服务小区 / 邻区(工程模式 AT+SPENGMD=0,14,1 / =2,60 秒一次)
+				readjson('/tmp/mu300-cells.json', function(cl) {
+					s.cells = cl;
 				// 快档:速率/计数/在线时长/温度/WiFi(5 秒一次,纯 sysfs)
 				readjson('/tmp/mu300-live.json', function(lv) {
 					for (var k2 in lv) s[k2] = lv[k2];
@@ -135,6 +145,7 @@ return view.extend({
 					});
 				});
 				});
+			});
 			});
 		}
 

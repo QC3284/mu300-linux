@@ -36,6 +36,9 @@
 				],
 				"/tmp/mu300-atweb.out": [
 					"read"
+				],
+				"/tmp/mu300-cells.json": [
+					"read"
 				]
 			}
 		},
