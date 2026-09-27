@@ -620,10 +620,12 @@ function run(pi, qs, auth) {
 		//   URL: /speedtest?ckSize=<KB>&...
 		let qs2 = getenv('QUERY_STRING') || '';
 		let kbm = match(qs2, /ckSize=([0-9]+)/);
-		let kb = kbm ? int(num(kbm[1])) : 1000;
-		if (kb < 8192) kb = 8192;          // ★ 前端每 50ms 采样一次:小于 8MB 会在 10ms 内下完 ✗
-		                                   //   一个样本都没有 → 算出假的 2000.00 Mbps ✗
-		if (kb > 100000) kb = 100000;      // 上限 100MB,防止被打爆
+		// ★ 前端输入的 ckSize 单位是 8KB(默认 1024 ↔ 标签写 8MB ✓ 乘 8 正好 8MB)
+		let ck = kbm ? int(num(kbm[1])) : 1024;
+		let kb = ck * 8;                   // → KB
+		if (kb < 4096) kb = 4096;          // ★ 至少 4MB(100Mbps 下约 0.32s = 6 个采样,够算 ✓)
+		                                   //   再小就会零采样 → 算出假的 2000.00 ✗
+		if (kb > 102400) kb = 102400;      // 上限 100MB,防止被打爆
 		let unit = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';  // 64 字节
 		let want = kb * 1024;
 		let blob = unit;
