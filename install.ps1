@@ -396,7 +396,11 @@ Write-Host ('  ' + (T 'This can be changed later on the device: sudo mu300-updat
 $KERNEL = $null
 while (-not $KERNEL) {
     switch (Ask (T 'Kernel') '1') {
-        { $_ -in '1', '5.4' } { $KERNEL = '5.4' }
+        { $_ -in '1', '5.4' } {
+            if ($UBUNTU -eq '26.04') {
+                Write-Host ('  ' + (T 'Ubuntu 26.04 needs a mainline kernel (6.18 or 7.2): its programs use system calls that 5.4 does not have (tar, for one, cannot unpack folders there).'))
+            } else { $KERNEL = '5.4' }
+        }
         { $_ -in '2', '6.18' } { $KERNEL = '6.18' }
         { $_ -in '3', '7.2' } { $KERNEL = '7.2' }
         default { Write-Host ('  ' + (T 'enter 1, 2 or 3')) }

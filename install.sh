@@ -342,7 +342,11 @@ if [ $MODE = prebuilt ]; then
     while :; do
         ask kchoice "$(t 'Kernel')" 1
         case $kchoice in
-            1|5.4) KERNEL=5.4; break ;;
+            1|5.4) if [ "${UBUNTU:-}" = 26.04 ]; then
+                       echo "  $(t 'Ubuntu 26.04 needs a mainline kernel (6.18 or 7.2): its programs use system calls that 5.4 does not have (tar, for one, cannot unpack folders there).')"
+                       continue
+                   fi
+                   KERNEL=5.4; break ;;
             2|6.18) KERNEL=6.18; break ;;
             3|7.2) KERNEL=7.2; break ;;
             *) echo "  $(t 'enter 1, 2 or 3')" ;;
