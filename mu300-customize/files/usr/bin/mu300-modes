@@ -10,6 +10,8 @@ if [ "$ACT" = "profile" ]; then
     eco|balanced|performance)
       out=$(mu300-toolkit profile "$ARG" 2>&1)
       echo "$out" > /tmp/mu300-modes.out
+      # 立刻回写一次状态,页面 5 秒内就能看到(否则要等下一轮采集 ✗)
+      "$0" > /tmp/mu300-modes.json.tmp 2>/dev/null && mv /tmp/mu300-modes.json.tmp /tmp/mu300-modes.json
       echo "ok $ARG"; exit 0 ;;
     *) echo "unknown profile: $ARG" >&2; exit 1 ;;
   esac

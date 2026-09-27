@@ -3,6 +3,40 @@
 'require fs';
 'require poll';
 
+
+// ---- 刷新控制条(模仿 UFI-TOOLS:立即刷新 + 间隔可选 + 停止)----
+//   说明:原本做成独立模块,但本版 LuCI 的 require 不认普通对象/函数/Class 三种导出 ✗
+//   所以内联进每个页面(能跑最重要)✓
+function mkRefresh(key, defSec, fn) {
+	var PREFIX = 'mu300-rf-';
+	var SECS = [ 1, 2, 5, 10, 30, 60, 0 ];
+	var raw = localStorage.getItem(PREFIX + key);
+	var sec = (raw === null || raw === '' || isNaN(Number(raw))) ? defSec : Number(raw);
+	var lastRun = 0;
+	var info = E('span', { style: 'opacity:.6;margin-left:.6em' }, '');
+	var sel = E('select', { class: 'cbi-select', style: 'width:6.5em;margin:0' }, SECS.map(function(s) {
+		var label = (s == 0) ? '停止' : (s + ' 秒');
+	return (s == sec) ? E('option', { value: s, selected: true }, label) : E('option', { value: s }, label);
+	}));
+	function run() {
+		lastRun = Date.now();
+		try { fn(); } catch (e) { }
+		info.textContent = '更新于 ' + new Date().toLocaleTimeString();
+	}
+	sel.addEventListener('change', function() {
+		sec = Number(sel.value) || 0;
+		localStorage.setItem(PREFIX + key, String(sec));
+		lastRun = 0; if (sec) run();
+	});
+	var btn = E('button', { class: 'cbi-button', style: 'margin:0' }, '立即刷新');
+	btn.addEventListener('click', function(ev) { ev.preventDefault(); run(); });
+	poll.add(function() { if (sec && Date.now() - lastRun >= sec * 1000) run(); }, 1);
+	if (sec) setTimeout(run, 50);
+	return E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin:.4em 0' }, [
+		btn, ' 刷新:', sel, info
+	]);
+}
+
 function fbytes(n) {
 	n = Number(n) || 0;
 	var u = [ 'B', 'KiB', 'MiB', 'GiB', 'TiB' ], i = 0;
@@ -83,9 +117,10 @@ return view.extend({
 		}
 
 		draw_all();
-		poll.add(draw_all, 15);
+		var rc = mkRefresh('traffic', 15, draw_all);
 
 		return E([], [
+			rc,
 			E('h2', {}, '流量统计'),
 			E('div', { class: 'cbi-section' }, sumtbl),
 			E('div', { class: 'cbi-section' }, [ E('h4', {}, '最近 7 天'), bars ]),

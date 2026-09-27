@@ -26,10 +26,20 @@ while :; do
     rm -f /tmp/mu300-net.req
     case "$act" in
       down) ( mobile-data down > /tmp/mu300-net.out 2>&1; echo "done down $(date +%s)" >> /tmp/mu300-net.out ) & ;;
-      up)   ( mobile-data up   > /tmp/mu300-net.out 2>&1
+      up)   ( # 只走 mobile-data up —— 【不要】再兜底 ifup wan ✗
+              # 实测:ifup wan 会把刚起来的 sipa_eth0 重新打回 DOWN,反而更糟 ✗
+              mobile-data up > /tmp/mu300-net.out 2>&1
               sleep 8
-              ip -4 addr show sipa_eth0 2>/dev/null | grep -q 'inet ' || ifup wan >> /tmp/mu300-net.out 2>&1
-              echo "done up $(date +%s)" >> /tmp/mu300-net.out ) & ;;
+              if ! ip -4 addr show sipa_eth0 2>/dev/null | grep -q 'inet '; then
+                echo "retry: mobile-data up" >> /tmp/mu300-net.out
+                mobile-data up >> /tmp/mu300-net.out 2>&1
+                sleep 6
+              fi
+              if ip -4 addr show sipa_eth0 2>/dev/null | grep -q 'inet '; then
+                echo "done up $(date +%s) ok" >> /tmp/mu300-net.out
+              else
+                echo "done up $(date +%s) FAILED(建议到定时任务页重启设备)" >> /tmp/mu300-net.out
+              fi ) & ;;
     esac
   fi
   # ---- 性能档切换请求(对齐 UFI 的"性能模式")----
@@ -37,7 +47,7 @@ while :; do
     act=$(tr -d ' \t\r\n' < /tmp/mu300-modes.req 2>/dev/null)
     rm -f /tmp/mu300-modes.req
     case "$act" in
-      profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;
+      profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;  # 该命令自己会立刻回写 JSON
     esac
   fi
   /usr/bin/mu300-status-live > /tmp/mu300-live.json.tmp 2>/dev/null && mv /tmp/mu300-live.json.tmp /tmp/mu300-live.json
@@ -47,9 +57,12 @@ while :; do
   fi
   if [ $((t % 15)) -eq 1 ]; then
     /usr/bin/mu300-cells > /tmp/mu300-cells.json.tmp 2>/dev/null && mv /tmp/mu300-cells.json.tmp /tmp/mu300-cells.json
+  fi
+  # 模式/CPU 很轻(纯 sysfs + 1 条 AT),30 秒一采,切档后更快反映
+  if [ $((t % 8)) -eq 1 ]; then
     /usr/bin/mu300-modes > /tmp/mu300-modes.json.tmp 2>/dev/null && mv /tmp/mu300-modes.json.tmp /tmp/mu300-modes.json
   fi
-  if [ $((t % 75)) -eq 1 ]; then
+  if [ $((t % 45)) -eq 1 ]; then
     /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json
   fi
   sleep 4
