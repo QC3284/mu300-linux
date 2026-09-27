@@ -96,6 +96,13 @@ dev_pull() {  # dev_pull DEVICE_PATH LOCAL_PATH   (DEVICE_PATH may be a block de
 say "$(t 'Checking host tools and device')"
 need="adb"
 [ $CHECK_ONLY = 1 ] || { [ $MODE = build ] && need="adb docker python3 lz4" || need="adb python3 lz4 curl"; }
+# adb from platform-tools unzipped next to the project (or into the usual places) needs no PATH entry
+if ! command -v adb >/dev/null; then
+    for d in "$TOP" "$TOP/platform-tools" "$PWD/platform-tools" "$HOME/platform-tools" "$HOME/Downloads/platform-tools" \
+             "$HOME/Library/Android/sdk/platform-tools" "$HOME/Android/Sdk/platform-tools"; do
+        [ -x "$d/adb" ] && { PATH="$d:$PATH"; export PATH; break; }
+    done
+fi
 for c in $need; do command -v $c >/dev/null || die "$(t '{1} not found' "$c")"; done
 if [ $CHECK_ONLY = 0 ] && [ $MODE = build ]; then
     [ -f "$KOUT/Image" ] && ls "$KOUT"/modules/*.ko >/dev/null 2>&1 || die "$(t 'kernel outputs missing in {1} (run kernel/build-all.sh)' "$KOUT")"

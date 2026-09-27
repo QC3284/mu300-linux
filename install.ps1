@@ -97,6 +97,21 @@ if ($Lang -notin 'en', 'tr', 'zh') {
     $Lang = switch ($l.Trim()) { { $_ -in '2', 'tr' } { 'tr' } { $_ -in '3', 'zh' } { 'zh' } default { 'en' } }
 }
 LoadLanguage $Lang
+# cmd.exe runs a program from the current directory, PowerShell does not: with adb.exe next to the project (or
+# in the directory the installer is started from) but not on PATH, `adb devices` worked in cmd and the installer
+# said "adb not found". Look where people usually put platform-tools, and put the one found on PATH.
+function FindAdb {
+    if (Get-Command adb -CommandType Application -ErrorAction SilentlyContinue) { return }
+    $base = if ($Top) { $Top } elseif ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $dirs = @($base, (Join-Path $base 'platform-tools'), (Get-Location).Path, (Join-Path (Get-Location).Path 'platform-tools'))
+    if ($env:LOCALAPPDATA) { $dirs += Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools' }
+    if ($env:ANDROID_HOME) { $dirs += Join-Path $env:ANDROID_HOME 'platform-tools' }
+    if ($env:USERPROFILE) { $dirs += @((Join-Path $env:USERPROFILE 'platform-tools'), (Join-Path $env:USERPROFILE 'Downloads\platform-tools'), (Join-Path $env:USERPROFILE 'Desktop\platform-tools')) }
+    $dirs += @('C:\platform-tools', 'C:\adb', 'C:\Android\platform-tools')
+    foreach ($d in $dirs) {
+        if ($d -and (Test-Path (Join-Path $d 'adb.exe'))) { $env:PATH = "$d;$env:PATH"; return }
+    }
+}
 
 # Bring this copy of the project up to date with GitHub before doing anything (tools/self-update.sh does the same
 # for install.sh): a git clone is fast-forwarded to GitHub's main, a downloaded zip gets the files that differ,
@@ -280,6 +295,7 @@ if (SelfUpdate) {
 }
 
 Say (T 'Checking host tools and device')
+FindAdb
 foreach ($c in 'adb', 'tar') { if (-not (Get-Command $c -ErrorAction SilentlyContinue)) { Die (T '{1} not found' $c) } }
 Python -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' | Out-Null
 if ($LASTEXITCODE -ne 0) { Die (T 'Python 3.8 or newer is required') }

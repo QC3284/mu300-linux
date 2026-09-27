@@ -14,6 +14,21 @@ param()
 $ErrorActionPreference = 'Stop'
 $T = '/data/local/tmp'
 $MU300_IP = '192.168.77.1'
+# cmd.exe runs a program from the current directory, PowerShell does not: with adb.exe next to the project (or
+# in the directory the installer is started from) but not on PATH, `adb devices` worked in cmd and the installer
+# said "adb not found". Look where people usually put platform-tools, and put the one found on PATH.
+function FindAdb {
+    if (Get-Command adb -CommandType Application -ErrorAction SilentlyContinue) { return }
+    $base = if ($Top) { $Top } elseif ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $dirs = @($base, (Join-Path $base 'platform-tools'), (Get-Location).Path, (Join-Path (Get-Location).Path 'platform-tools'))
+    if ($env:LOCALAPPDATA) { $dirs += Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools' }
+    if ($env:ANDROID_HOME) { $dirs += Join-Path $env:ANDROID_HOME 'platform-tools' }
+    if ($env:USERPROFILE) { $dirs += @((Join-Path $env:USERPROFILE 'platform-tools'), (Join-Path $env:USERPROFILE 'Downloads\platform-tools'), (Join-Path $env:USERPROFILE 'Desktop\platform-tools')) }
+    $dirs += @('C:\platform-tools', 'C:\adb', 'C:\Android\platform-tools')
+    foreach ($d in $dirs) {
+        if ($d -and (Test-Path (Join-Path $d 'adb.exe'))) { $env:PATH = "$d;$env:PATH"; return }
+    }
+}
 
 function Say($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
@@ -77,6 +92,7 @@ function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[
 function Hex32 { (SuDo 'dd if=/dev/block/by-name/misc bs=1 skip=2048 count=32 2>/dev/null | od -An -tx1') -replace '\s', '' }
 
 Say 'Checking host tools and device'
+FindAdb
 if (-not (Get-Command adb -ErrorAction SilentlyContinue)) { Die 'adb not found' }
 SelectDevice
 if ((AdbState) -notmatch 'device') {
