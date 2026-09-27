@@ -592,9 +592,29 @@ function run(pi, qs, auth) {
 	if (pi == '/sms_forward_mail')     { jreply({ smtp_host: '', smtp_port: '', smtp_to: '', smtp_username: '', smtp_password: '', smtp_from: '', smtp_from_name: '', forward_dev_info: '0' }); return; }
 	if (pi == '/sms_forward_curl')     { jreply({ curl_text: '' }); return; }
 	if (pi == '/sms_forward_blacklist'){ jreply({ keywords: '', phone: '' }); return; }
-	if (pi == '/check_update')  { jreply({ has_update: false, latest_version: '4.1.5' }); return; }
+	if (pi == '/check_update') {
+		// 前端要这组字段:alist_res.data.content 为空数组 = 没有新版本 ✓
+		jreply({ has_update: false, latest_version: readstr('/etc/mu300/ufi-version') || 'ImmortalWrt',
+			alist_res: { data: { content: [] } }, base_uri: '', changelog: '' });
+		return;
+	}
 	if (pi == '/plugins_store') { jreply({ plugins: [] }); return; }
-	if (pi == '/speedtest')     { jreply(readjson('/tmp/mu300-speed.json')); return; }
+	if (pi == '/speedtest') {
+		// ★ 前端是靠【从这个接口下载数据】来测速的 ✗ 返回 stub 会测不出速度
+		//   URL: /speedtest?ckSize=<KB>&...
+		let qs2 = getenv('QUERY_STRING') || '';
+		let kbm = match(qs2, /ckSize=([0-9]+)/);
+		let kb = kbm ? int(num(kbm[1])) : 1000;
+		if (kb < 1) kb = 1;
+		if (kb > 100000) kb = 100000;      // 上限 100MB,防止被打爆
+		let unit = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';  // 64 字节
+		let want = kb * 1024;
+		let blob = unit;
+		while (length(blob) < want) blob += blob;      // 翻倍:对数级,快 ✓
+		blob = substr(blob, 0, want);
+		reply(200, 'application/octet-stream', blob);
+		return;
+	}
 	if (pi == '/connInfo') {
 		// 用 /proc/net/{tcp,tcp6,udp,udp6,unix} 数连接(不依赖 awk,纯 ucode ✓)
 		function count(f, skip) { let n = 0; for (let ln in split(trim(readstr(f)), '\n')) { n++; } return (n > skip) ? n - skip : 0; }
