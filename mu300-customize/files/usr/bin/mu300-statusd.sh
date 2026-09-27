@@ -23,7 +23,7 @@ while :; do
 
   # ---- 网页提交的写操作请求 ----
   if [ -f /tmp/mu300-band.req ]; then
-    BL=$(tr -d '\r\n' < /tmp/mu300-band.req 2>/dev/null)
+    BL=$(head -1 /tmp/mu300-band.req 2>/dev/null)
     rm -f /tmp/mu300-band.req
     set -- $BL
     TYP=$1
@@ -34,7 +34,7 @@ while :; do
     fi
   fi
   if [ -f /tmp/mu300-celllock.req ]; then
-    CL=$(tr -d '\r\n' < /tmp/mu300-celllock.req 2>/dev/null)
+    CL=$(head -1 /tmp/mu300-celllock.req 2>/dev/null)
     rm -f /tmp/mu300-celllock.req
     set -- $CL
     A1="$1"; A2="$2"; A3="$3"
@@ -52,7 +52,7 @@ while :; do
   fi
   # ---- 数据开关请求(对齐 UFI 的 7.1)----
   if [ -f /tmp/mu300-net.req ]; then
-    act=$(tr -d '\r\n' < /tmp/mu300-net.req 2>/dev/null)
+    act=$(head -1 /tmp/mu300-net.req 2>/dev/null)
     rm -f /tmp/mu300-net.req
     case "$act" in
       down) ( mobile-data down > /tmp/mu300-net.out 2>&1; echo "done down $(date +%s)" >> /tmp/mu300-net.out ) & ;;
@@ -79,7 +79,7 @@ while :; do
   fi
   # ---- 性能档切换请求(对齐 UFI 的"性能模式")----
   if [ -f /tmp/mu300-modes.req ]; then
-    act=$(tr -d '\r\n' < /tmp/mu300-modes.req 2>/dev/null)
+    act=$(head -1 /tmp/mu300-modes.req 2>/dev/null)
     rm -f /tmp/mu300-modes.req
     case "$act" in
       profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;  # 该命令自己会立刻回写 JSON
@@ -90,7 +90,7 @@ while :; do
   fi
   # ---- Ping 工具请求(对齐 UFI 的顶部 Ping)----
   if [ -f /tmp/mu300-tools.req ]; then
-    req=$(tr -d '\r\n' < /tmp/mu300-tools.req 2>/dev/null)
+    req=$(head -1 /tmp/mu300-tools.req 2>/dev/null)
     rm -f /tmp/mu300-tools.req
     case "$req" in
       ping:*) ( # 只允许字母数字和 . : - _(防注入 ✓)
