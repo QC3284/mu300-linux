@@ -106,7 +106,7 @@ copies the Wi-Fi and modem files from your own device, shows exactly what it is 
 type `INSTALL`. Then it reboots into Linux.
 
 The installer speaks **English, Türkçe and 中文**: it asks at the start (English is the default; `MU300_LANG=tr`
-or `.\install.ps1 -Lang zh` skips the question). Before anything else it brings your copy of the project up to date
+or `.\install.ps1 -Lang zh` skips the question). Adding a language is one file: see `i18n/README.md`. Before anything else it brings your copy of the project up to date
 with GitHub - a `git clone` is fast-forwarded, a downloaded zip gets the files that changed - and restarts itself if
 there was anything new; without GitHub it simply continues (`MU300_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips it).
 
