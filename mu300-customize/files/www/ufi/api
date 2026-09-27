@@ -621,11 +621,12 @@ function run(pi, qs, auth) {
 		let qs2 = getenv('QUERY_STRING') || '';
 		let kbm = match(qs2, /ckSize=([0-9]+)/);
 		// ★ 前端输入的 ckSize 单位是 8KB(默认 1024 ↔ 标签写 8MB ✓ 乘 8 正好 8MB)
-		let ck = kbm ? int(num(kbm[1])) : 1024;
-		let kb = ck * 8;                   // → KB
-		if (kb < 4096) kb = 4096;          // ★ 至少 4MB(100Mbps 下约 0.32s = 6 个采样,够算 ✓)
-		                                   //   再小就会零采样 → 算出假的 2000.00 ✗
-		if (kb > 102400) kb = 102400;      // 上限 100MB,防止被打爆
+		// ★ ckSize 的单位是【MB】(用户确认:1024 = 1GB)
+		let mb = kbm ? int(num(kbm[1])) : 8;
+		if (mb < 4) mb = 4;               // 至少 4MB(前端每 50ms 采样,太小会零采样 → 假 2000.00 ✗)
+		if (mb > 32) mb = 32;             // ★ 上限 32MB:ucode 要在内存里拼出整个响应,1GB 会 OOM ✗
+		                                   //   (32MB 在 100Mbps 下约 2.6 秒 = 50 个采样,足够准 ✓)
+		let kb = mb * 1024;
 		let unit = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';  // 64 字节
 		let want = kb * 1024;
 		let blob = unit;
