@@ -32,6 +32,31 @@ mema=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo 2>/dev/null)
 memu=$(( ${memt:-0} - ${mema:-0} ))
 # 高铁模式(1 条 AT;读不到就留空)
 rail=$(mu300-at -t 8 'AT+SP5GCMDS="get nr synch_param",44' 2>/dev/null | grep -o 'synch_param,44,[01]' | cut -d, -f3)
+# ---- 全部热区(对齐 UFI 的多热区温度显示)----
+temps=''
+for z in /sys/class/thermal/thermal_zone*; do
+  [ -d "$z" ] || continue
+  ty=$(cat "$z/type" 2>/dev/null)
+  tv=$(awk '{printf "%.1f", $1/1000}' "$z/temp" 2>/dev/null)
+  [ -z "$tv" ] && continue
+  [ -n "$temps" ] && temps="$temps,"
+  temps="$temps{\"t\":\"$ty\",\"v\":\"$tv\"}"
+done
+# ---- 存储(根分区 + 各挂载点)----
+storage=''; seen=''
+# 按【设备】去重(同一个分区会同时挂在 / 和 /mnt/mu300-disk ✗)
+df -k 2>/dev/null | awk 'NR>1 && $1 ~ /^\/dev\// { if (!seen[$1]++) print $1"|"$6"|"$2"|"$3"|"$5 }' > /tmp/.mu300-df.txt
+while IFS='|' read -r dev m tot used pct; do
+  [ -z "$m" ] && continue
+  case "$m" in /dev|/dev/*|/opt/*|/proc/*|/sys/*) continue;; esac
+  # 同一个设备只留第一个挂载点(根分区会以 / 和 /mnt/mu300-disk 出现两次)
+  case " $seen " in *" $m "*) continue;; esac
+  seen="$seen $m"
+  kb=$((tot / 1024)); ukb=$((used / 1024))
+  [ -n "$storage" ] && storage="$storage,"
+  storage="$storage{\"mount\":\"$m\",\"size_mb\":$kb,\"used_mb\":$ukb,\"pct\":\"$pct\"}"
+done < /tmp/.mu300-df.txt
+rm -f /tmp/.mu300-df.txt
 # 当前档位:按 governor+max 推断(performance→性能;max < 硬件最大→节能;否则均衡)
 prof='balanced'
 if [ "$gov0" = "performance" ]; then prof='performance'
@@ -47,6 +72,8 @@ cat <<EOF
   "temperature": "$temp",
   "load1": "$l1", "load5": "$l5", "load15": "$l15",
   "mem_total": ${memt:-0}, "mem_used": ${memu:-0},
+  "temps": [ $temps ],
+  "storage": [ $storage ],
   "rail": "$rail"
 }
 EOF

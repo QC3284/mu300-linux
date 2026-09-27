@@ -37,9 +37,14 @@ while :; do
               fi
               if ip -4 addr show sipa_eth0 2>/dev/null | grep -q 'inet '; then
                 echo "done up $(date +%s) ok" >> /tmp/mu300-net.out
-              else
-                echo "done up $(date +%s) FAILED(建议到定时任务页重启设备)" >> /tmp/mu300-net.out
-              fi ) & ;;
+                exit 0
+              fi
+              # 仍然起不来 → 自愈:直接重启设备(开机流程一定会把数据面拉起来 ✓)
+              # 实测:mobile-data down 之后 PDP 恢复不可靠 ✗,重启是唯一稳的路径 ✓
+              echo "done up $(date +%s) FAILED -> auto reboot" >> /tmp/mu300-net.out
+              sync
+              sleep 1
+              reboot ) & ;;
     esac
   fi
   # ---- 性能档切换请求(对齐 UFI 的"性能模式")----
@@ -48,6 +53,17 @@ while :; do
     rm -f /tmp/mu300-modes.req
     case "$act" in
       profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;  # 该命令自己会立刻回写 JSON
+    esac
+  fi
+  # ---- Ping 工具请求(对齐 UFI 的顶部 Ping)----
+  if [ -f /tmp/mu300-tools.req ]; then
+    req=$(tr -d ' \t\r\n' < /tmp/mu300-tools.req 2>/dev/null)
+    rm -f /tmp/mu300-tools.req
+    case "$req" in
+      ping:*) ( # 只允许字母数字和 . : - _(防注入 ✓)
+               host=$(printf '%s' "${req#ping:}" | tr -cd 'A-Za-z0-9.:_-')
+               { echo "TIME: $(date '+%F %T')"; echo "TARGET: $host"; echo '---';
+                 [ -n "$host" ] && ping -c 4 -W 3 "$host" 2>&1 || echo "主机名非法"; } > /tmp/mu300-tools.out ) & ;;
     esac
   fi
   /usr/bin/mu300-status-live > /tmp/mu300-live.json.tmp 2>/dev/null && mv /tmp/mu300-live.json.tmp /tmp/mu300-live.json

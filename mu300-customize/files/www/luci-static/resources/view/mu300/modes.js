@@ -12,6 +12,21 @@ return view.extend({
 	render: function() {
 		var hint = E('span', { style: 'opacity:.75;margin-left:.8em' }, '');
 		var cont = E('div', {}, E('p', {}, '载入中…'));
+		// ---- Ping 工具(对齐 UFI 顶部的 Ping)----
+		var pingHost = E('input', { type: 'text', class: 'cbi-input-text', style: 'width:18em;margin:0', value: '223.5.5.5', placeholder: 'IP 或域名' });
+		var pingHint = E('span', { style: 'opacity:.75' }, '');
+		function doPing() {
+			var h = (pingHost.value || '').trim().replace(/[^A-Za-z0-9.:_-]/g, '');
+			if (!h) { pingHint.textContent = '请填主机名或 IP'; return; }
+			fs.write('/tmp/mu300-tools.req', 'ping:' + h).then(function() { pingHint.textContent = '已提交,约 5 秒…'; })
+				.catch(function(e) { pingHint.textContent = '提交失败: ' + e; });
+		}
+		var pingOut = E('pre', { style: 'white-space:pre-wrap;max-height:12em;overflow:auto;margin-top:.5em;font-size:.85em' }, '');
+		function pollPing() {
+			fs.read('/tmp/mu300-tools.out').then(function(s) {
+				if (pingOut.textContent !== s) pingOut.textContent = s;
+			}).catch(function() { });
+		}
 		var PROFS = [
 			[ 'eco', '节能', 'schedutil,频率上限压到约 60%(发热最低)' ],
 			[ 'balanced', '均衡', 'schedutil,全频(默认)' ],
@@ -103,7 +118,15 @@ function mhz(v) { v = Number(v) || 0; return v ? Math.round(v / 1000) + ' MHz' :
 				]),
 				section('高铁模式', [
 					[ '状态', rail ]
-				])
+				]),
+				// 全部热区(对齐 UFI:它显示十几个,我们原来只有 1 个 ✗)
+				section('温度(全部热区)', [
+					[ '热区数', (d.temps || []).length + ' 个' ],
+					[ '各点温度', (d.temps || []).map(function(t) { return t.t.replace('-thmzone', '') + ' ' + t.v + '°'; }).join(' · ') || '-' ]
+				]),
+				section('存储', (d.storage && d.storage.length) ? d.storage.map(function(s) {
+					return [ s.mount, s.size_mb + ' MiB  ·  已用 ' + s.used_mb + ' MiB (' + s.pct + ')' ];
+				}) : [ [ '存储', '-' ] ])
 			);
 		}
 
@@ -119,6 +142,14 @@ function mhz(v) { v = Number(v) || 0; return v ? Math.round(v / 1000) + ' MHz' :
 			rc,
 			E('h2', {}, '系统模式'),
 			cont,
+			E('div', { class: 'cbi-section' }, [
+				E('h4', {}, 'Ping 工具'),
+				E('p', { style: 'opacity:.75' }, '在设备上 ping 一个主机(4 个包)。判断是“设备没网”还是“某个站点不通”。'),
+				E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.5em' }, [
+					pingHost, ' ', E('button', { class: 'cbi-button cbi-button-apply', click: doPing }, 'Ping'), ' ', pingHint
+				]),
+				pingOut
+			]),
 			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' },
 				'性能模式由厂商工具 mu300-toolkit 执行(CPU 两个簇 + GPU 一起调)。' +
 				'高铁模式是模组的移动性优化开关,模组只开放读取,切换需要厂商接口(安卓侧)。'))

@@ -76,6 +76,7 @@ kernel=$(uname -r)
 
 cat <<EOF
 {
+  "updated": $(date +%s),
   "operator": "$(j "$oper")", "operator_name": "$(j "$opname")",
   "rat": "$(j "$ratcn")", "apn": "$(j "$apn")",
   "signal_note": "见 /tmp/mu300-signal.json(中档采集)",
