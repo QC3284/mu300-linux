@@ -10,8 +10,13 @@ let PW_HASH = 'ae8ce4b50a5605fd6cf30183a68661d06cccce17e510bffc4ea310bf61fd6f97'
 function readjson(p) { try { return json(fs.readfile(p) || '{}') || {}; } catch (e) { return {}; } }
 function readstr(p) { try { return fs.readfile(p) || ''; } catch (e) { return ''; } }
 function num(v) { let n = +v; return (n != n) ? 0 : n; }
+let extraHeaders = [];
+function addheader(k, v) { push(extraHeaders, k + ': ' + v); }
 function reply(code, ctype, b) {
-	printf('Status: %d\r\nContent-Type: %s; charset=utf-8\r\nCache-Control: no-store\r\n\r\n', code, ctype || 'application/json');
+	printf('Status: %d\r\nContent-Type: %s; charset=utf-8\r\nCache-Control: no-store\r\n', code, ctype || 'application/json');
+	for (let h in extraHeaders) printf('%s\r\n', h);
+	extraHeaders = [];
+	printf('\r\n');
 	print(b || '');
 }
 function jreply(o) { reply(200, 'application/json', sprintf('%.J', o)); }
@@ -616,22 +621,31 @@ function run(pi, qs, auth) {
 	}
 	if (pi == '/plugins_store') { jreply({ plugins: [] }); return; }
 	if (pi == '/speedtest') {
-		// ★ 前端是靠【从这个接口下载数据】来测速的 ✗ 返回 stub 会测不出速度
-		//   URL: /speedtest?ckSize=<KB>&...
+		// ★ 对齐原版(Kotlin speedTestModule.kt)★
+		//   缓冲固定 8MB(原版是 SecureRandom 随机数据);ckSize = 块【数】(1..1024)
+		//   总大小 = 8MB × 块数;原版流式写,ucode 只能整块发出 → 我们封顶 32MB(内存安全 ✗)
+		//   ★ 封顶不影响测速结果:速度与下载时长无关 ✓
 		let qs2 = getenv('QUERY_STRING') || '';
 		let kbm = match(qs2, /ckSize=([0-9]+)/);
-		// ★ 前端输入的 ckSize 单位是 8KB(默认 1024 ↔ 标签写 8MB ✓ 乘 8 正好 8MB)
-		// ★ ckSize 的单位是【MB】(用户确认:1024 = 1GB)
-		let mb = kbm ? int(num(kbm[1])) : 8;
-		if (mb < 4) mb = 4;               // 至少 4MB(前端每 50ms 采样,太小会零采样 → 假 2000.00 ✗)
-		if (mb > 32) mb = 32;             // ★ 上限 32MB:ucode 要在内存里拼出整个响应,1GB 会 OOM ✗
-		                                   //   (32MB 在 100Mbps 下约 2.6 秒 = 50 个采样,足够准 ✓)
-		let kb = mb * 1024;
-		let unit = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';  // 64 字节
-		let want = kb * 1024;
+		let chunks = kbm ? int(num(kbm[1])) : 8;
+		if (chunks < 1) chunks = 1;
+		if (chunks > 1024) chunks = 1024;      // 原版也是 coerceIn(1,1024) ✓
+		let mb = chunks * 8;                   // 8MB/块
+		if (mb < 8) mb = 8;                    // 至少一块
+		if (mb > 32) mb = 32;                  // ★ 内存安全线(原版是流式,能发 8GB ✗)
+		let want = mb * 1024 * 1024;
+		// 用 64 字符的伪随机块,翻倍拼到目标大小(对数级,快 ✓);随机化避免被压缩 ✓
+		let seen = time() % 2147483647;
+		let unit = '';
+		for (let u = 0; u < 64; u++) { seen = (seen * 1103515245 + 12345) % 2147483648; unit += sprintf('%c', 33 + (seen % 94)); }
 		let blob = unit;
-		while (length(blob) < want) blob += blob;      // 翻倍:对数级,快 ✓
+		while (length(blob) < want) blob += blob;
 		blob = substr(blob, 0, want);
+		// 原版的响应头 ✓
+		if (match(qs2, /cors/)) addheader('Access-Control-Allow-Origin', '*');
+		addheader('Content-Disposition', 'attachment; filename=random.dat');
+		addheader('Cache-Control', 'no-store');
+		addheader('Pragma', 'no-cache');
 		reply(200, 'application/octet-stream', blob);
 		return;
 	}
