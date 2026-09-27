@@ -68,7 +68,13 @@ function run(pi, qs, auth) {
 	if (pi == '/version_info')    { jreply({ app_ver: '4.1.5', app_ver_code: '20260919', model: 'F50', nickname: 'ImmortalWrt', accept_terms: true }); return; }
 	if (pi == '/SELinux')         { jreply({ selinux: 'Permissive' }); return; }
 	if (pi == '/get_theme')       { jreply(readjson('/etc/mu300/ufi-theme.json')); return; }
-	if (pi == '/get_custom_head') { reply(200, 'text/plain', ''); return; }
+	if (pi == '/get_custom_head') {
+		// 插件注入:把保存的插件文本回给前端(前端会注入页面 ✓)
+		let txt = '';
+		try { txt = fs.readfile('/etc/mu300/ufi-plugins.txt') || ''; } catch (e) { }
+		jreply({ text: txt });
+		return;
+	}
 	if (pi == '/set_cookie')      {
 		try {
 			// CGI 的 POST 体从 stdin 读(简单起见:给多少存多少)
@@ -672,6 +678,17 @@ function run(pi, qs, auth) {
 	if (pi == '/togglePort' || pi == '/toggle_port') { jreply({ result: 'success' }); return; }
 	// 前端在登录/改口令后会 POST 这里,失败就存不下 token → 短信面板卡 Loading ✗
 	if (pi == '/update_admin_pwd') { jreply({ result: 'success' }); return; }
+	// 插件保存:前端 POST {text: "<插件内容>"}(原版限 5MB ✓ 我们也限一下)
+	if (pi == '/set_custom_head') {
+		let body3 = '';
+		try { let cl3 = num(getenv('CONTENT_LENGTH')); if (cl3 > 0 && fs.stdin) body3 = fs.stdin.read(cl3) || ''; } catch (e) { }
+		if (length(body3) > 5 * 1024 * 1024) { jreply({ error: '插件总容量超出限制' }); return; }
+		let jo3 = {};
+		try { jo3 = json(body3) || {}; } catch (e) { jo3 = {}; }
+		try { fs.writefile('/etc/mu300/ufi-plugins.txt', '' + (jo3.text || '')); } catch (e) { }
+		jreply({ result: 'success' });
+		return;
+	}
 	if (pi == '/device_id')   { jreply({ device_id: readstr('/etc/mu300/ufi-device-id') || '0a36488d00922a29' }); return; }
 	if (pi == '/hasTTYD') {
 		// ★ 原来是 :22(SSH),但 22 在 Firefox 的禁用端口列表里 ✗ → 打开就被拦 ✓
@@ -703,7 +720,14 @@ function run(pi, qs, auth) {
 			alist_res: { data: { content: [] } }, base_uri: '', changelog: '' });
 		return;
 	}
-	if (pi == '/plugins_store') { jreply({ plugins: [] }); return; }
+	if (pi == '/plugins_store') {
+		// ★ 前端要 {res, download_url} 两个字段:res 是 Alist 的响应原样,download_url 是下载前缀 ✓
+		//   列表由守护每 30 分钟缓存(避免网页等网络 ✗)→ 秒回 ✓
+		let store = rj('/tmp/mu300-plugstore.json');
+		if (!store.data) { store = { code: 200, message: 'loading', data: { content: [] } }; }
+		jreply({ res: store, download_url: 'https://pan.kanokano.cn/d/UFI-TOOLS-UPDATE/plugins/ufi-tools-plugins/' });
+		return;
+	}
 	if (pi == '/speedtest') {
 		// ★ 完全对齐原版(Kotlin speedTestModule.kt):8MB 缓冲,循环 chunks 次流式写 ★
 		//   关键:uhttpd 是 chunked 转发,print 出来的会边生成边发 ✓ 所以能发到 8GB 而内存恒定 ✓

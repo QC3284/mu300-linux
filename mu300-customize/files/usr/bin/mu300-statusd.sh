@@ -183,5 +183,17 @@ while :; do
 ' "$WD" "$WS" "$WC" "$WB" > /tmp/mu300-wifi.json ) &
   fi
 
+  # ---- 每 30 分钟拉一次 UFI 插件市场列表(作者网盘 Alist;缓存后网页秒开 ✓)----
+  PT=$(date +%s)
+  PLT=$(cat /var/run/mu300-plugstore.ts 2>/dev/null)
+  PLT=$((PLT+0))
+  if [ $((PT - PLT)) -ge 1800 ]; then
+    date +%s > /var/run/mu300-plugstore.ts
+    ( curl -s -m 25 -X POST "https://pan.kanokano.cn/api/fs/list" \
+        -H "Content-Type: application/json" \
+        -d '{"path":"/UFI-TOOLS-UPDATE/plugins/ufi-tools-plugins","password":"","page":1,"per_page":0,"refresh":false}' \
+        -o /tmp/mu300-plugstore.json 2>/dev/null ) &
+  fi
+
   sleep 4
 done
