@@ -151,5 +151,20 @@ while :; do
     ) &
   fi
 
+  # ---- 开机首次运行:应用网页选的网络模式(★ 只在开机后 60 秒内做一次 ★)----
+  #   为什么只在这时做:AT+SFUN=4/5 会断数据面 ✗(见 2026-09-27 07:4x 事故)
+  #   开机时 PDP 还没建立,此时切换最安全 ✓
+  UP=$(cut -d. -f1 /proc/uptime 2>/dev/null)
+  UP=$((UP+0))
+  if [ "$UP" -lt 60 ] && [ ! -f /var/run/mu300-netmode.applied ]; then
+    NM=$(cat /etc/mu300/net-mode 2>/dev/null)
+    case "$NM" in
+      Only_LTE)     mu300-at -t 12 'AT+SFUN=4' >/dev/null 2>&1; echo "$(date +%s) 应用 Only_LTE(AT+SFUN=4)" >> /tmp/ufi-netmode.log ;;
+      WL_AND_5G)    mu300-at -t 12 'AT+SFUN=5' >/dev/null 2>&1; echo "$(date +%s) 应用 WL_AND_5G(AT+SFUN=5)" >> /tmp/ufi-netmode.log ;;
+      *)            echo "$(date +%s) $NM 没有安全的切换方式,只存不切" >> /tmp/ufi-netmode.log ;;
+    esac
+    touch /var/run/mu300-netmode.applied
+  fi
+
   sleep 4
 done
