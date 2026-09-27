@@ -20,6 +20,14 @@ function reply(code, ctype, b) {
 	print(b || '');
 }
 function jreply(o) { reply(200, 'application/json', sprintf('%.J', o)); }
+// 只发响应头,后面自己 print 流(用于测速大文件 ✓)
+function streamhead(code, ctype, clen) {
+	printf('Status: %d\r\nContent-Type: %s\r\nCache-Control: no-store\r\n', code, ctype || 'application/octet-stream');
+	if (clen) printf('Content-Length: %d\r\n', clen);
+	for (let h in extraHeaders) printf('%s\r\n', h);
+	extraHeaders = [];
+	printf('\r\n');
+}
 function urldec(s) {
 	let out = '', i = 0, n = length(s);
 	while (i < n) {
@@ -621,32 +629,26 @@ function run(pi, qs, auth) {
 	}
 	if (pi == '/plugins_store') { jreply({ plugins: [] }); return; }
 	if (pi == '/speedtest') {
-		// ★ 对齐原版(Kotlin speedTestModule.kt)★
-		//   缓冲固定 8MB(原版是 SecureRandom 随机数据);ckSize = 块【数】(1..1024)
-		//   总大小 = 8MB × 块数;原版流式写,ucode 只能整块发出 → 我们封顶 32MB(内存安全 ✗)
-		//   ★ 封顶不影响测速结果:速度与下载时长无关 ✓
+		// ★ 完全对齐原版(Kotlin speedTestModule.kt):8MB 缓冲,循环 chunks 次流式写 ★
+		//   关键:uhttpd 是 chunked 转发,print 出来的会边生成边发 ✓ 所以能发到 8GB 而内存恒定 ✓
 		let qs2 = getenv('QUERY_STRING') || '';
 		let kbm = match(qs2, /ckSize=([0-9]+)/);
 		let chunks = kbm ? int(num(kbm[1])) : 8;
 		if (chunks < 1) chunks = 1;
-		if (chunks > 1024) chunks = 1024;      // 原版也是 coerceIn(1,1024) ✓
-		let mb = chunks * 8;                   // 8MB/块
-		if (mb < 8) mb = 8;                    // 至少一块
-		if (mb > 32) mb = 32;                  // ★ 内存安全线(原版是流式,能发 8GB ✗)
-		let want = mb * 1024 * 1024;
-		// 用 64 字符的伪随机块,翻倍拼到目标大小(对数级,快 ✓);随机化避免被压缩 ✓
-		let seen = time() % 2147483647;
+		if (chunks > 1024) chunks = 1024;       // 原版也是 coerceIn(1,1024) ✓
+		// 8MB 伪随机缓冲(原版是 SecureRandom;我们一次生成,重复发 ✓)
+		let bufsize = 8 * 1024 * 1024;
 		let unit = '';
-		for (let u = 0; u < 64; u++) { seen = (seen * 1103515245 + 12345) % 2147483648; unit += sprintf('%c', 33 + (seen % 94)); }
-		let blob = unit;
-		while (length(blob) < want) blob += blob;
-		blob = substr(blob, 0, want);
-		// 原版的响应头 ✓
+		let seen = (time() * 7919) % 2147483647;
+		for (let u = 0; u < 65536; u++) { seen = (seen * 1103515245 + 12345) % 2147483648; unit += sprintf('%c', 33 + (seen % 94)); }
+		let buf = unit;
+		while (length(buf) < bufsize) buf += buf;      // 翻倍到 8MB ✓
+		buf = substr(buf, 0, bufsize);
 		if (match(qs2, /cors/)) addheader('Access-Control-Allow-Origin', '*');
 		addheader('Content-Disposition', 'attachment; filename=random.dat');
-		addheader('Cache-Control', 'no-store');
 		addheader('Pragma', 'no-cache');
-		reply(200, 'application/octet-stream', blob);
+		streamhead(200, 'application/octet-stream', bufsize * chunks);
+		for (let c2 = 0; c2 < chunks; c2++) print(buf);   // ★ 流式发,内存只有一块 ✓
 		return;
 	}
 	if (pi == '/connInfo') {
