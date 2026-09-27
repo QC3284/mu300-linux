@@ -266,14 +266,18 @@ for cand in $OFF 27762098176; do
     fi
 done
 echo "$(t 'Linux region: offset {1}, {2}, existing mu300root filesystem: {3}' "$OFF" "$(gib $SIZE)" "$(t "$existing")")"
-# unpartitioned space should be unused: sample 16 x 1 MiB across the region and count non-zero bytes
+# unpartitioned space should be unused: sample 16 x 1 MiB across the region and count those with data. Empty is
+# 0x00 or 0xFF: an eMMC reads back what its erase leaves (EXT_CSD ERASED_MEM_CONT), and on some F50s that is 0xFF -
+# counted as data, a region that was never written stopped the install with "not empty".
 DIRTY=0
 if [ $existing = no ]; then
     step=$(( SIZE / 1048576 / 16 ))
     probe=""; i=0
     while [ $i -lt 16 ]; do probe="$probe $(( OFF / 1048576 + i * step ))"; i=$((i + 1)); done
-    DIRTY=$(su_do "n=0; for s in $probe; do c=\$(dd if=/dev/block/mmcblk0 bs=1048576 skip=\$s count=1 2>/dev/null | tr -d \"\\000\" | wc -c); [ \$c -gt 0 ] && n=\$((n + 1)); done; echo \$n")
-    echo "$(t 'data check: {1} of 16 samples contain non-zero data' "$DIRTY")"
+    DIRTY=$(su_do "n=0; for s in $probe; do c=\$(dd if=/dev/block/mmcblk0 bs=1048576 skip=\$s count=1 2>/dev/null | tr -d \"\\000\\377\" | wc -c); [ \$c -gt 0 ] && n=\$((n + 1)); done; echo \$n")
+    echo "$(t 'data check: {1} of 16 samples contain data' "$DIRTY")"
+    # what is there, for a report: the first bytes of the region
+    [ "$DIRTY" -gt 0 ] && echo "  $(t 'start of the region: {1}' "$(su_do "dd if=/dev/block/mmcblk0 bs=1048576 skip=$(( OFF / 1048576 )) count=1 2>/dev/null | od -An -tx1 -N32" | tr -s ' \n' ' ')")"
 fi
 if [ $existing = yes ]; then
     verdict=$(t 'OK: a MU300 Linux installation is already present (it can be kept or replaced)')

@@ -206,7 +206,7 @@ Write-Host 'boot_b = boot_a'
 
 if ($wipe -ne 'keep') {
     Say "Erasing the Linux filesystem ($wipe)"
-    $busy = SuDo "for o in /sys/block/loop*/loop/offset; do [ ""`$(cat `$o 2>/dev/null)"" = $OFF ] && echo `${o%/loop/offset}; done"
+    $busy = SuDo "for o in /sys/block/loop*/loop/offset; do [ x`$(cat `$o 2>/dev/null) = x$OFF ] && echo `${o%/loop/offset}; done"
     if ($busy) { Die "the Linux region is still attached ($busy); reboot Android and run again" }
     [int64]$skip = $OFF / 1MB; [int64]$mib = $SIZE / 1MB
     if ($wipe -eq 'quick') {
@@ -219,7 +219,7 @@ if ($wipe -ne 'keep') {
     if ($m -eq '53ef') { Die 'the filesystem signature is still there' }
     if ($wipe -eq 'secure') {
         $step = [int64]($mib / 32) + 1
-        $left = [int](SuDo "n=0; s=$skip; e=$($skip + $mib); while [ `$s -lt `$e ]; do c=`$(dd if=/dev/block/mmcblk0 bs=1048576 skip=`$s count=1 2>/dev/null | tr -d `"\000`" | wc -c); [ `$c -gt 0 ] && n=`$((n + 1)); s=`$((s + $step)); done; echo `$n").Trim()
+        $left = [int](SuDo "n=0; s=$skip; e=$($skip + $mib); while [ `$s -lt `$e ]; do c=`$(dd if=/dev/block/mmcblk0 bs=1048576 skip=`$s count=1 2>/dev/null | tr -d \\000 | wc -c); [ `$c -gt 0 ] && n=`$((n + 1)); s=`$((s + $step)); done; echo `$n").Trim()
         if ($left -ne 0) { Die "$left of 32 samples still contain data; run the secure erase again" }
         Write-Host 'erased and verified (32 samples across the region are empty)'
     } else {
@@ -227,7 +227,8 @@ if ($wipe -ne 'keep') {
     }
 }
 
-SuDo "grep -q "" $T/mu300root "" /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" | Out-Null
+# (no double quotes in a command for the device: Windows PowerShell 5.1 drops them on the way to adb)
+SuDo "grep -qw $T/mu300root /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" | Out-Null
 # the on-device switch would point at a boot_b that is Android again
 Say 'Removing the on-device switch (Magisk module)'
 if ((SuDo 'magisk -v')) { SuDo '[ -d /data/adb/modules/mu300_linux_switch ] && touch /data/adb/modules/mu300_linux_switch/remove' | Out-Null }

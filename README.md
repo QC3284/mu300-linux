@@ -58,10 +58,11 @@ need `adb` on your computer. Getting to that point is not part of this project.
 
 **You need:**
 * A ZTE F50 / MU300, rooted, connected by USB, with USB debugging enabled.
-* A computer with `adb` and Python 3:
-  * **macOS or Linux:** also `lz4` and `curl` (both usually already installed).
-  * **Windows 10/11:** PowerShell, plus `pip install lz4`. Use `install.ps1` / `uninstall.ps1` below, or
-    `install.cmd` / `uninstall.cmd` from cmd.exe (no execution-policy change needed).
+* A computer with `adb`:
+  * **macOS or Linux:** also Python 3, `lz4` and `curl` (usually already installed).
+  * **Windows 10/11:** PowerShell. The installer installs Python 3 (for your user, with winget or from
+    python.org) and its `lz4` module itself when they are missing. Use `install.ps1` / `uninstall.ps1` below,
+    or `install.cmd` / `uninstall.cmd` from cmd.exe (no execution-policy change needed).
 * About 15 minutes.
 
 ## Install

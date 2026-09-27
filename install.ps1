@@ -9,7 +9,8 @@
       .\install.ps1 -Answers f.txt   take one answer per question from that file (run without a console; the file
                                holds the password in plain text, delete it afterwards)
 
-    Needs: adb, Python 3 and the lz4 module (pip install lz4). Windows 10/11 provide tar and curl.
+    Needs: adb. Python 3 and its lz4 module are installed for this user when missing (winget or python.org, then
+    pip); Windows 10/11 provide tar and curl.
     The published images contain no proprietary files: the Wi-Fi/Bluetooth firmware and the Android modem/GPU
     userspace are pulled from *your* device into work\ and added during installation. A Windows file system
     cannot hold every name the Android subset contains (the property area is a set of files called
@@ -243,16 +244,47 @@ function SuDoToFile($cmd, $path) {
     & adb shell "su -c 'rm -f $dev'" | Out-Null
 }
 $script:PyExe = $null
+# A Python that really runs, 3.8 or newer. Being on PATH says little on Windows: without Python installed, python.exe
+# is still there as the Microsoft Store's app-execution alias, which only opens the Store (and exits 9009).
+function FindPython {
+    $cands = @()
+    foreach ($n in 'python', 'python3', 'py') {
+        # -CommandType Application: command lookup is case-insensitive and functions win, so a bare
+        # `Get-Command python` resolves to the function below and never reaches python.exe (issue #3)
+        foreach ($c in @(Get-Command $n -CommandType Application -ErrorAction SilentlyContinue)) {
+            # the Store's python.exe has an empty .Source: fall back to .Path
+            $cands += $(if ($c.Source) { $c.Source } else { $c.Path })
+        }
+    }
+    # installed a moment ago by InstallPython: not on this process's PATH yet
+    $cands += @(Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | ForEach-Object { $_.FullName })
+    foreach ($exe in $cands) {
+        Quiet { & $exe -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' } | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $exe }
+    }
+    return $null
+}
+# Python 3.12 for this user only (no administrator rights needed): winget where there is one, else the installer
+# from python.org
+function InstallPython {
+    Say (T 'Python 3 is not installed; installing it for this user')
+    if (Get-Command winget -CommandType Application -ErrorAction SilentlyContinue) {
+        Quiet { winget install -e --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements --disable-interactivity } | Out-Null
+        if (FindPython) { return }
+    }
+    $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+    $exe = Join-Path $env:TEMP "python-3.12.10-$arch.exe"
+    try {
+        Invoke-WebRequest "https://www.python.org/ftp/python/3.12.10/python-3.12.10-$arch.exe" -OutFile $exe -UseBasicParsing
+    } catch { return }
+    Start-Process -Wait -FilePath $exe -ArgumentList '/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0', 'Include_launcher=0'
+    Remove-Item $exe -ErrorAction SilentlyContinue
+}
 function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[]]$PyArgs)
     if (-not $script:PyExe) {
-        foreach ($n in 'python', 'python3', 'py') {
-            # -CommandType Application: command lookup is case-insensitive and functions win, so a bare
-            # `Get-Command python` resolves to this very function and never reaches python.exe (issue #3)
-            $c = Get-Command $n -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            # the Microsoft Store's python.exe is an app-execution alias whose .Source is empty, so a
-            # working interpreter was reported as "not found" - fall back to .Path
-            if ($c) { $script:PyExe = if ($c.Source) { $c.Source } else { $c.Path }; break }
-        }
+        $script:PyExe = FindPython
+        if (-not $script:PyExe) { InstallPython; $script:PyExe = FindPython }
         if (-not $script:PyExe) { Die (T 'Python 3 not found (install it from python.org or the Microsoft Store)') }
     }
     & $script:PyExe @PyArgs
@@ -303,6 +335,13 @@ Python -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' | Out-N
 if ($LASTEXITCODE -ne 0) { Die (T 'Python 3.8 or newer is required') }
 if (-not $Check) {
     Quiet { Python -c 'import lz4.block' } | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        # a fresh Python has no lz4, and "pip install lz4" often went to another Python than the one found here
+        # (the Store alias, py.exe): install it into this very interpreter, for this user only
+        Write-Host ('  ' + (T 'installing the lz4 Python module (pip install --user lz4)'))
+        Quiet { Python -m pip install --user --disable-pip-version-check -q lz4 } | Out-Null
+        Quiet { Python -c 'import lz4.block' } | Out-Null
+    }
     if ($LASTEXITCODE -ne 0) { Die (T 'the lz4 Python module is required to build the boot image: pip install lz4') }
 }
 Quiet { adb start-server } | Out-Null
@@ -386,8 +425,16 @@ $dirty = 0
 if ($existing -eq 'no') {
     $step = [int64]($SIZE / 1MB / 16)
     $probe = (0..15 | ForEach-Object { [int64]($OFF / 1MB) + $_ * $step }) -join ' '
-    $dirty = [int](SuDo "n=0; for s in $probe; do c=`$(dd if=/dev/block/mmcblk0 bs=1048576 skip=`$s count=1 2>/dev/null | tr -d `"\000`" | wc -c); [ `$c -gt 0 ] && n=`$((n + 1)); done; echo `$n").Trim()
-    Write-Host (T 'data check: {1} of 16 samples contain non-zero data' $dirty)
+    # Empty is 0x00 or 0xFF (what an eMMC reads back after an erase). No double quotes in the command: Windows
+    # PowerShell 5.1 drops them on the way to adb, tr got an unquoted \000 - "delete the character 0" - and every
+    # empty MiB counted as data, so on Windows an empty region was always "16 of 16 not empty". \\ reaches the
+    # device's shell as one backslash, which tr then reads as the start of an octal escape.
+    $dirty = [int](SuDo "n=0; for s in $probe; do c=`$(dd if=/dev/block/mmcblk0 bs=1048576 skip=`$s count=1 2>/dev/null | tr -d \\000\\377 | wc -c); [ `$c -gt 0 ] && n=`$((n + 1)); done; echo `$n").Trim()
+    Write-Host (T 'data check: {1} of 16 samples contain data' $dirty)
+    if ($dirty -gt 0) {
+        $head = (SuDo "dd if=/dev/block/mmcblk0 bs=1048576 skip=$([int64]($OFF / 1MB)) count=1 2>/dev/null | od -An -tx1 -N32") -replace '\s+', ' '
+        Write-Host ('  ' + (T 'start of the region: {1}' $head.Trim()))
+    }
 }
 if ($existing -eq 'yes') {
     $verdict = T 'OK: a MU300 Linux installation is already present (it can be kept or replaced)'
@@ -528,7 +575,10 @@ if ((Get-Item "$Work\dumps\boot_a.img").Length -lt 1MB) { Die (T 'pulling boot_a
 $subset = "$Work\android-subset"
 $haveSubset = (Test-Path "$subset\vendor\bin\modem_control") -and (Test-Path "$subset\linkerconfig\ld.config.txt")
 if ($haveSubset -and $env:OS -eq 'Windows_NT') { $haveSubset = Test-Path "$subset\windows-source.tar.gz" }
-if (-not $haveSubset) { Python "$Top\android-vendor\extract_subset.py" $subset }
+if (-not $haveSubset) {
+    Python "$Top\android-vendor\extract_subset.py" $subset
+    if ($LASTEXITCODE -ne 0) { Die (T '{1} failed' 'extract_subset.py') }
+}
 foreach ($f in 'wcnmodem.bin', 'gnssmodem.bin', 'wifi_board_config.ini', 'wifi_board_config_ab.ini', 'bt_configure_pskey.ini', 'bt_configure_rf.ini') {
     foreach ($d in '/odm/firmware', '/vendor/firmware', '/vendor/etc') {
         if ((SuDo "[ -f $d/$f ] && echo y") -eq 'y') { SuDoToFile "cat $d/$f" "$Work\firmware\$f"; break }
@@ -596,6 +646,7 @@ foreach ($os in $OSES) {
     if ($gpu -eq 'yes' -and (Test-Path "$Work\android-gpu-subset")) { $argv += @('--gpu-subset', "$Work\android-gpu-subset") }
     if ($KMAIN) { $argv += @('--kernel-bundle', $KMAIN) }
     Python @argv
+    if ($LASTEXITCODE -ne 0) { Die (T '{1} failed' 'vendor-overlay.py') }
 }
 # not `| Python ...`: that helper is an advanced function with no pipeline-bound parameter, so the
 # binding fails, and its body would not forward $input to the child's stdin even if it bound
@@ -612,7 +663,10 @@ $bootArgs = @("$Top\boot\build-boot-image.py", '--stock-boot', "$Work\dumps\boot
     '--android-subset', "$Work\android-subset", '--out', "$Work\boot-linux-slotb.img", '--device', $DEVICE)
 if (Test-Path "$REL\kernel\modules-u30air") { $bootArgs += @('--device-modules', "u30air=$REL\kernel\modules-u30air") }
 if ($KMAIN) { $bootArgs += @('--append-ramdisk', "$KMAIN\ramdisk-generic.lz4") }
+# a failed build must stop here: otherwise an earlier image (or none) would be written to the device
+Remove-Item "$Work\boot-linux-slotb.*" -ErrorAction SilentlyContinue
 Python @bootArgs | Out-Null
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$Work\boot-linux-slotb.img")) { Die (T '{1} failed' 'build-boot-image.py') }
 
 Say (T 'Ready to install')
 Write-Host ('  ' + (T 'source:         {1}' (T 'prebuilt release {1} + vendor files from this device' $Release)))
