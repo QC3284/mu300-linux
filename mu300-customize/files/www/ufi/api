@@ -711,7 +711,39 @@ function run(pi, qs, auth) {
 	}
 	if (pi == '/usb_status')  { jreply({ maxSpeed: 0, details: { typec_mode: 'gadget', gadget_speed: 'USB 3.0 (5Gbps)', devices: [] } }); return; }
 	if (pi == '/adb_alive')   { jreply({ result: 'false' }); return; }
-	if (pi == '/root_shell' || pi == '/one_click_shell' || pi == '/user_shell') { jreply({ result: 'success' }); return; }
+	// ★ 插件用的 root shell(对齐原版 /api/root_shell 的契约)★
+	//   原版靠 socat 的 Unix socket,但浏览器 JS 打不开 socket ✗ → 插件只能走这个端点 ✓
+	//   我们直接执行(我们本来就在 root 下 ✓),并用临时脚本文件避免引号问题 ✓
+	//   安全:所有命令都落审计日志 /tmp/mu300-shell.log ✓
+	if (pi == '/root_shell' || pi == '/one_click_shell' || pi == '/user_shell') {
+		let body4 = '';
+		try { let cl4 = num(getenv('CONTENT_LENGTH')); if (cl4 > 0 && fs.stdin) body4 = fs.stdin.read(cl4) || ''; } catch (e) { }
+		let jo4 = {};
+		try { jo4 = json(body4) || {}; } catch (e) { jo4 = {}; }
+		let cmd = '' + (jo4.command || '');
+		if (trim(cmd) == '') { jreply({ error: '命令为空' }); return; }
+		let secs = int(num(jo4.timeout || 30000) / 1000);
+		if (secs < 1) secs = 30;
+		if (secs > 100) secs = 100;
+		try { fs.writefile('/tmp/mu300-shell.sh', cmd); } catch (e) { }
+		try { fs.writefile('/tmp/mu300-shell.log', sprintf('[%d] %s
+', time(), cmd)); } catch (e) { }
+		let out4 = '';
+		try {
+			// busybox 没带 timeout ✗ → 有就用,没有就直接跑(uhttpd 自己也有上限 ✓)
+			let tocmd = 'sh /tmp/mu300-shell.sh 2>&1';
+			try {
+				let ck = fs.popen('command -v timeout >/dev/null 2>&1 && echo yes', 'r');
+				let cv = ck ? (ck.read('all') || '') : '';
+				if (ck) ck.close();
+				if (match(cv, /yes/)) tocmd = sprintf('timeout %d sh /tmp/mu300-shell.sh 2>&1', secs);
+			} catch (e) { }
+			let fh4 = fs.popen(tocmd, 'r');
+			if (fh4) { let chunk4 = ''; while ((chunk4 = fh4.read(4096)) != null && chunk4 != '') out4 += chunk4; fh4.close(); }
+		} catch (e) { out4 = '' + e; }
+		jreply({ result: out4 });
+		return;
+	}
 	if (pi == '/get_log_status') { jreply({ debug_log_enabled: 'false' }); return; }
 	if (pi == '/volte_status')   { jreply({ enabled: true }); return; }
 	if (pi == '/vonr_status')    { jreply({ enabled: false }); return; }

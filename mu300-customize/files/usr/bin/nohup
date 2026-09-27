@@ -1,0 +1,7 @@
+#!/bin/sh
+# busybox 没带 nohup ✗ 插件常用(后台跑命令)→ 补一个简化版
+#   用法同 nohup:nohup CMD [ARGS...](输出重定向到 nohup.out 或 /dev/null)
+OUT=nohup.out
+[ "$1" = "--help" ] && { echo "usage: nohup COMMAND [ARGS...]"; exit 0; }
+{ "$@" ; } >"$OUT" 2>&1 </dev/null &
+echo $!
