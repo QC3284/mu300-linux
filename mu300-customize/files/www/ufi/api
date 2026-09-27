@@ -602,6 +602,11 @@ function run(pi, qs, auth) {
 	}
 
 	if (pi == '/getSupportNrBandList') { jreply({ slot: 0, band_list: [ 6, 41, 78, 1, 8, 28, 5 ] }); return; }
+	// 高级功能面板用到的几个(假成功:Linux 侧没有对应概念 ✓)
+	if (pi == '/set_wakelock_status') { jreply({ result: 'success' }); return; }
+	if (pi == '/get_wakelock_status') { jreply({ status: '1', result: 'success' }); return; }
+	if (pi == '/check_advanced_func')  { jreply({ enabled: true, result: 'success' }); return; }
+	if (pi == '/togglePort' || pi == '/toggle_port') { jreply({ result: 'success' }); return; }
 	// 前端在登录/改口令后会 POST 这里,失败就存不下 token → 短信面板卡 Loading ✗
 	if (pi == '/update_admin_pwd') { jreply({ result: 'success' }); return; }
 	if (pi == '/device_id')   { jreply({ device_id: readstr('/etc/mu300/ufi-device-id') || '0a36488d00922a29' }); return; }

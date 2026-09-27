@@ -1,0 +1,14 @@
+#!/bin/sh
+# mu300-extract-boot:提取 boot 分区到 /tmp(只读,安全无害)
+#   用法: mu300-extract-boot [a|b]   默认 b(我们从 b 启动)
+SLOT=${1:-b}
+DEV=/dev/block/by-name/boot_$SLOT
+OUT=/tmp/boot_$SLOT.img
+[ -e "$DEV" ] || { echo "没有 $DEV"; exit 1; }
+SZ=$(blockdev --getsize64 "$DEV" 2>/dev/null || echo 0)
+echo "提取 $DEV ($((SZ/1024/1024)) MB) → $OUT"
+dd if="$DEV" of="$OUT" bs=1M 2>&1 | tail -1
+md5sum "$OUT" 2>/dev/null
+ls -la "$OUT"
+echo "下载: http://192.168.77.1:2333/boot-$SLOT.img  (若已放好)"
+cp -f "$OUT" /www/ufi/boot-$SLOT.img 2>/dev/null && echo "已放到 /www/ufi/,可通过 http://192.168.77.1:2333/boot-$SLOT.img 下载 ✓"

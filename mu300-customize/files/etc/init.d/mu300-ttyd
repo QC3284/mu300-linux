@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+# mu300-ttyd:网页终端(对齐 UFI 的"无线ADB"—— 在浏览器里开 root shell)
+#   访问 http://<设备IP>:7681/  用户 root  密码同 SSH
+#   ★ 这是 root shell,必须带密码(裸奔整个局域网都能进 ✗)
+START=97
+STOP=10
+USE_PROCD=1
+
+start_service() {
+	procd_open_instance
+	procd_set_param command /usr/bin/ttyd -p 7681 -c root:CHANGE_ME -W /bin/login
+	procd_set_param respawn 3600 5 5
+	procd_close_instance
+}
