@@ -1,0 +1,80 @@
+#!/bin/busybox sh
+# ═══════════════════════════════════════════════════════════════
+#  MU300 initramfs: 从 SD 卡恢复 Linux rootfs
+#  备份在 SD 卡的 /f50-backup/ 目录(由主机上的备份脚本拷入)
+#  用法:sd-restore [镜像文件名]
+#    · 不带参数 → 列出可用的镜像
+#    · 带参数   → 用它恢复(会二次确认)
+# ═══════════════════════════════════════════════════════════════
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+SD=/mnt/sd
+BK=$SD/f50-backup
+
+# 找 rootfs 分区(fulldumpdb)
+ROOTPART=
+for u in /sys/class/block/mmcblk*p*/uevent; do
+    grep -qx PARTNAME=fulldumpdb "$u" 2>/dev/null && ROOTPART=/dev/$(basename "$(dirname "$u")")
+done
+[ -n "$ROOTPART" ] || { echo "✗ 找不到 fulldumpdb 分区"; exit 1; }
+echo "rootfs 分区: $ROOTPART ($(blockdev --getsize64 $ROOTPART 2>/dev/null) 字节)"
+
+# 找 SD 卡(mmcblk1)
+SDDEV=
+for u in /sys/class/block/mmcblk1*/uevent; do
+    d=/dev/$(basename "$(dirname "$u")")
+    [ -b "$d" ] && [ "$d" != "$ROOTPART" ] && SDDEV=$d
+done
+[ -n "$SDDEV" ] || { echo "✗ 没找到 SD 卡"; exit 1; }
+echo "SD 卡: $SDDEV"
+
+mkdir -p $SD
+if ! mountpoint -q $SD 2>/dev/null; then
+    for t in vfat exfat ext4; do
+        mount -t $t -o ro "$SDDEV" $SD 2>/dev/null && { echo "已挂载($t)"; break; }
+    done
+fi
+mountpoint -q $SD 2>/dev/null || { echo "✗ SD 卡挂不上"; exit 1; }
+
+# 列可用镜像
+echo
+echo "★ 可用镜像:"
+if [ -d "$BK" ]; then
+    ls -la $BK/*.img.gz 2>/dev/null | while read -r line; do echo "  $line"; done
+    echo
+    echo "  (推荐用 rootfs-CLEAN 那个 —— 它是 e2fsck 洗过的)"
+else
+    echo "  ✗ $BK 不存在 (SD 卡上没有备份目录)"
+    echo "  主机上把备份拷进去:"
+    echo "    scp /home/qc233/zte/backups/*.gz root@<设备>:/mnt/mmcblk1p1/f50-backup/"
+    exit 1
+fi
+
+IMG="$1"
+if [ -z "$IMG" ]; then
+    echo
+    echo "用法: sd-restore <镜像文件名>"
+    echo "例如: sd-restore rootfs-CLEAN.img.gz"
+    exit 0
+fi
+
+SRC=$BK/$IMG
+[ -f "$SRC" ] || { echo "✗ 找不到 $SRC"; exit 1; }
+SZ=$(wc -c < "$SRC")
+echo
+echo "★★★ 即将把 $IMG ($SZ 字节) 写入 $ROOTPART ★★★"
+echo "    这会把当前 rootfs 完全覆盖!"
+printf "    确认?输入 yes: "
+read a
+[ "$a" = "yes" ] || { echo "已取消"; exit 0; }
+
+echo "写入中…"
+umount /disk 2>/dev/null
+sync
+gzip -dc "$SRC" | dd of="$ROOTPART" bs=4M 2>&1 | tail -2
+sync
+echo
+echo "写入完成。现在修一下文件系统(保证能挂):"
+/usr/sbin/fsck.ext4 -fy "$ROOTPART" 2>&1 | tail -6
+sync
+echo
+echo "★★★ 完成!现在执行 reboot 重启进 Linux ★★★"
