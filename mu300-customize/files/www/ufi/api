@@ -224,6 +224,18 @@ function run(pi, qs, auth) {
 			jreply({ result: 'success' });
 			return;
 		}
+		if (gid == 'INDICATOR_LIGHT_SETTING') {
+			let on = (P['indicator_light_switch'] == '1');
+			try { fs.popen(on ? '/etc/init.d/mu300-led start >/dev/null 2>&1 &' : '/etc/init.d/mu300-led stop >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
+		if (gid == 'SAMBA_SETTING') {
+			let on2 = (P['samba_switch'] == '1');
+			try { fs.popen(on2 ? '/etc/init.d/samba start >/dev/null 2>&1 &' : '/etc/init.d/samba stop >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
 		if (gid == 'REBOOT_DEVICE') {
 			// ★ 真重启(延迟 3 秒,先把响应回给页面 ✓)
 			try { fs.popen('(sleep 3; sync; reboot) >/dev/null 2>&1 &', 'r'); } catch (e) { }
@@ -390,6 +402,35 @@ function run(pi, qs, auth) {
 				for (let c3 in (cl2.clients || [])) { push(nm, { mac: c3.mac || '', name: c3.name || c3.hostname || '' }); }
 				o[c] = sprintf('%.J', nm);
 			}
+			else if (c == 'profile_name' || c == 'm_profile_name' || c == 'apn_m_profile_name') o[c] = '中国联通';
+			else if (c == 'apn_wan_apn' || c == 'apn_ipv6_wan_apn') {
+				let ap = readjson('/tmp/mu300-apn.json');
+				o[c] = ap.apn || '';
+			}
+			else if (c == 'ppp_username_ui' || c == 'apn_ppp_username') o[c] = '';
+			else if (c == 'ppp_passwd_ui' || c == 'apn_ppp_passwd')  o[c] = '';
+			else if (c == 'auth_method')  o[c] = '0';
+			else if (c == 'pdp_method')   o[c] = '1';
+			else if (match(c, /^APN_config[0-9]+$/)) {
+				// ZTE 约定:字段用 ($) 分隔,第 0 个是配置名 ✓(前端 .split('($)') ✓)
+				let ap2 = readjson('/tmp/mu300-apn.json');
+				if (c == 'APN_config0') o[c] = sprintf('中国联通($)%s($)($)0($)1', ap2.apn || '');
+				else o[c] = '';
+			}
+			else if (match(c, /^ipv6_APN_config[0-9]+$/)) o[c] = '';
+			else if (c == 'indicator_light_switch') {
+				// 指示灯:我们有 mu300-led 守护,用它的运行状态当开关 ✓
+				let ledrun = '';
+				try { ledrun = trim(fs.popen('pidof mu300-led 2>/dev/null || ps w | grep -c "[m]u300-led.sh"', 'r').read('all') || ''); } catch (e) { }
+				o[c] = (ledrun != '' && ledrun != '0') ? '1' : '0';
+			}
+			else if (c == 'samba_switch') {
+				let smbrun = '';
+				try { smbrun = trim(fs.popen('ps w | grep -c "[s]mbd"', 'r').read('all') || ''); } catch (e) { }
+				o[c] = (smbrun != '' && smbrun != '0') ? '1' : '0';
+			}
+			else if (c == 'roam_setting_option' || c == 'dial_roam_setting_option') o[c] = '0';
+			else if (c == 'apn_interface_version') o[c] = '1';
 			else if (c == 'psw_fail_num_str')   o[c] = '0';   // 密码失败次数(字符串 ✗ 前端用 == '0' 比)
 			else if (c == 'login_lock_time')    o[c] = '0';   // 锁定剩余秒数
 			else if (c == 'wa_inner_version')    o[c] = readstr('/etc/mu300/ufi-version') || 'ImmortalWrt';

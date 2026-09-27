@@ -121,5 +121,17 @@ while :; do
     /usr/bin/mu300-ufi-tasks.uc "$MMNOW" >/dev/null 2>&1
   fi
 
+  # ---- 每 5 分钟读一次 APN(网页要用,不能在 CGI 里跑 AT ✓)----
+  AT2=$(date +%s)
+  ALT=$(cat /var/run/mu300-apn.ts 2>/dev/null)
+  ALT=$((ALT+0))
+  if [ $((AT2 - ALT)) -ge 300 ]; then
+    date +%s > /var/run/mu300-apn.ts
+    ( AO=$(mu300-at -t 10 "AT+CGDCONT?" 2>/dev/null | tr -d "\r" | grep -m1 "CGDCONT:")
+      APN=$(printf "%s" "$AO" | awk -F',' '{print $3}' | tr -d '" ')
+      PDP=$(printf "%s" "$AO" | awk -F',' '{print $2}' | tr -d '" ')
+      printf '{"apn":"%s","pdp":"%s"}\n' "$APN" "$PDP" > /tmp/mu300-apn.json ) &
+  fi
+
   sleep 4
 done
