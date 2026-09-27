@@ -1,6 +1,7 @@
 # Shared by install.sh and uninstall.sh: both need the device in rooted Android, but it may be running MU300 Linux
 # right now (then there is no adb device, only SSH on the USB network). Offer to send it back to Android.
-# Uses: say(), die(), ask()
+# Uses: say(), die(), ask(), and t() from tools/i18n.sh (loaded here when the caller has not)
+command -v t >/dev/null 2>&1 || . "$TOP/tools/i18n.sh"
 
 MU300_IP=${MU300_IP:-192.168.77.1}
 
@@ -12,38 +13,38 @@ linux_mode_running() {
 
 # ask the running Linux to boot Android next and reboot; then wait for adb
 linux_mode_to_android() {
-    say "The device is running MU300 Linux, not Android"
-    echo "  Installing and uninstalling happen from Android (slot a), so the device has to reboot first."
-    ask go "Reboot the device into Android now? (yes/no)" yes
-    [ "$go" = yes ] || die "boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)"
+    say "$(t 'The device is running MU300 Linux, not Android')"
+    echo "  $(t 'Installing and uninstalling happen from Android (slot a), so the device has to reboot first.')"
+    ask go "$(t 'Reboot the device into Android now? (yes/no)')" yes
+    [ "$go" = yes ] || die "$(t 'boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)')"
     # -t: sudo needs a terminal to ask for the device password, and everything runs in one sudo call so it is
     # asked only once. reboot cuts the connection, so ssh's exit status says nothing: watch the port instead.
     for user in ubuntu root; do
-        echo "  $user@$MU300_IP - enter the device password when asked (Ctrl-C to skip)"
+        echo "  $(t '{1} - enter the device password when asked (Ctrl-C to skip)' "$user@$MU300_IP")"
         ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=8 \
             "$user@$MU300_IP" 'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/mu300/bin/mu300-next-boot android && sync && reboot"' || true
         n=0
         while [ $n -lt 8 ]; do
-            linux_mode_running || { echo "  rebooting"; break; }
+            linux_mode_running || { echo "  $(t 'rebooting')"; break; }
             n=$((n + 1)); sleep 5
         done
         linux_mode_running || break
     done
     if linux_mode_running; then
-        die "could not reboot it over SSH; on the device run: sudo mu300-next-boot android && sudo reboot"
+        die "$(t 'could not reboot it over SSH; on the device run: sudo mu300-next-boot android && sudo reboot')"
     fi
-    echo "  waiting for Android"
+    echo "  $(t 'waiting for Android')"
     n=0
     while [ $n -lt 60 ]; do
-        [ "$(adb get-state 2>/dev/null)" = device ] && { echo "  Android is up"; return 0; }
+        [ "$(adb get-state 2>/dev/null)" = device ] && { echo "  $(t 'Android is up')"; return 0; }
         n=$((n + 1)); sleep 5
     done
-    die "the device did not come back as Android; boot it yourself (mu300-next-boot android)"
+    die "$(t 'the device did not come back as Android; boot it yourself (mu300-next-boot android)')"
 }
 
 # call before anything else that needs adb
 require_android() {
     [ "$(adb get-state 2>/dev/null)" = device ] && return 0
     linux_mode_running && linux_mode_to_android && return 0
-    die "no adb device (boot Android, enable USB debugging)"
+    die "$(t 'no adb device (boot Android, enable USB debugging)')"
 }
