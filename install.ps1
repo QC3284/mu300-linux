@@ -387,7 +387,7 @@ if ($Check) {
 if ($dirty -gt 0 -and (Ask (T 'Type overwrite to use this region anyway') 'no') -ne 'overwrite') { Die (T 'cancelled') }
 
 Say (T 'What should be installed?')
-Write-Host ('  ' + (T '1) Ubuntu 24.04 LTS (full distribution, apt, ~500 MiB RAM in use)'))
+Write-Host ('  ' + (T '1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)'))
 Write-Host ('  ' + (T '2) OpenWrt {1} (router, LuCI web UI, ~140 MiB RAM in use)' '25.12.5'))
 Write-Host ('  ' + (T '3) both (switch later with: mu300-os ubuntu|openwrt)'))
 if ($SIZE -lt $NEED_BOTH) {

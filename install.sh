@@ -286,7 +286,7 @@ fi
 
 # ---------------------------------------------------------------- choices
 say "$(t 'What should be installed?')"
-echo "  $(t '1) Ubuntu 24.04 LTS (full distribution, apt, ~500 MiB RAM in use)')"
+echo "  $(t '1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)')"
 echo "  $(t '2) OpenWrt {1} (router, LuCI web UI, ~140 MiB RAM in use)' "$OWRT_VER")"
 echo "  $(t '3) both (switch later with: mu300-os ubuntu|openwrt)')"
 [ $SIZE -lt $NEED_BOTH ] && echo "  $(t '(this device has {1}: {2})' "$(gib $SIZE)" "$([ $SIZE -ge $NEED_UBUNTU ] && t 'one system fits, not both' || t 'only OpenWrt fits')")"
