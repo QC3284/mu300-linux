@@ -48,6 +48,9 @@
 				],
 				"/tmp/mu300-modes.json": [
 					"read"
+				],
+				"/tmp/mu300-speed.json": [
+					"read"
 				]
 			}
 		},

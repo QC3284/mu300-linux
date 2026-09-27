@@ -53,6 +53,9 @@ while :; do
     rm -f /tmp/mu300-modes.req
     case "$act" in
       profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;  # 该命令自己会立刻回写 JSON
+      apn*)     /usr/bin/mu300-modes apn "${act#apn:}" >/dev/null 2>&1; ifup wan >/dev/null 2>&1 & ;;
+      5gran*)   /usr/bin/mu300-modes 5gran "${act#5gran:}" >/dev/null 2>&1 ;;
+      speed*)   ( /usr/bin/mu300-speedtest > /tmp/mu300-speed.json.tmp 2>/dev/null && mv /tmp/mu300-speed.json.tmp /tmp/mu300-speed.json ) & ;;
     esac
   fi
   # ---- Ping 工具请求(对齐 UFI 的顶部 Ping)----

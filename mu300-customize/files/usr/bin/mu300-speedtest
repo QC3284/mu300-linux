@@ -1,0 +1,26 @@
+#!/bin/sh
+# mu300-speedtest:下载测速(用 curl,不依赖中兴官方后台)
+#   用法: mu300-speedtest [URL] [秒数]   -> 输出 JSON 到 stdout
+#   默认 URL 用清华镜像的大文件(国内可达、稳定);可改 /etc/mu300/speedtest.url
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+URL=${1:-$(cat /etc/mu300/speedtest.url 2>/dev/null)}
+# 默认用南大镜像的 Contents 索引(51MB,恒定存在;和 apk 源同一台,国内快)
+# 可改 /etc/mu300/speedtest.url 换源
+[ -z "$URL" ] && URL='https://mirror.nju.edu.cn/ubuntu/dists/noble/Contents-amd64.gz'
+SECS=${2:-12}
+command -v curl >/dev/null 2>&1 || { echo '{"error":"没有 curl"}'; exit 0; }
+out=$(curl -s -L -m "$SECS" -o /dev/null \
+      -w '%{speed_download}|%{size_download}|%{time_total}|%{http_code}' \
+      --max-time "$SECS" "$URL" 2>/dev/null)
+spd=$(echo "$out" | cut -d'|' -f1)
+size=$(echo "$out" | cut -d'|' -f2)
+tt=$(echo "$out" | cut -d'|' -f3)
+code=$(echo "$out" | cut -d'|' -f4)
+# 字节/秒 -> Mbps(按 12 秒窗口换算成"约多少 Mbps")
+mbps=$(awk -v s="${spd:-0}" 'BEGIN{printf "%.2f", s*8/1000000}')
+mbs=$(awk -v s="${spd:-0}" 'BEGIN{printf "%.2f", s/1048576}')
+sz=$(awk -v s="${size:-0}" 'BEGIN{printf "%.1f", s/1048576}')
+printf '{\n  "updated": %s,\n' "$(date +%s)"
+printf '  "url": "%s",\n' "$URL"
+printf '  "http": "%s", "seconds": "%s", "bytes_mb": "%s",\n' "$code" "$tt" "$sz"
+printf '  "mbps": "%s", "mbyte_per_s": "%s"\n}\n' "$mbps" "$mbs"

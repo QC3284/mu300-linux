@@ -23,7 +23,7 @@ function mkRefresh(key, defSec, fn) {
 	var raw = localStorage.getItem(PREFIX + key);
 	var sec = (raw === null || raw === '' || isNaN(Number(raw))) ? defSec : Number(raw);
 	var lastRun = 0;
-	var info = E('span', { style: 'opacity:.6;margin-left:.6em' }, '');
+	var info = E('span', { style: 'opacity:.55;font-size:.9em' }, '');
 	var sel = E('select', { class: 'cbi-select', style: 'width:6.5em;margin:0' }, SECS.map(function(s) {
 		var label = (s == 0) ? '停止' : (s + ' 秒');
 	return (s == sec) ? E('option', { value: s, selected: true }, label) : E('option', { value: s }, label);
@@ -38,7 +38,7 @@ function mkRefresh(key, defSec, fn) {
 		localStorage.setItem(PREFIX + key, String(sec));
 		lastRun = 0; if (sec) run();
 	});
-	var btn = E('button', { class: 'cbi-button', style: 'margin:0' }, '立即刷新');
+	var btn = E('button', { class: 'cbi-button', style: 'margin:0;padding:.25em .7em', title: '立即刷新' }, '↻ 刷新');
 	btn.addEventListener('click', function(ev) { ev.preventDefault(); run(); });
 	poll.add(function() { if (sec && Date.now() - lastRun >= sec * 1000) run(); }, 1);
 	if (sec) setTimeout(run, 50);
@@ -148,8 +148,8 @@ function say(s) { status.lastElementChild.textContent = s; }
 		var rc = mkRefresh('sms', 20, function() { refresh(false); });
 
 		return E([], [
-			rc,
 			E('h2', {}, '短信'),
+			rc,
 			E('div', { class: 'cbi-section' }, [
 				E('h4', {}, '发送'),
 				E('div', {}, [ to, ' ', body, ' ', E('button', { class: 'cbi-button cbi-button-apply', click: send }, '发送') ])

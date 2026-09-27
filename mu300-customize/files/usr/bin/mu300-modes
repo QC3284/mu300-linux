@@ -5,6 +5,17 @@
 #   高铁模式:模组只提供读(AT+SP5GCMDS="get nr synch_param",44),写不支持 ✗ 只能显示
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
 ACT=$1; ARG=$2
+# ---- 写操作(APN / 5G 开关)----
+if [ "$ACT" = "apn" ]; then
+  if [ -z "$ARG" ]; then uci -q delete network.wan.apn; else uci set network.wan.apn="$ARG"; fi
+  uci commit network
+  echo "ok apn=$ARG"
+  exit 0
+fi
+if [ "$ACT" = "5gran" ]; then
+  case "$ARG" in 0|1) mu300-at -t 10 "AT+SP5GRAN=$ARG" >/dev/null 2>&1; echo "ok 5gran=$ARG"; exit 0 ;; esac
+  echo "bad arg" >&2; exit 1
+fi
 if [ "$ACT" = "profile" ]; then
   case "$ARG" in
     eco|balanced|performance)
@@ -72,6 +83,9 @@ cat <<EOF
   "temperature": "$temp",
   "load1": "$l1", "load5": "$l5", "load15": "$l15",
   "mem_total": ${memt:-0}, "mem_used": ${memu:-0},
+  "apn": "$(uci -q get network.wan.apn)",
+  "fiveg": "$(mu300-at -t 8 'AT+SP5GRAN?' 2>/dev/null | grep -o 'SP5GRAN: *[01]' | grep -o '[01]$')",
+  "rat": "$(mu300-at -t 8 'AT+COPS?' 2>/dev/null | grep -o ',[0-9]*$' | tr -d ,)",
   "temps": [ $temps ],
   "storage": [ $storage ],
   "rail": "$rail"

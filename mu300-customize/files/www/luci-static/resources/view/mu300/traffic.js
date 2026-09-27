@@ -13,7 +13,7 @@ function mkRefresh(key, defSec, fn) {
 	var raw = localStorage.getItem(PREFIX + key);
 	var sec = (raw === null || raw === '' || isNaN(Number(raw))) ? defSec : Number(raw);
 	var lastRun = 0;
-	var info = E('span', { style: 'opacity:.6;margin-left:.6em' }, '');
+	var info = E('span', { style: 'opacity:.55;font-size:.9em' }, '');
 	var sel = E('select', { class: 'cbi-select', style: 'width:6.5em;margin:0' }, SECS.map(function(s) {
 		var label = (s == 0) ? '停止' : (s + ' 秒');
 	return (s == sec) ? E('option', { value: s, selected: true }, label) : E('option', { value: s }, label);
@@ -28,7 +28,7 @@ function mkRefresh(key, defSec, fn) {
 		localStorage.setItem(PREFIX + key, String(sec));
 		lastRun = 0; if (sec) run();
 	});
-	var btn = E('button', { class: 'cbi-button', style: 'margin:0' }, '立即刷新');
+	var btn = E('button', { class: 'cbi-button', style: 'margin:0;padding:.25em .7em', title: '立即刷新' }, '↻ 刷新');
 	btn.addEventListener('click', function(ev) { ev.preventDefault(); run(); });
 	poll.add(function() { if (sec && Date.now() - lastRun >= sec * 1000) run(); }, 1);
 	if (sec) setTimeout(run, 50);
@@ -116,14 +116,43 @@ return view.extend({
 			});
 		}
 
+		// ---- 测速(下载测速,不依赖中兴官方后台)----
+		var spdHint = E('span', { style: 'opacity:.75' }, '');
+		var spdBox = E('div', {}, '还没测过');
+		function doSpeed() {
+			if (!confirm('开始下载测速?\n\n会在设备上从镜像站下载约 12 秒,期间占用带宽。')) return;
+			fs.write('/tmp/mu300-modes.req', 'speed').then(function() { spdHint.textContent = '已开始,约 15 秒后出结果…'; })
+				.catch(function(e) { spdHint.textContent = '提交失败: ' + e; });
+		}
+		function pollSpeed() {
+			fs.read('/tmp/mu300-speed.json').then(function(s) {
+				var d = {};
+				try { d = JSON.parse(s) || {}; } catch (e) { d = {}; }
+				if (!d.updated) return;
+				var txt = '↓ ' + (d.mbps || '?') + ' Mbps  (' + (d.mbyte_per_s || '?') + ' MB/s)   '
+					+ '下载 ' + (d.bytes_mb || '?') + ' MB / ' + (d.seconds || '?') + ' 秒,HTTP ' + (d.http || '?')
+					+ '   ·  ' + new Date(d.updated * 1000).toLocaleTimeString();
+				if (spdBox.textContent !== txt) spdBox.textContent = txt;
+			}).catch(function() { });
+		}
 		draw_all();
 		var rc = mkRefresh('traffic', 15, draw_all);
+		pollSpeed();
+		poll.add(pollSpeed, 5);
 
 		return E([], [
-			rc,
 			E('h2', {}, '流量统计'),
+			rc,
 			E('div', { class: 'cbi-section' }, sumtbl),
 			E('div', { class: 'cbi-section' }, [ E('h4', {}, '最近 7 天'), bars ]),
+			E('div', { class: 'cbi-section' }, [
+				E('h4', {}, '测速(下载)'),
+				E('p', { style: 'opacity:.75' }, '在设备上从镜像站下载约 12 秒,算平均速率。源可改 /etc/mu300/speedtest.url。'),
+				E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin-bottom:.5em' }, [
+					E('button', { class: 'cbi-button cbi-button-apply', click: doSpeed }, '开始测速'), spdHint
+				]),
+				spdBox
+			]),
 			E('div', { class: 'cbi-section' }, E('p', {}, '按天累计,存在 /etc/mu300/traffic.json,重启不丢。'))
 		]);
 	},
