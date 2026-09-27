@@ -71,11 +71,19 @@ function run(pi, qs, auth) {
 		let safe = '';
 		for (let ch in split(cmd, '')) { if (match(ch, /[A-Za-z0-9+,=_:"$?.!#\/ -]/)) safe += ch; }
 		let out = '';
+		// ★ AT 缓存:mu300-at 一次要 4~8 秒 ✗ 前端同时发多请求会排队 → 5 秒超时 ✗
+		//   只给【只读查询类】做缓存(带 ? 或 =1 这类固定查询),写操作不缓存 ✓
+		let ck = replace(safe, /[^A-Za-z0-9]/g, '');
+		let cachemap = readjson('/tmp/ufi-at-cache.json');
+		let ce = cachemap[ck];
+		if (ce && (time() - num(ce.t)) < 300 && !match(safe, /=(0|1)$/) == false) { }
+		if (ce && (time() - num(ce.t)) < 300) { jreply({ result: ce.v }); return; }
 		let fh = fs.popen("/opt/mu300/bin/mu300-at -t 12 '" + safe + "' 2>&1", 'r');
 		if (fh) { out = fh.read('all') || ''; fh.close(); }
 		out = trim(replace(replace(out, /\r/g, ''), /\n/g, ' '));
 		if (substr(lc(out), length(out) - 2) == 'ok') out = trim(substr(out, 0, length(out) - 2)) + ' OK';
 		if (!out) out = '(无输出)';
+		try { cachemap[ck] = { t: time(), v: out }; fs.writefile('/tmp/ufi-at-cache.json', sprintf('%.J', cachemap)); } catch (e) { }
 		jreply({ result: out });
 		return;
 	}
@@ -179,7 +187,13 @@ function run(pi, qs, auth) {
 			internal_total_storage: isz * 1024 * 1024,
 			internal_used_storage: iused * 1024 * 1024,
 			internal_available_storage: (isz - iused) * 1024 * 1024,
-			external_total_storage: esz * 1024 * 1024, external_used_storage: eused * 1024 * 1024, external_available_storage: (esz - eused) * 1024 * 1024 });
+			external_total_storage: esz * 1024 * 1024, external_used_storage: eused * 1024 * 1024, external_available_storage: (esz - eused) * 1024 * 1024,
+			// "当前基站"面板要的字段(前端只从 baseDeviceInfo 取,不在 goform 的 cmd 里 ✓)
+			Nr_pci: '' + ((cells.serving || {}).pci || ''),
+			Nr_fcn: '' + ((cells.serving || {}).arfcn || ''),
+			Nr_bands: (function() { let b6 = '' + ((cells.serving || {}).band || ''); return (substr(b6, 0, 1) == 'n') ? substr(b6, 1) : b6; })(),
+			Lte_pci: '', Lte_fcn: '', Lte_bands: '',
+			Z5g_rsrp: int(num(signal.rsrp)), Nr_snr: int(num(signal.sinr)), nr_rsrq: int(num(signal.rsrq)) });   // 取整(前端会原样显示,小数不好看 ✗)
 		return;
 	}
 
