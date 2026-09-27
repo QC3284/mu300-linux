@@ -411,27 +411,23 @@ function run(pi, qs, auth) {
 				}
 			}
 			else if (c == 'lte_band_lock' || c == 'nr_band_lock') {
-				// 掩码 → 频段号列表(前端用它给复选框打勾 ✓)
-				let bc = readjson('/tmp/ufi-band-cache.json');
-				if (!bc.t || (time() - num(bc.t)) > 90) {
-					let rawB = '';
-					try { let fh4 = fs.popen('/usr/bin/mu300-band read 2>&1', 'r'); if (fh4) { rawB = fh4.read('all') || ''; fh4.close(); } } catch (e) { }
-					let nrm = [ 0, 0, 0 ], ltem = [ 0, 0, 0, 0, 0 ];
-					try { let jo = json(replace(rawB, /^[^{]*/, '')); nrm = jo.nr_masks || nrm; ltem = jo.lte_masks || ltem; } catch (e) { }
-					let NR0 = [ 1, 2, 3, 5, 7, 8, 20, 25, 26, 28 ];
-					let nlist = [], llist = [];
+				// ★ 用 status.json 里现成的掩码(绝不跑 AT ✗ 否则前端超时 → 5G 行不渲染 + 不打勾)
+				let mk = (c == 'nr_band_lock') ? (status.nr_band_mask || '') : (status.lte_band_mask || '');
+				let mv = split('' + mk, ',');
+				let NR0 = [ 1, 2, 3, 5, 7, 8, 20, 25, 26, 28 ];
+				let outb = [];
+				if (c == 'nr_band_lock') {
 					let bitv = 1;
-					for (let i = 0; i < 10; i++) { if (int(num(nrm[0]) / bitv) % 2 == 1) push(nlist, '' + NR0[i]); bitv = bitv * 2; }
-					if (int(num(nrm[2]) / 16) % 2 == 1) push(nlist, '41');
-					if (int(num(nrm[2]) / 256) % 2 == 1) push(nlist, '78');
-					let bitv2 = 1;
-					for (let b4 = 1; b4 <= 32; b4++) { if (int(num(ltem[3]) / bitv2) % 2 == 1) push(llist, '' + b4); bitv2 = bitv2 * 2; }
-					let bitv3 = 1;
-					for (let b5 = 33; b5 <= 64; b5++) { if (int(num(ltem[1]) / bitv3) % 2 == 1) push(llist, '' + b5); bitv3 = bitv3 * 2; }
-					bc = { t: time(), nr: join(',', nlist), lte: join(',', llist) };
-					try { fs.writefile('/tmp/ufi-band-cache.json', sprintf('%.J', bc)); } catch (e) { }
+					for (let i2 = 0; i2 < 10; i2++) { if (int(num(mv[0]) / bitv) % 2 == 1) push(outb, '' + NR0[i2]); bitv = bitv * 2; }
+					if (int(num(mv[2]) / 16) % 2 == 1) push(outb, '41');
+					if (int(num(mv[2]) / 256) % 2 == 1) push(outb, '78');
+				} else {
+					let bv = 1;
+					for (let b4 = 1; b4 <= 32; b4++) { if (int(num(mv[3]) / bv) % 2 == 1) push(outb, '' + b4); bv = bv * 2; }
+					let bv2 = 1;
+					for (let b5 = 33; b5 <= 64; b5++) { if (int(num(mv[1]) / bv2) % 2 == 1) push(outb, '' + b5); bv2 = bv2 * 2; }
 				}
-				o[c] = (c == 'nr_band_lock') ? (bc.nr || '') : (bc.lte || '');
+				o[c] = join(',', outb);
 			}
 			else o[c] = '';
 		}
