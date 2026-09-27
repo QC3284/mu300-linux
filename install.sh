@@ -383,7 +383,10 @@ su_do 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/t
 adb pull /data/local/tmp/mu300-pull.bin "$WORK/dumps/misc-head.bin" >/dev/null 2>&1
 su_do 'rm -f /data/local/tmp/mu300-pull.bin' >/dev/null
 [ -s "$WORK/dumps/misc-head.bin" ] || die "$(t 'could not read the misc header from the device')"
-[ -d "$WORK/android-subset" ] || sh "$TOP/android-vendor/extract-subset.sh" "$WORK/android-subset"
+# what a complete subset must hold, not only the directory: an interrupted run left a partial one behind that the
+# old check then accepted for good (the same guard as install.ps1, issue #6)
+[ -e "$WORK/android-subset/vendor/bin/modem_control" ] && [ -e "$WORK/android-subset/linkerconfig/ld.config.txt" ] ||
+    sh "$TOP/android-vendor/extract-subset.sh" "$WORK/android-subset"
 for f in wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.ini bt_configure_pskey.ini bt_configure_rf.ini; do
     for d in /odm/firmware /vendor/firmware /vendor/etc; do
         if [ "$(su_do "[ -f $d/$f ] && echo y")" = y ]; then dev_pull "$d/$f" "$WORK/firmware/$f"; break; fi
@@ -507,7 +510,7 @@ python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --
 # ---------------------------------------------------------------- confirm and install
 say "$(t 'Ready to install')"
 echo "  $(t 'source:         {1}' "$([ $MODE = prebuilt ] && t 'prebuilt release {1} + vendor files from this device' "$RELEASE" || t 'local build')")"
-echo "  $(t 'systems:        {1} (boots: {2})' "$OSES$(case " $OSES " in *" ubuntu "*) echo " (Ubuntu $UBUNTU)" ;; esac)" "$BOOT_OS")"
+echo "  $(t 'systems:        {1} (boots: {2})' "$OSES$(case " $OSES " in (*" ubuntu "*) echo " (Ubuntu $UBUNTU)" ;; esac)" "$BOOT_OS")"
 echo "  $(t 'kernel:         {1}' "$KERNEL$([ -n "$KMAIN" ] && echo " (mainline, $(cat "$KMAIN/kernel.release"))")")"
 echo "  $(t 'default boot:   {1}' "$([ $DEFAULT_LINUX = 1 ] && t 'Linux (Android after {1} failed boots in a row)' "$BOOT_ATTEMPTS" || t 'Android, Linux on demand')")"
 echo "  $(t 'filesystem:     {1}' "$([ $FORMAT = 1 ] && t 'CREATE new ext4 (erases the Linux region)' || t 'keep existing')")"

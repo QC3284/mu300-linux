@@ -6,12 +6,21 @@ unpacks it over the system. The layout matches rootfs/assemble.sh and openwrt/bu
   firmware/            -> usr/lib/firmware (Ubuntu) or lib/firmware (OpenWrt)
   android-subset/      -> opt/mu300/android (dev/__properties__ becomes dev-properties)
   android-gpu-subset/  -> opt/mu300/android (files already taken from android-subset win)
+
+A subset pulled on Windows holds a file called windows-source.tar.gz (android-vendor/extract_subset.py): the
+property area is a set of files named u:object_r:<context>:s0, which that file system cannot store, so the whole
+device archive is kept there instead. When it is present the subset is taken from it, not from the tree, so the
+installed system gets the same names and modes a Linux host would have extracted.
 """
 import argparse
+import copy
 import io
 import os
 import tarfile
 from pathlib import Path
+
+# written by android-vendor/extract_subset.py on a host whose file system cannot hold every name from the device
+WINDOWS_TAR = 'windows-source.tar.gz'
 
 
 def add_bytes(tar, arc, data, seen, mode=0o644):
@@ -66,6 +75,8 @@ def add_tree(tar, src: Path, dest: str, seen: set, rename=None):
         entries = [(d, True) for d in dirs] + [(f, False) for f in sorted(files)]
         # symlinks to directories show up in dirs but must be stored as links
         for name, _ in entries:
+            if name == WINDOWS_TAR and rel_root == Path('.'):
+                continue
             path = Path(root) / name
             rel = (rel_root / name).as_posix()
             if rename:
@@ -77,6 +88,11 @@ def add_tree(tar, src: Path, dest: str, seen: set, rename=None):
                 continue
             seen.add(arc)
             info = tar.gettarinfo(str(path), arcname=arc)
+            if os.name == 'nt':
+                # Windows knows no mode bits, only a read-only attribute, and gettarinfo therefore reports
+                # 0666/0444 for every file and 0777 for every directory there: write what a Linux host would
+                # have stored (mkdir 0755, adb pull 0644), so the installed system gets the same modes
+                info.mode = 0o755 if info.isdir() else (0o444 if not (info.mode & 0o200) else 0o644)
             info.uid = info.gid = 0
             info.uname = info.gname = 'root'
             if info.isfile():
@@ -85,6 +101,33 @@ def add_tree(tar, src: Path, dest: str, seen: set, rename=None):
             else:
                 tar.addfile(info)
         dirs[:] = [d for d in dirs if not (Path(root) / d).is_symlink()]
+
+
+def add_members(tar, src: Path, dest: str, seen: set, rename=None):
+    """the same, for a subset whose tree is not complete on this host: everything comes out of
+    src/windows-source.tar.gz, with the names, modes and links the file system could not keep"""
+    side = src / WINDOWS_TAR
+    if not side.is_file():
+        return 0
+    n = 0
+    with tarfile.open(side, 'r:*') as stored:
+        for m in stored.getmembers():
+            rel = m.name.lstrip('./')
+            if rename:
+                rel = rename(rel)
+                if rel is None:
+                    continue
+            arc = f'{dest}/{rel}'
+            if arc in seen:
+                continue
+            seen.add(arc)
+            info = copy.copy(m)
+            info.name = arc
+            info.uid = info.gid = 0
+            info.uname = info.gname = 'root'
+            tar.addfile(info, stored.extractfile(m) if m.isreg() else None)
+            n += 1
+    return n
 
 
 def main():
@@ -113,7 +156,13 @@ def main():
     with tarfile.open(a.out, 'w:gz', format=tarfile.GNU_FORMAT) as tar:
         if a.firmware and a.firmware.is_dir():
             add_tree(tar, a.firmware, 'usr/lib/firmware' if a.os == 'ubuntu' else 'lib/firmware', seen)
-        add_tree(tar, a.android_subset, 'opt/mu300/android', seen, android)
+        # a subset built on Windows keeps the device data in windows-source.tar.gz: its tree is missing
+        # every name that file system cannot store (the property area) and every file mode, so take the
+        # whole subset from the archive instead of walking it
+        if (a.android_subset / WINDOWS_TAR).is_file():
+            add_members(tar, a.android_subset, 'opt/mu300/android', seen, android)
+        else:
+            add_tree(tar, a.android_subset, 'opt/mu300/android', seen, android)
         if a.gpu_subset and a.gpu_subset.is_dir():
             add_tree(tar, a.gpu_subset, 'opt/mu300/android', seen, gpu)
         if a.kernel_bundle:
