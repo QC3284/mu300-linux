@@ -249,6 +249,16 @@ function run(pi, qs, auth) {
 			//   格式是 key=value 多行:action=send / number= / text=
 			let num2 = replace(P['Number'] || '', /[^0-9+]/g, '');
 			let msg = replace(replace(P['MessageBody'] || '', /^"/, ''), /"$/, '');
+			// ★★ 前端 gsmEncode 把内容编成 UTF-16BE 十六进制(0031003200330034 = "1234")★★
+			//   原版后端负责解码;我们原来直接透传 → 对方收到一串十六进制 ✗ → 这里解回来 ✓
+			if (msg != '' && match(msg, /^[0-9a-fA-F]+$/) && (length(msg) % 4) == 0) {
+				let dec = '';
+				for (let ii = 0; ii + 3 < length(msg); ii += 4) {
+					let cp = hex(substr(msg, ii, 4));
+					if (cp > 0 && cp < 65536) dec += chr(cp);
+				}
+				if (dec != '') msg = dec;
+			}
 			let one = replace(replace(msg, /[\r\n]+/g, ' '), /=/g, ' ');   // 换行/等号会破坏格式
 			try {
 				fs.writefile('/tmp/mu300-sms.req', sprintf('action=send\nnumber=%s\ntext=%s\n', num2, one));
