@@ -133,5 +133,23 @@ while :; do
       printf '{"apn":"%s","pdp":"%s"}\n' "$APN" "$PDP" > /tmp/mu300-apn.json ) &
   fi
 
+  # ---- 每 5 分钟读一次 LAN/DHCP 真实参数(避免网页写死)----
+  LT2=$(date +%s)
+  LLT=$(cat /var/run/mu300-lan.ts 2>/dev/null)
+  LLT=$((LLT+0))
+  if [ $((LT2 - LLT)) -ge 300 ]; then
+    date +%s > /var/run/mu300-lan.ts
+    (
+      LIP=$(uci get network.lan.ipaddr 2>/dev/null)
+      LNM=$(uci get network.lan.netmask 2>/dev/null)
+      DST=$(uci get dhcp.lan.start 2>/dev/null)
+      DLM=$(uci get dhcp.lan.limit 2>/dev/null)
+      DLT=$(uci get dhcp.lan.leasetime 2>/dev/null)
+      MTU=$(cat /sys/class/net/br-lan/mtu 2>/dev/null)
+      printf '{"ip":"%s","netmask":"%s","start":"%s","limit":"%s","lease":"%s","mtu":"%s"}' \
+        "$LIP" "$LNM" "$DST" "$DLM" "$DLT" "$MTU" > /tmp/mu300-lan.json
+    ) &
+  fi
+
   sleep 4
 done

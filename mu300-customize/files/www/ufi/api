@@ -10,6 +10,21 @@ let PW_HASH = 'ae8ce4b50a5605fd6cf30183a68661d06cccce17e510bffc4ea310bf61fd6f97'
 function readjson(p) { try { return json(fs.readfile(p) || '{}') || {}; } catch (e) { return {}; } }
 function readstr(p) { try { return fs.readfile(p) || ''; } catch (e) { return ''; } }
 function num(v) { let n = +v; return (n != n) ? 0 : n; }
+// PLMN(46001 之类)→ 运营商名(不再写死 '中国联通' ✗)
+function opname(code) {
+	let c = '' + (code || '');
+	if (c == '46000' || c == '46001' || c == '46006' || c == '46009' || c == '46010') return '中国联通';
+	if (c == '46002' || c == '46004' || c == '46007' || c == '46008') return '中国移动';
+	if (c == '46003' || c == '46005' || c == '46011' || c == '46012') return '中国电信';
+	if (c == '46015') return '中国广电';
+	return (c != '') ? c : '未知';
+}
+// 安全读 JSON:readjson 读不到/坏文件时返回字符串 ✗,直接取字段会崩 → 统一用这个 ✓
+function rj(path) {
+	let o = null;
+	try { o = readjson(path); } catch (e) { o = null; }
+	return (o != null && type(o) == 'object') ? o : {};
+}
 let extraHeaders = [];
 function addheader(k, v) { push(extraHeaders, k + ': ' + v); }
 function reply(code, ctype, b) {
@@ -71,11 +86,11 @@ function run(pi, qs, auth) {
 	//   需要收紧时改成: if (auth != PW_HASH && pi != '/adb_alive' && ...) …
 	let authed = (auth == PW_HASH);
 
-	let live    = readjson('/tmp/mu300-live.json');
-	let signal  = readjson('/tmp/mu300-signal.json');
-	let cells   = readjson('/tmp/mu300-cells.json');
-	let status  = readjson('/tmp/mu300-status.json');
-	let modes   = readjson('/tmp/mu300-modes.json');
+	let live    = rj('/tmp/mu300-live.json');
+	let signal  = rj('/tmp/mu300-signal.json');
+	let cells   = rj('/tmp/mu300-cells.json');
+	let status  = rj('/tmp/mu300-status.json');
+	let modes   = rj('/tmp/mu300-modes.json');
 	let traffic = readjson('/etc/mu300/traffic.json');
 
 	if (pi == '/AT') {
@@ -324,10 +339,10 @@ function run(pi, qs, auth) {
 		} catch (e) { }
 		let days2 = traffic.days || {}, m_rx = 0, m_tx = 0;
 		for (let k in days2) { m_rx += num(days2[k].rx); m_tx += num(days2[k].tx); }
-		let smslist = readjson('/tmp/mu300-sms.json');
+		let smslist = rj('/tmp/mu300-sms.json');
 		let unread = 0;
 		for (let s3 in (smslist.messages || [])) { if (!s3.read) unread++; }
-		let clients = readjson('/tmp/mu300-clients.json');
+		let clients = rj('/tmp/mu300-clients.json');
 		let nr2 = { rsrp: signal.nr_rsrp || signal.rsrp || '', rsrq: signal.nr_rsrq || signal.rsrq || '', sinr: signal.nr_sinr || signal.sinr || '', rssi: signal.nr_rssi || '' };
 		let lt2 = { rsrp: signal.lte_rsrp || '', rsrq: signal.lte_rsrq || '', sinr: '', rssi: signal.lte_rssi || '' };
 		let band5 = (cells.serving && cells.serving.band) ? cells.serving.band : (status.serving_band || '');
@@ -335,7 +350,7 @@ function run(pi, qs, auth) {
 		for (let c in split(cmds, ',')) {
 			if (c == 'network_type')            o[c] = status.rat || '-';
 			else if (c == 'network_information') o[c] = '';
-			else if (c == 'network_provider')   o[c] = '中国联通';
+			else if (c == 'network_provider')   o[c] = opname(status.operator || status.provider || status.network_provider);
 			else if (c == 'network_signalbar')  o[c] = '';
 			else if (c == 'signalbar')          o[c] = (num(signal.rsrp) > -95 ? 5 : (num(signal.rsrp) > -105 ? 4 : 3));
 			else if (c == 'rssi')               o[c] = (num(signal.rsrp) > -95 ? 5 : (num(signal.rsrp) > -105 ? 4 : 3));
@@ -353,7 +368,7 @@ function run(pi, qs, auth) {
 			else if (c == 'network_band')                o[c] = band5 || band4;
 												else if (c == 'wan_ipaddr')         o[c] = split(live.wan4 || '', '/')[0];
 			else if (c == 'ipv6_wan_ipaddr')    o[c] = '';
-			else if (c == 'lan_ipaddr')         o[c] = '192.168.77.1';
+			else if (c == 'lan_ipaddr')         o[c] = rj('/tmp/mu300-lan.json').ip || '192.168.77.1';
 			else if (c == 'mac_address')        o[c] = readstr('/sys/class/net/br-lan/address') || '';
 			else if (c == 'cell_id')            o[c] = '';
 			else if (c == 'sim_slot')          o[c] = '0';   // 单卡设备 → SIM1(给 1 会显示成 SIM2 ✗)
@@ -403,7 +418,7 @@ function run(pi, qs, auth) {
 				o[c] = sprintf('{"messages":%.J,"total":%d}', msgs, idx);
 			}
 			else if (c == 'lan_station_list' || c == 'station_list') {
-				let cl = readjson('/tmp/mu300-clients.json');
+				let cl = rj('/tmp/mu300-clients.json');
 				let arr = [];
 				for (let c2 in (cl.clients || [])) {
 					push(arr, { mac_addr: c2.mac || '', ip_addr: c2.ip || '',
@@ -412,14 +427,14 @@ function run(pi, qs, auth) {
 				o[c] = sprintf('%.J', arr);
 			}
 			else if (c == 'hostNameList') {
-				let cl2 = readjson('/tmp/mu300-clients.json');
+				let cl2 = rj('/tmp/mu300-clients.json');
 				let nm = [];
 				for (let c3 in (cl2.clients || [])) { push(nm, { mac: c3.mac || '', name: c3.name || c3.hostname || '' }); }
 				o[c] = sprintf('%.J', nm);
 			}
-			else if (c == 'profile_name' || c == 'm_profile_name' || c == 'apn_m_profile_name' || c == 'profile_name_ui') o[c] = '中国联通';
+			else if (c == 'profile_name' || c == 'm_profile_name' || c == 'apn_m_profile_name' || c == 'profile_name_ui') o[c] = opname(status.operator || status.provider);
 			else if (c == 'apn_wan_apn' || c == 'apn_ipv6_wan_apn') {
-				let ap = readjson('/tmp/mu300-apn.json');
+				let ap = rj('/tmp/mu300-apn.json');
 				o[c] = ap.apn || '';
 			}
 			else if (c == 'ppp_username_ui' || c == 'apn_ppp_username') o[c] = '';
@@ -428,23 +443,23 @@ function run(pi, qs, auth) {
 			else if (c == 'pdp_method')   o[c] = '1';
 			else if (match(c, /^APN_config[0-9]+$/)) {
 				// ZTE 约定:字段用 ($) 分隔,第 0 个是配置名 ✓(前端 .split('($)') ✓)
-				let ap2 = readjson('/tmp/mu300-apn.json');
+				let ap2 = rj('/tmp/mu300-apn.json');
 				if (c == 'APN_config0') o[c] = sprintf('中国联通($)%s($)($)0($)1', ap2.apn || '');
 				else o[c] = '';
 			}
 			else if (match(c, /^ipv6_APN_config[0-9]+$/)) o[c] = '';
 			// ===== 内网设置(LAN/DHCP/DNS)=====
-			else if (c == 'lan_netmask')      o[c] = '255.255.255.0';
-			else if (c == 'mtu')              o[c] = '1500';
+			else if (c == 'lan_netmask')      o[c] = rj('/tmp/mu300-lan.json').netmask || '255.255.255.0';
+			else if (c == 'mtu')              o[c] = rj('/tmp/mu300-lan.json').mtu || '1500';
 			else if (c == 'dhcpEnabled')      o[c] = '1';
-			else if (c == 'dhcpStart')        o[c] = '192.168.77.100';
-			else if (c == 'dhcpEnd')          o[c] = '192.168.77.254';
-			else if (c == 'dhcpLease_hour')   o[c] = '24';
+			else if (c == 'dhcpStart') { let lj = rj('/tmp/mu300-lan.json'); o[c] = replace(lj.ip || '192.168.77.1', /\.[0-9]+$/, '.' + (lj.start || '100')); }
+			else if (c == 'dhcpEnd') { let lj2 = rj('/tmp/mu300-lan.json'); let st = num(lj2.start || 100) + num(lj2.limit || 254) - 1; if (st > 254) st = 254; o[c] = replace(lj2.ip || '192.168.77.1', /\.[0-9]+$/, '.' + st); }
+			else if (c == 'dhcpLease_hour')   o[c] = replace(rj('/tmp/mu300-lan.json').lease || '24h', /[^0-9]/g, '') || '24';
 			else if (c == 'dns_mode' || c == 'dns_mode_ui' || c == 'ipv6_dns_mode' || c == 'ipv6_dns_mode_ui') o[c] = '0';
 			else if (c == 'prefer_dns_manual' || c == 'ipv6_prefer_dns_manual' || c == 'standby_dns_manual' || c == 'ipv6_standby_dns_manual' || c == 'prefer_dns_manual_ui' || c == 'ipv6_prefer_dns_manual_ui' || c == 'ipv6_standby_dns_manual_ui') o[c] = '';
 			// ===== 上下行速率(LD/RD,前端首页用)=====
-			else if (c == 'LD') { let lv = readjson('/tmp/mu300-live.json'); o[c] = num(lv.rx_rate); }
-			else if (c == 'RD') { let lv2 = readjson('/tmp/mu300-live.json'); o[c] = num(lv2.tx_rate); }
+			else if (c == 'LD') { let lv = rj('/tmp/mu300-live.json'); o[c] = num(lv.rx_rate); }
+			else if (c == 'RD') { let lv2 = rj('/tmp/mu300-live.json'); o[c] = num(lv2.tx_rate); }
 			// ===== 杂项 =====
 			else if (c == 'is_support_nfc_functions') o[c] = false;
 			else if (c == 'flux_data_volume_limit_switch') o[c] = '0';
@@ -610,7 +625,15 @@ function run(pi, qs, auth) {
 	// 前端在登录/改口令后会 POST 这里,失败就存不下 token → 短信面板卡 Loading ✗
 	if (pi == '/update_admin_pwd') { jreply({ result: 'success' }); return; }
 	if (pi == '/device_id')   { jreply({ device_id: readstr('/etc/mu300/ufi-device-id') || '0a36488d00922a29' }); return; }
-	if (pi == '/hasTTYD')     { jreply({ code: '200', ip: '192.168.77.1:22' }); return; }
+	if (pi == '/hasTTYD') {
+		// ★ 原来是 :22(SSH),但 22 在 Firefox 的禁用端口列表里 ✗ → 打开就被拦 ✓
+		//   实际可用的是 ttyd 网页终端 7681 ✓
+		let lanip = (rj('/tmp/mu300-lan.json').ip || '192.168.77.1');
+		let ttyd = '0';
+		try { ttyd = trim(fs.popen('ps w | grep -c "[t]tyd"', 'r').read('all') || '0'); } catch (e) { }
+		jreply({ code: '200', ip: lanip + ':7681', port: 7681, running: (num(ttyd) > 0) });
+		return;
+	}
 	if (pi == '/usb_status')  { jreply({ maxSpeed: 0, details: { typec_mode: 'gadget', gadget_speed: 'USB 3.0 (5Gbps)', devices: [] } }); return; }
 	if (pi == '/adb_alive')   { jreply({ result: 'false' }); return; }
 	if (pi == '/root_shell' || pi == '/one_click_shell' || pi == '/user_shell') { jreply({ result: 'success' }); return; }
