@@ -30,7 +30,9 @@ echo '=== 1/5 推送文件 ==='
 ( cd "$HERE/files" && tar czf - . ) | ssh_ 'tar xzf - -C / && echo "  文件已解包"'
 ssh_ 'chmod 755 /usr/bin/mu300-* /etc/init.d/mu300-* 2>/dev/null; echo "  权限已设置"'
 # 数据目录 + 空状态文件(新装时页面/守护读不到也不要报错)
-ssh_ 'mkdir -p /etc/mu300; for f in schedule.json celllock.json; do [ -f /etc/mu300/$f ] || echo "{}" > /etc/mu300/$f; done; echo "  数据目录就绪"'
+ssh_ 'mkdir -p /etc/mu300; for f in schedule.json celllock.json sms-forward.json; do [ -f /etc/mu300/$f ] || echo "{}" > /etc/mu300/$f; done; echo "  数据目录就绪"'
+# 短信转发/测速需要 curl(设备默认没有)
+ssh_ 'command -v curl >/dev/null 2>&1 || apk add --no-cache curl ca-bundle >/dev/null 2>&1; command -v curl >/dev/null 2>&1 && echo "  curl 就绪" || echo "  curl 缺失(短信转发/测速不可用)"'
 
 echo '=== 2/5 应用 uci 配置(必须项)==='
 ssh_ '
@@ -56,8 +58,7 @@ ssh_ '
 
 echo '=== 4/5 启用并启动五个守护 ==='
 for s in mu300-led mu300-statusd mu300-trafd mu300-atweb mu300-v6-relay mu300-smsd mu300-clientsd mu300-scheduled; do
-  ssh_ "/etc/init.d/$s enable >/dev/null 2>&1; /etc/init.d/$s restart >/dev/null 2>&1; \",
-       "n=\$(ps w | grep -c \"[m]u300-$(echo $s | sed 's/^mu300-//').sh\"); echo \"  $s -> 实例 \$n\"" 2>/dev/null || echo "  $s -> 启动失败(检查)"
+  ssh_ "/etc/init.d/$s enable >/dev/null 2>&1; /etc/init.d/$s restart >/dev/null 2>&1; n=\$(ps w | grep -c '[m]u300-${s#mu300-}.sh'); echo \"  $s -> 实例 \$n\"" 2>/dev/null || echo "  $s -> 启动失败(检查)"
 done
 
 echo '=== 5/5 重启受影响的系统服务 ==='

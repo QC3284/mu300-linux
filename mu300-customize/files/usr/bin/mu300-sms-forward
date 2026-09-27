@@ -1,0 +1,62 @@
+#!/bin/sh
+# mu300-sms-forward: 把最新一条短信转发出去(对齐 UFI 的 8.2 短信转发)
+# 用法: mu300-sms-forward [json消息文件]   配置: /etc/mu300/sms-forward.json
+#   方式: curl(自定义 URL) / dingtalk(钉钉机器人) / smtp(邮件,走 curl 的 smtp)
+# 说明: 用 jsonfilter 读消息和配置(OpenWrt 自带),不依赖 jq
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+CONF=/etc/mu300/sms-forward.json
+LIVE=${1:-/tmp/mu300-sms.json}
+LOG=/tmp/mu300-sms-forward.log
+[ -r "$CONF" ] || { echo "$(date '+%F %T') 没有配置 $CONF" >> $LOG; exit 0; }
+en=$(jsonfilter -i "$CONF" -e '@.enabled' 2>/dev/null)
+[ "$en" = "true" ] || exit 0
+method=$(jsonfilter -i "$CONF" -e '@.method' 2>/dev/null)
+# 最新一条(数组第 0 个)
+from=$(jsonfilter -i "$LIVE" -e '@.messages[0].from' 2>/dev/null)
+text=$(jsonfilter -i "$LIVE" -e '@.messages[0].text' 2>/dev/null)
+date=$(jsonfilter -i "$LIVE" -e '@.messages[0].date' 2>/dev/null)
+[ -z "$text" ] && { echo "$(date '+%F %T') 没读到短信内容" >> $LOG; exit 0; }
+body="【MU300】$from  $date\n$text"
+case "$method" in
+  dingtalk)
+    tok=$(jsonfilter -i "$CONF" -e '@.dingtalk_token' 2>/dev/null)
+    [ -z "$tok" ] && { echo "$(date '+%F %T') 钉钉 token 为空" >> $LOG; exit 0; }
+    # JSON 转义:把反斜杠/引号/换行处理掉
+    esc=$(printf '%s' "$body" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+    esc=${esc%\\\\n}
+    curl -s -m 15 -X POST "https://oapi.dingtalk.com/robot/send?access_token=$tok" \
+      -H 'Content-Type: application/json' \
+      -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$esc\"}}" >> $LOG 2>&1 && echo " -> dingtalk ok" >> $LOG
+    ;;
+  curl)
+    url=$(jsonfilter -i "$CONF" -e '@.curl_url' 2>/dev/null)
+    hdr=$(jsonfilter -i "$CONF" -e '@.curl_header' 2>/dev/null)
+    [ -z "$url" ] && { echo "$(date '+%F %T') curl URL 为空" >> $LOG; exit 0; }
+    if [ -n "$hdr" ]; then
+      curl -s -m 15 -X POST -H "$hdr" --data-urlencode "msg=$body" "$url" >> $LOG 2>&1
+    else
+      curl -s -m 15 -X POST --data-urlencode "msg=$body" "$url" >> $LOG 2>&1
+    fi
+    echo " -> curl $url" >> $LOG
+    ;;
+  smtp)
+    srv=$(jsonfilter -i "$CONF" -e '@.smtp_server' 2>/dev/null)
+    port=$(jsonfilter -i "$CONF" -e '@.smtp_port' 2>/dev/null)
+    user=$(jsonfilter -i "$CONF" -e '@.smtp_user' 2>/dev/null)
+    pass=$(jsonfilter -i "$CONF" -e '@.smtp_pass' 2>/dev/null)
+    to=$(jsonfilter -i "$CONF" -e '@.smtp_to' 2>/dev/null)
+    [ -z "$srv" ] || [ -z "$to" ] && { echo "$(date '+%F %T') smtp 配置不全" >> $LOG; exit 0; }
+    # 注意:设备 /bin/sh 是 ash,不支持 <( ) 进程替换 —— 先写临时文件 ✗
+    MF=/tmp/mu300-sms-mail.txt
+    printf 'From: %s\nTo: %s\nSubject: MU300 SMS from %s\n\n%s\n' "$user" "$to" "$from" "$body" > $MF
+    curl -s -m 20 --url "smtp://$srv:${port:-465}" --ssl-reqd \
+      --mail-from "$user" --mail-rcpt "$to" \
+      --user "$user:$pass" \
+      -T $MF >> $LOG 2>&1
+    rm -f $MF
+    echo " -> smtp $srv -> $to" >> $LOG
+    ;;
+  *) echo "$(date '+%F %T') 未知方式: $method" >> $LOG ;;
+esac
+# 日志留最近 200 行
+tail -n 200 $LOG > $LOG.tmp 2>/dev/null && mv $LOG.tmp $LOG

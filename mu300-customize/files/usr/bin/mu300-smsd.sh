@@ -4,6 +4,18 @@
 #  ② 同时轮询 /tmp/mu300-sms.req 处理页面请求(send / delete / refresh)
 # 注意:`sms` 是厂商脚本,内部走 mu300-atd 排队,不会自己抢 AT 通道(那条通道抢了会卡死)
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+# ---- 单实例锁(避免 restart 没杀干净导致重复采集/重复转发)----
+LOCK=/var/run/mu300-smsd.lock
+if [ -f "$LOCK" ]; then
+  old=$(cat "$LOCK" 2>/dev/null)
+  if [ -n "$old" ] && kill -0 "$old" 2>/dev/null; then
+    echo "mu300-smsd 已在运行 (pid $old),退出" >&2
+    exit 0
+  fi
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"; exit 0' TERM INT EXIT
+
 REQ=/tmp/mu300-sms.req
 OUT=/tmp/mu300-sms.out
 HOOK=/usr/bin/mu300-sms-hook
@@ -14,6 +26,20 @@ mkdir -p /etc/mu300
 /usr/bin/mu300-sms-refresh >/dev/null 2>&1
 ( sms watch "$HOOK" >/dev/null 2>&1 ) &
 WATCH=$!
+
+# ---- ③ 短信转发(对齐 UFI 8.2):发现新消息就调转发脚本 ----
+# 用 /tmp/mu300-sms.json 里最新一条的 index 做"新消息"判定;启动时先记住当前值,不转发历史短信
+(
+  LAST=$(jsonfilter -i /tmp/mu300-sms.json -e '@.messages[0].index' 2>/dev/null)
+  while :; do
+    sleep 10
+    cur=$(jsonfilter -i /tmp/mu300-sms.json -e '@.messages[0].index' 2>/dev/null)
+    if [ -n "$cur" ] && [ "$cur" != "$LAST" ]; then
+      LAST="$cur"
+      /usr/bin/mu300-sms-forward >/dev/null 2>&1
+    fi
+  done
+) &
 
 reply() { { echo "TIME: $(date '+%Y-%m-%d %H:%M:%S')"; echo "ACTION: $1"; echo '---'; echo "$2"; } > $OUT; }
 
@@ -54,6 +80,11 @@ while :; do
         else
           reply delete '缺少 index'
         fi ;;
+      forward-test)
+        /usr/bin/mu300-sms-forward > /tmp/mu300-sms-fwd.out 2>&1
+        sleep 3
+        { echo "TIME: $(date '+%Y-%m-%d %H:%M:%S')"; echo 'ACTION: forward-test'; echo '---'; cat /tmp/mu300-sms-fwd.out /tmp/mu300-sms-forward.log 2>/dev/null | tail -20; } > $OUT
+        ;;
       refresh)
         /usr/bin/mu300-sms-refresh >/dev/null 2>&1
         reply refresh '已刷新' ;;

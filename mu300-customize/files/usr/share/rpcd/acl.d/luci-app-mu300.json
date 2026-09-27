@@ -39,6 +39,12 @@
 				],
 				"/tmp/mu300-cells.json": [
 					"read"
+				],
+				"/tmp/mu300-net.out": [
+					"read"
+				],
+				"/etc/mu300/sms-forward.json": [
+					"read"
 				]
 			}
 		},
@@ -62,6 +68,12 @@
 					"write"
 				],
 				"/tmp/mu300-clients.req": [
+					"write"
+				],
+				"/tmp/mu300-net.req": [
+					"write"
+				],
+				"/etc/mu300/sms-forward.json": [
 					"write"
 				]
 			}

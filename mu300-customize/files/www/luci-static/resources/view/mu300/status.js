@@ -33,6 +33,7 @@ return view.extend({
 
 	render: function() {
 		var cont = E('div');
+		var netHint = E('span', { style: 'opacity:.75' }, '');
 
 		function section(title, rows) {
 			return E('div', { class: 'cbi-section' }, [
@@ -108,6 +109,8 @@ return view.extend({
 			];
 			var dev = [
 				[ '运行时间', fup(d.uptime) ],
+				[ 'CPU 负载', d.load1 ? ('%s / %s / %s   (%s 核, 当前 %s MHz)'.format(d.load1, d.load5, d.load15, d.ncpu, d.cpu_mhz || '-')) : '-' ],
+				[ '内存', d.mem_total ? ('%s / %s MiB   (%s%%)'.format(d.mem_used, d.mem_total, d.mem_pct)) : '-' ],
 				[ '温度', d.temperature ? '%s °C'.format(d.temperature) : '-' ],
 				[ '固件', d.firmware ],
 				[ '内核', d.kernel ]
@@ -155,7 +158,26 @@ return view.extend({
 		return E([], [
 			E('h2', {}, '5G 状态'),
 			cont,
-			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' }, '流量/速率/在线时长每 5 秒;信号每 20 秒;制式、运营商、小区、频段每 5 分钟(这些要查询模组,查询本身需要几秒)。'))
+			E('div', { class: 'cbi-section' }, [
+				E('h4', {}, '数据开关'),
+				E('p', { style: 'opacity:.75' }, '临时断开/恢复蜂窝数据连接(对齐 UFI 的“数据开关”)。断开后局域网仍可访问本页,但设备无法上网。'),
+				E('div', { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:.6em' }, [
+					E('button', { class: 'cbi-button cbi-button-remove', click: function(ev) {
+						if (!confirm('断开移动数据?\n\n断开后本机仍可通过局域网访问,但无法上网。\n恢复若失败,请到“定时任务”页重启设备。')) return;
+						ev.target.disabled = true;
+						fs.write('/tmp/mu300-net.req', 'down').then(function() { netHint.textContent = '已提交断开请求…'; })
+							.catch(function(e) { netHint.textContent = '提交失败: ' + e; ev.target.disabled = false; });
+					} }, '断开移动数据'), ' ',
+					E('button', { class: 'cbi-button cbi-button-apply', click: function(ev) {
+						if (!confirm('恢复移动数据连接?')) return;
+						ev.target.disabled = true;
+						fs.write('/tmp/mu300-net.req', 'up').then(function() { netHint.textContent = '已提交恢复请求(约 10 秒)…'; })
+							.catch(function(e) { netHint.textContent = '提交失败: ' + e; ev.target.disabled = false; });
+					} }, '恢复移动数据'),
+					netHint
+				])
+			]),
+			E('div', { class: 'cbi-section' }, E('p', { style: 'opacity:.75' }, '流量/速率/在线时长/CPU/内存每 5 秒;信号每 20 秒;小区每 60 秒;制式、运营商、频段每 5 分钟(这些要查询模组,查询本身需要几秒)。'))
 		]);
 	},
 

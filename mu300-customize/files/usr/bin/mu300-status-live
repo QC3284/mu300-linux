@@ -1,6 +1,6 @@
 #!/bin/sh
-# 快速状态(不走 AT,纯 sysfs/命令,~0.2 秒):流量速率、计数、在线时长、温度、WiFi、客户端数
-# 目的:让页面 5 秒一次刷新,而不是等那条要 20 秒的 AT 采集
+# 快速状态(不走 AT,纯 sysfs//proc,~1 秒)—— 5 秒一版
+# 2026-09-27 起补:CPU 负载/频率、内存(对齐 UFI 前端的"设备监控"部分)
 WAN=sipa_eth0; LAN=br-lan
 r1=$(cat /sys/class/net/$WAN/statistics/rx_bytes 2>/dev/null || echo 0)
 t1=$(cat /sys/class/net/$WAN/statistics/tx_bytes 2>/dev/null || echo 0)
@@ -17,7 +17,16 @@ v4=$(ip -4 -br addr show $WAN 2>/dev/null | awk '{print $3}')
 v6=$(ip -6 addr show $WAN 2>/dev/null | grep 'scope global' | awk '{print $2}' | head -1)
 lan4=$(ip -4 -br addr show $LAN 2>/dev/null | awk '{print $3}')
 lan6=$(ip -6 addr show $LAN 2>/dev/null | awk '/scope global/ {print $2}' | grep -v '^fd' | head -1)
-fbytes() { n=${1:-0}; u=0; while [ $n -ge 1024 ] && [ $u -lt 4 ]; do n=$((n/1024)); u=$((u+1)); done; echo $n; }
+# ---- CPU / 内存 / 负载 ----
+read l1 l5 l15 _ < /proc/loadavg 2>/dev/null
+ncpu=$(grep -c ^processor /proc/cpuinfo 2>/dev/null)
+freq=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
+[ -n "$freq" ] && freq=$((freq / 1000)) || freq=''
+memt=$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null)
+mema=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo 2>/dev/null)
+memu=$(( (memt - mema) / 1024 ))
+memt=$(( memt / 1024 ))
+if [ "$memt" -gt 0 ] 2>/dev/null; then memp=$(( memu * 100 / memt )); else memp=0; fi
 printf '{\n'
 printf '  "updated": %s,\n' "$(date +%s)"
 printf '  "rx_bytes": %s, "tx_bytes": %s,\n' "$r2" "$t2"
@@ -25,5 +34,8 @@ printf '  "rx_rate": %s, "tx_rate": %s,\n' "$rxr" "$txr"
 printf '  "uptime": %s, "temperature": "%s",\n' "${up:-0}" "$temp"
 printf '  "ssid": "%s", "clients": %s,\n' "$ssid" "${clients:-0}"
 printf '  "wan4": "%s", "wan6": "%s",\n' "$v4" "$v6"
-printf '  "lan4": "%s", "lan6": "%s"\n' "$lan4" "$lan6"
+printf '  "lan4": "%s", "lan6": "%s",\n' "$lan4" "$lan6"
+printf '  "load1": "%s", "load5": "%s", "load15": "%s", "ncpu": %s,\n' "${l1:-0}" "${l5:-0}" "${l15:-0}" "${ncpu:-1}"
+printf '  "cpu_mhz": "%s",\n' "$freq"
+printf '  "mem_total": %s, "mem_used": %s, "mem_pct": %s\n' "${memt:-0}" "${memu:-0}" "${memp:-0}"
 printf '}\n'
