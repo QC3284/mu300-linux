@@ -1,15 +1,15 @@
 # Repository & Community Statistics — `dikeckaan/mu300-linux`
 
 <!-- STATS:START -->
-> *Last updated: **2026-09-26 04:45:27 UTC** (tracked automatically via GitHub Actions)*
+> *Last updated: **2026-09-27 05:08:10 UTC** (tracked automatically via GitHub Actions)*
 
 ### Overview
 
 | Metric | Count | Details |
 |---|---|---|
-| ⭐ **Stars** | **52** | Stargazers |
-| 🍴 **Forks** | **16** | Forks (31% fork-to-star ratio) |
-| 📥 **Release Asset Downloads** | **260** | 169 OS/Kernel images, 91 checksums |
+| ⭐ **Stars** | **56** | Stargazers |
+| 🍴 **Forks** | **17** | Forks (30% fork-to-star ratio) |
+| 📥 **Release Asset Downloads** | **340** | 220 OS/Kernel images, 120 checksums |
 | 👥 **Page Views (Archived)** | **1,154** | ~487 unique visitors |
 | 💻 **Git Clones (Archived)** | **668** | ~291 unique cloners |
 
@@ -38,30 +38,40 @@
 
 | Release | Asset | Size | Downloads |
 |---|---|---|---|
-| **v2026.09.26** | `mu300-kernel.tar.gz` | 22.7 MB | **18** |
-|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **15** |
+| **v2026.09.28** | `mu300-kernel-6.18.tar.gz` | 8.3 MB | **2** |
+|  | `mu300-kernel.tar.gz` | 25.2 MB | **3** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **4** |
+|  | `mu300-ubuntu-rootfs.tar.gz` | 119.5 MB | **9** |
+|  | `mu300-update` | 31.8 KB | **4** |
+|  | `SHA256SUMS` | 443 B | **4** |
+| **v2026.09.27** | `mu300-kernel.tar.gz` | 25.2 MB | **8** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **9** |
+|  | `mu300-ubuntu-rootfs.tar.gz` | 119.5 MB | **3** |
+|  | `SHA256SUMS` | 273 B | **15** |
+| **v2026.09.26** | `mu300-kernel.tar.gz` | 22.7 MB | **21** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **17** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 119.5 MB | **7** |
-|  | `SHA256SUMS` | 273 B | **21** |
-| **v2026.09.25** | `mu300-kernel.tar.gz` | 22.7 MB | **2** |
+|  | `SHA256SUMS` | 273 B | **26** |
+| **v2026.09.25** | `mu300-kernel.tar.gz` | 22.7 MB | **3** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **1** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 116.2 MB | **2** |
 |  | `SHA256SUMS` | 273 B | **2** |
-| **v2026.09.24** | `mu300-kernel.tar.gz` | 22.7 MB | **0** |
+| **v2026.09.24** | `mu300-kernel.tar.gz` | 22.7 MB | **1** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **0** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 116.2 MB | **0** |
 |  | `SHA256SUMS` | 273 B | **0** |
-| **v2026.09.23** | `mu300-kernel.tar.gz` | 22.7 MB | **0** |
+| **v2026.09.23** | `mu300-kernel.tar.gz` | 22.7 MB | **1** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 58.4 MB | **0** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 116.2 MB | **0** |
 |  | `SHA256SUMS` | 273 B | **0** |
-| **v2026.09.22** | `mu300-kernel.tar.gz` | 22.7 MB | **11** |
+| **v2026.09.22** | `mu300-kernel.tar.gz` | 22.7 MB | **12** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 44.2 MB | **11** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 104.3 MB | **3** |
 |  | `SHA256SUMS` | 273 B | **22** |
-| **v2026.09.21** | `mu300-kernel.tar.gz` | 22.7 MB | **23** |
-|  | `mu300-openwrt-rootfs.tar.gz` | 44.2 MB | **20** |
-|  | `mu300-ubuntu-rootfs.tar.gz` | 104.3 MB | **13** |
-|  | `SHA256SUMS` | 273 B | **26** |
+| **v2026.09.21** | `mu300-kernel.tar.gz` | 22.7 MB | **25** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 44.2 MB | **21** |
+|  | `mu300-ubuntu-rootfs.tar.gz` | 104.3 MB | **14** |
+|  | `SHA256SUMS` | 273 B | **27** |
 | **v2026.09.20** | `mu300-kernel.tar.gz` | 22.7 MB | **11** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 44.2 MB | **9** |
 |  | `mu300-ubuntu-rootfs.tar.gz` | 104.2 MB | **5** |
