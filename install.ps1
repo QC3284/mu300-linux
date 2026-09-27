@@ -139,13 +139,6 @@ function SelfUpdate {
     Write-Host ('  ' + (T 'restarting the updated installer'))
     return $true
 }
-if (SelfUpdate) {
-    $env:MU300_SELF_UPDATED = '1'
-    $PSBoundParameters['Lang'] = $Lang
-    & $PSCommandPath @PSBoundParameters
-    exit $LASTEXITCODE
-}
-
 function Say($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Die($m) { Write-Host ("`n" + (T 'ERROR:') + " $m") -ForegroundColor Red; exit 1 }
 # Windows PowerShell 5.1 turns every stderr line of a native command into an ErrorRecord once stderr is
@@ -219,6 +212,14 @@ function Fetch($url, $out) {
 }
 # shell scripts and config files for the device must keep Unix line endings
 function WriteUnix($path, $text) { [IO.File]::WriteAllText($path, ($text -replace "`r`n", "`n")) }
+
+# first of all, make this the newest installer (it runs the updated one and ends when it changed)
+if (SelfUpdate) {
+    $env:MU300_SELF_UPDATED = '1'
+    $PSBoundParameters['Lang'] = $Lang
+    & $PSCommandPath @PSBoundParameters
+    exit $LASTEXITCODE
+}
 
 Say (T 'Checking host tools and device')
 foreach ($c in 'adb', 'tar') { if (-not (Get-Command $c -ErrorAction SilentlyContinue)) { Die (T '{1} not found' $c) } }
