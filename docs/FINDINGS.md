@@ -1516,6 +1516,26 @@ The 6.18 bundle also carries `modules.builtin` and `modules.builtin.modinfo` now
 `modprobe` of a built-in driver failed. Three boots after the fixes: no warnings, Wi-Fi AP, mobile data, Bluetooth
 (24 devices in a scan) up.
 
+### 31h. Power-off, and the command line's crutches
+6.18 had only the PMIC restart (patch 0001): `poweroff` fell through to PSCI `SYSTEM_OFF`. The same patch now
+registers a power-off handler that does what the vendor's `sc27xx-poweroff` does for the UMP9620 - clear
+`LDO_XTL_EN` and `SLP_LDO_PD_EN` in `SLP_CTRL` (0x2248), then write 1 to `PWR_PD_HW` (0x2020). It cuts the power:
+ramoops lives in RAM, and after `reboot` the next boot finds the old console there ("reboot: Restarting system"),
+after `poweroff` it finds nothing. The F50 has no battery, so on a powered USB port the PMIC switches it on again
+about a minute later; unplugged, it stays off.
+
+The command line still carries four bring-up flags. Measured on the running system, what each one keeps:
+* `clk_ignore_unused`: 315 of 551 clocks are on with no driver holding them (bus, config, DSP, camera, thermal,
+  PWM clocks ...). This is where power could be saved - and where the risk is, because the modem, the Wi-Fi
+  firmware and the vendor modules touch hardware behind some of them without the clock API. Not changed yet.
+* `pd_ignore_unused`: nothing - the only generic power domain (`sipa-sys`) has active devices (USB, IPA).
+* `regulator_ignore_unused`: one regulator, `LDO_VDDSIM0` - the SIM's supply, which the modem uses and no Linux
+  driver claims. Without the flag the kernel would switch the SIM off. Required.
+* `fw_devlink=permissive`: required. Without it (and `pd_ignore_unused`) the board booted but the USB gadget
+  never came up - it waits for suppliers in the vendor device tree that no driver provides - and since Linux
+  itself was fine, the boot counted as good and the board stayed in a Linux without USB until it was forced back
+  to Android.
+
 ## Updating on the device
 
 ### 32. Old kernels, an idle IPA, and an update that ended in Android

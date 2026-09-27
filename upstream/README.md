@@ -71,12 +71,14 @@ device, `MU300_KERNEL_BUNDLE=<bundle> mu300-update boot` (`mu300-update rollback
 
 ## Remaining mainline work (as of 2026-09-26)
 
-- The forced command line still carries the bring-up crutches `clk_ignore_unused pd_ignore_unused
-  regulator_ignore_unused fw_devlink=permissive` - they cost power, and taking them out needs a way to measure it.
+- The forced command line still carries `clk_ignore_unused pd_ignore_unused regulator_ignore_unused
+  fw_devlink=permissive`. `regulator_ignore_unused` keeps the SIM's supply on and `fw_devlink=permissive` the USB
+  gadget alive, so both stay; `pd_ignore_unused` changes nothing; `clk_ignore_unused` keeps 315 unused clocks on and
+  is the one worth measuring (FINDINGS 31h).
 - The early crashes and the missing OpenWrt downlink were one bug, the delegate's (FINDINGS 31f), fixed; one
   Ubuntu boot that died early before the crash capture existed (31d) is unexplained, and has not recurred in the
   reboot loops since (Ubuntu 6/6, OpenWrt 4/4).
-- Poweroff has not been tried (it needs someone at the device to switch it on again).
+- Power-off works through the PMIC (FINDINGS 31h); on a powered USB port the battery-less F50 starts again.
 - Audio: not ported (it does not work on 5.4 either).
 
 ## Earlier status notes
