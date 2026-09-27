@@ -32,6 +32,14 @@ while :; do
               echo "done up $(date +%s)" >> /tmp/mu300-net.out ) & ;;
     esac
   fi
+  # ---- 性能档切换请求(对齐 UFI 的"性能模式")----
+  if [ -f /tmp/mu300-modes.req ]; then
+    act=$(tr -d ' \t\r\n' < /tmp/mu300-modes.req 2>/dev/null)
+    rm -f /tmp/mu300-modes.req
+    case "$act" in
+      profile\ eco|profile\ balanced|profile\ performance) /usr/bin/mu300-modes profile "${act#profile }" >/dev/null 2>&1 ;;
+    esac
+  fi
   /usr/bin/mu300-status-live > /tmp/mu300-live.json.tmp 2>/dev/null && mv /tmp/mu300-live.json.tmp /tmp/mu300-live.json
   t=$((t+1))
   if [ $((t % 5)) -eq 1 ]; then
@@ -39,6 +47,7 @@ while :; do
   fi
   if [ $((t % 15)) -eq 1 ]; then
     /usr/bin/mu300-cells > /tmp/mu300-cells.json.tmp 2>/dev/null && mv /tmp/mu300-cells.json.tmp /tmp/mu300-cells.json
+    /usr/bin/mu300-modes > /tmp/mu300-modes.json.tmp 2>/dev/null && mv /tmp/mu300-modes.json.tmp /tmp/mu300-modes.json
   fi
   if [ $((t % 75)) -eq 1 ]; then
     /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json

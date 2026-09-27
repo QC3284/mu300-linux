@@ -1,0 +1,50 @@
+#!/bin/sh
+# mu300-modes:模式与 CPU 状态(对齐 UFI 的"性能模式"+"CPU锁频"+"高铁模式")
+#   用法: mu300-modes                 -> 输出 JSON 到 stdout
+#         mu300-modes profile eco|balanced|performance  -> 切换性能档(调用厂商工具)
+#   高铁模式:模组只提供读(AT+SP5GCMDS="get nr synch_param",44),写不支持 ✗ 只能显示
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin"
+ACT=$1; ARG=$2
+if [ "$ACT" = "profile" ]; then
+  case "$ARG" in
+    eco|balanced|performance)
+      out=$(mu300-toolkit profile "$ARG" 2>&1)
+      echo "$out" > /tmp/mu300-modes.out
+      echo "ok $ARG"; exit 0 ;;
+    *) echo "unknown profile: $ARG" >&2; exit 1 ;;
+  esac
+fi
+# ---- 读状态 ----
+gov0=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)
+cur0=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
+max0=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null)
+hwm0=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq 2>/dev/null)
+gov4=$(cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor 2>/dev/null)
+cur4=$(cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq 2>/dev/null)
+max4=$(cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq 2>/dev/null)
+hwm4=$(cat /sys/devices/system/cpu/cpu4/cpufreq/cpuinfo_max_freq 2>/dev/null)
+temp=$(awk '{printf "%.1f", $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+read l1 l5 l15 _ < /proc/loadavg 2>/dev/null
+memt=$(awk '/^MemTotal:/{print int($2/1024)}' /proc/meminfo 2>/dev/null)
+mema=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo 2>/dev/null)
+memu=$(( ${memt:-0} - ${mema:-0} ))
+# 高铁模式(1 条 AT;读不到就留空)
+rail=$(mu300-at -t 8 'AT+SP5GCMDS="get nr synch_param",44' 2>/dev/null | grep -o 'synch_param,44,[01]' | cut -d, -f3)
+# 当前档位:按 governor+max 推断(performance→性能;max < 硬件最大→节能;否则均衡)
+prof='balanced'
+if [ "$gov0" = "performance" ]; then prof='performance'
+elif [ -n "$max0" ] && [ -n "$hwm0" ] && [ "$max0" -lt "$hwm0" ]; then prof='eco'; fi
+cat <<EOF
+{
+  "updated": $(date +%s),
+  "profile": "$prof",
+  "governor": "$gov0",
+  "cpu0": { "cur": ${cur0:-0}, "max": ${max0:-0}, "hwmax": ${hwm0:-0} },
+  "cpu4": { "cur": ${cur4:-0}, "max": ${max4:-0}, "hwmax": ${hwm4:-0} },
+  "cpu4_governor": "$gov4",
+  "temperature": "$temp",
+  "load1": "$l1", "load5": "$l5", "load15": "$l15",
+  "mem_total": ${memt:-0}, "mem_used": ${memu:-0},
+  "rail": "$rail"
+}
+EOF

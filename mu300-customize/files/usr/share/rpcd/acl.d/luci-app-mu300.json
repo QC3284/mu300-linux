@@ -45,6 +45,9 @@
 				],
 				"/etc/mu300/sms-forward.json": [
 					"read"
+				],
+				"/tmp/mu300-modes.json": [
+					"read"
 				]
 			}
 		},
@@ -74,6 +77,9 @@
 					"write"
 				],
 				"/etc/mu300/sms-forward.json": [
+					"write"
+				],
+				"/tmp/mu300-modes.req": [
 					"write"
 				]
 			}
