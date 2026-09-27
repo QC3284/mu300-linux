@@ -3,6 +3,9 @@
 set -e
 KREL=5.4.254-gb50db5b6224c
 R=/build/rootfs
+# the Ubuntu release of /w/base.tar (24.04 or 26.04): it names the tarball
+UBUNTU=$(tar -xOf /w/base.tar ./etc/os-release 2>/dev/null | sed -n 's/^VERSION_ID="\(.*\)"/\1/p')
+[ -n "$UBUNTU" ] || UBUNTU=24.04
 
 # Say which mount is missing instead of failing later on a bare "cp: can't stat". This runs inside the
 # container, so every path here is a -v from the docker run in docs/BUILD.md.
@@ -68,5 +71,5 @@ done
 for c in mu300-toolkit mu300-next-boot mu300-os mu300-update mobile-data mu300-at mu300-vpn wifi-client; do ln -sfn /opt/mu300/bin/$c $R/usr/local/bin/$c; done
 # no graphical/serial login noise on a headless dongle; keep ttyS1 console for debugging
 ln -sfn /dev/null $R/etc/systemd/system/getty@tty1.service
-cd $R && tar --numeric-owner -czf /w/mu300-ubuntu-24.04-rootfs.tar.gz .
-ls -la /w/mu300-ubuntu-24.04-rootfs.tar.gz; du -sh $R
+cd $R && tar --numeric-owner -czf /w/mu300-ubuntu-$UBUNTU-rootfs.tar.gz .
+ls -la /w/mu300-ubuntu-$UBUNTU-rootfs.tar.gz; du -sh $R

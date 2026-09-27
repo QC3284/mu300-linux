@@ -351,6 +351,19 @@ if ($OSES.Count -eq 2) {
     $BOOT_OS = Ask (T 'Which one should boot (ubuntu/openwrt)') 'ubuntu'
     if ($BOOT_OS -notin @('ubuntu', 'openwrt')) { Die (T 'invalid system') }
 }
+$UBUNTU = '24.04'
+if ($OSES -contains 'ubuntu') {
+    Say (T 'Which Ubuntu?')
+    Write-Host ('  ' + (T '1) 24.04 LTS  the longest tested, supported until 2029'))
+    Write-Host ('  ' + (T '2) 26.04 LTS  the newest (systemd 259, newer packages), supported until 2031; tested less'))
+    switch (Ask (T 'Ubuntu') '1') {
+        { $_ -in '1', '24.04' } { $UBUNTU = '24.04' }
+        { $_ -in '2', '26.04' } { $UBUNTU = '26.04' }
+        default { Die (T 'invalid choice') }
+    }
+}
+# the release file of a system: Ubuntu 26.04 has its own, 24.04 keeps the name it always had
+function RootfsFile($os) { if ($os -eq 'ubuntu' -and $UBUNTU -eq '26.04') { 'mu300-ubuntu-26.04-rootfs.tar.gz' } else { "mu300-$os-rootfs.tar.gz" } }
 $DEFAULT_LINUX = if ((Ask (T 'Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)') 'yes') -eq 'yes') { 1 } else { 0 }
 $BOOT_ATTEMPTS = 5
 if ($DEFAULT_LINUX -eq 1) {
@@ -444,7 +457,7 @@ foreach ($line in Get-Content "$REL\SHA256SUMS") {
     $p = $line -split '\s+', 2
     if ($p.Count -eq 2) { $sums[$p[1].TrimStart('*')] = $p[0] }
 }
-$files = @('mu300-kernel.tar.gz') + ($OSES | ForEach-Object { "mu300-$_-rootfs.tar.gz" })
+$files = @('mu300-kernel.tar.gz') + ($OSES | ForEach-Object { RootfsFile $_ })
 if ($KERNEL -ne '5.4') { $files += "mu300-kernel-$KERNEL.tar.gz" }
 foreach ($f in $files) {
     if (-not $sums.ContainsKey($f)) {
@@ -500,7 +513,8 @@ Python @bootArgs | Out-Null
 
 Say (T 'Ready to install')
 Write-Host ('  ' + (T 'source:         {1}' (T 'prebuilt release {1} + vendor files from this device' $Release)))
-Write-Host ('  ' + (T 'systems:        {1} (boots: {2})' ($OSES -join ' ') $BOOT_OS))
+$sysText = ($OSES -join ' ') + $(if ($OSES -contains 'ubuntu') { " (Ubuntu $UBUNTU)" } else { '' })
+Write-Host ('  ' + (T 'systems:        {1} (boots: {2})' $sysText $BOOT_OS))
 Write-Host ('  ' + (T 'kernel:         {1}' "$KERNEL$(if ($KMAIN) { " (mainline, $((Get-Content "$KMAIN\kernel.release").Trim()))" })"))
 Write-Host ('  ' + (T 'default boot:   {1}' $(if ($DEFAULT_LINUX -eq 1) { T 'Linux (Android after {1} failed boots in a row)' $BOOT_ATTEMPTS } else { T 'Android, Linux on demand' })))
 Write-Host ('  ' + (T 'filesystem:     {1}' $(if ($FORMAT -eq 1) { T 'CREATE new ext4 (erases the Linux region)' } else { T 'keep existing' })))
@@ -511,7 +525,7 @@ if ((Ask (T 'Type INSTALL to continue') 'no') -ne 'INSTALL') { Die (T 'cancelled
 Say (T 'Copying to the device')
 & adb push "$Top\tools\android-mount-mu300root.sh" "$Top\tools\android-install.sh" "$T/" | Out-Null
 foreach ($os in $OSES) {
-    & adb push "$REL\mu300-$os-rootfs.tar.gz" "$T/mu300-$os.tar.gz" | Out-Null
+    & adb push "$REL\$(RootfsFile $os)" "$T/mu300-$os.tar.gz" | Out-Null
     & adb push "$Work\mu300-vendor-$os.tar.gz" "$T/mu300-vendor-$os.tar.gz" | Out-Null
 }
 $envFile = "$Work\mu300-install.env"
