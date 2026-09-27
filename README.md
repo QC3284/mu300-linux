@@ -101,6 +101,8 @@ neither case, stop and open an issue with what `--check` printed; they identify 
 install.cmd                   # Windows (cmd)
 ```
 
+![The installer: language, checks, systems and Ubuntu release](docs/images/installer/installer-1-start.png)
+
 It asks a few questions (Ubuntu, OpenWrt or both; which one boots; a password), downloads the ready-made images,
 copies the Wi-Fi and modem files from your own device, shows exactly what it is about to write, and waits for you to
 type `INSTALL`. Then it reboots into Linux.
@@ -123,6 +125,12 @@ It also asks for the **kernel**:
 | 3 | latest stable (7.2 for now) | the newest mainline release: the newest drivers, the same functions as 6.18; tested less than 6.18 |
 
 It can be changed later on the device with `sudo mu300-update kernel 5.4`, `... kernel 6.18` or `... kernel 7.2`.
+
+![The kernel question, in Turkish](docs/images/installer/installer-2-kernel-tr.png)
+
+Before it writes anything it shows what it is about to do and waits for `INSTALL`:
+
+![The summary before installing, and the end of the install](docs/images/installer/installer-3-summary.png)
 
 If Linux is already installed it asks whether to **update** or **wipe**:
 
