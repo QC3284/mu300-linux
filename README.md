@@ -110,6 +110,10 @@ or `.\install.ps1 -Lang zh` skips the question). Adding a language is one file: 
 with GitHub - a `git clone` is fast-forwarded, a downloaded zip gets the files that changed - and restarts itself if
 there was anything new; without GitHub it simply continues (`MU300_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips it).
 
+With Ubuntu it asks for the release: **24.04 LTS** (the default, the longest tested) or **26.04 LTS (beta)** - the
+newest, with systemd 259; tested on the device for a shorter time. An installed Ubuntu moves
+to the other release with `sudo MU300_UBUNTU=26.04 mu300-update apply` (or `24.04`), keeping settings and data.
+
 It also asks for the **kernel**:
 
 | choice | kernel | |

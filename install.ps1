@@ -355,7 +355,7 @@ $UBUNTU = '24.04'
 if ($OSES -contains 'ubuntu') {
     Say (T 'Which Ubuntu?')
     Write-Host ('  ' + (T '1) 24.04 LTS  the longest tested, supported until 2029'))
-    Write-Host ('  ' + (T '2) 26.04 LTS  the newest (systemd 259, newer packages), supported until 2031; tested less'))
+    Write-Host ('  ' + (T '2) 26.04 LTS  BETA: the newest (systemd 259, newer packages), supported until 2031; tested less'))
     switch (Ask (T 'Ubuntu') '1') {
         { $_ -in '1', '24.04' } { $UBUNTU = '24.04' }
         { $_ -in '2', '26.04' } { $UBUNTU = '26.04' }
