@@ -41,20 +41,21 @@ function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
 function Quiet([scriptblock]$QuietBlock_) { $ErrorActionPreference = 'Continue'; & $QuietBlock_ 2>$null }
 # With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
 # fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
-# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300, else ask (-Quiet never asks).
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300 or a U30 Air, else ask (-Quiet
+# never asks).
 function SelectDevice([switch]$Quiet) {
     if ($env:ANDROID_SERIAL) { return }
     $all = @((Quiet { adb devices -l }) | Where-Object { $_ -match '^\S+\s+device\b' })
     if ($all.Count -eq 0) { return }
     if ($all.Count -eq 1) { $env:ANDROID_SERIAL = ($all[0] -split '\s+')[0]; return }
-    $f50 = @($all | Where-Object { $_ -match 'model:F50|product:MU300|device:MU300' })
+    $f50 = @($all | Where-Object { $_ -match 'model:F50|product:MU300|device:MU300|device:U30Air' })
     if ($f50.Count -eq 1) {
         $env:ANDROID_SERIAL = ($f50[0] -split '\s+')[0]
-        Write-Host ('  ' + ('more than one adb device: using {0} (F50/MU300)' -f $env:ANDROID_SERIAL))
+        Write-Host ('  ' + ('more than one adb device: using {0} ({1})' -f $env:ANDROID_SERIAL, $(if ($f50[0] -match 'model:(\S+)') { $Matches[1] } else { '' })))
         return
     }
     if ($Quiet) { return }
-    Write-Host ('  ' + 'more than one adb device - which one is the F50?')
+    Write-Host ('  ' + 'more than one adb device - which one is the F50 or U30 Air?')
     for ($i = 0; $i -lt $all.Count; $i++) {
         $model = if ($all[$i] -match 'model:(\S+)') { $Matches[1] } else { '' }
         Write-Host ('    {0}) {1} {2}' -f ($i + 1), ($all[$i] -split '\s+')[0], $model)
@@ -123,7 +124,7 @@ if ((AdbState) -notmatch 'device') {
 if ((SuDo 'id -u') -ne '0') { Die 'su does not work on the device' }
 $model = "$(SuDo 'getprop ro.product.model') / $(SuDo 'getprop ro.product.device')"
 Write-Host "device: $model"
-if ($model -notmatch 'MU300|F50|mu300') { Die 'this does not look like a ZTE F50/MU300' }
+if ($model -notmatch 'MU300|F50|mu300|U30Air|U30_Air') { Die 'this does not look like a ZTE F50/MU300 or U30 Air' }
 if ((SuDo 'getprop ro.boot.slot_suffix') -ne '_a') { Die 'Android must be running from slot a (boot Android first: mu300-next-boot android)' }
 
 Say 'Looking for the Linux installation'

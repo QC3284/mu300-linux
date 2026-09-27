@@ -45,20 +45,20 @@ linux_mode_to_android() {
 
 # With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
 # fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
-# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300, else ask.
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300 or a U30 Air, else ask.
 select_device() {  # select_device [quiet]: quiet never asks, it only picks what is unambiguous
     [ -n "${ANDROID_SERIAL:-}" ] && return 0
     _sd_all=$(adb devices -l 2>/dev/null | awk 'NR > 1 && $2 == "device"')
     [ -n "$_sd_all" ] || return 0
     [ "$(printf '%s\n' "$_sd_all" | wc -l | tr -d ' ')" = 1 ] && { export ANDROID_SERIAL=$(printf '%s\n' "$_sd_all" | awk '{print $1}'); return 0; }
-    _sd_f50=$(printf '%s\n' "$_sd_all" | grep -E 'model:F50|product:MU300|device:MU300' | awk '{print $1}')
+    _sd_f50=$(printf '%s\n' "$_sd_all" | grep -E 'model:F50|product:MU300|device:MU300|device:U30Air' | awk '{print $1}')
     if [ -n "$_sd_f50" ] && [ "$(printf '%s\n' "$_sd_f50" | wc -l | tr -d ' ')" = 1 ]; then
         export ANDROID_SERIAL=$_sd_f50
-        echo "  $(t 'more than one adb device: using {1} (F50/MU300)' "$ANDROID_SERIAL")"
+        echo "  $(t 'more than one adb device: using {1} ({2})' "$ANDROID_SERIAL" "$(printf '%s\n' "$_sd_all" | grep "^$ANDROID_SERIAL " | sed -n 's/.*model:\([^ ]*\).*/\1/p')")"
         return 0
     fi
     [ "${1:-}" = quiet ] && return 1
-    echo "  $(t 'more than one adb device - which one is the F50?')"
+    echo "  $(t 'more than one adb device - which one is the F50 or U30 Air?')"
     printf '%s\n' "$_sd_all" | awk '{ m = ""; for (i = 3; i <= NF; i++) if ($i ~ /^model:/) m = substr($i, 7); printf "    %d) %s %s\n", NR, $1, m }'
     ask _sd_n "$(t 'Device')" 1
     _sd_s=$(printf '%s\n' "$_sd_all" | awk -v n="$_sd_n" 'NR == n {print $1}')

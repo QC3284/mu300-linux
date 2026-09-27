@@ -112,7 +112,14 @@ require_android
 [ "$(su_do 'id -u')" = 0 ] || die "$(t 'su does not work on the device')"
 model="$(su_do 'getprop ro.product.model') / $(su_do 'getprop ro.product.device')"
 echo "$(t 'device: {1}' "$model")"
-case "$model" in *MU300*|*F50*|*mu300*) ;; *) ask go "$(t 'This does not look like a ZTE F50/MU300. Continue anyway? (yes/no)')" no; [ "$go" = yes ] || exit 1 ;; esac
+# The U30 Air is the F50's board with a battery: the same kernel and images, a few modules of its own (init
+# loads them; the boot image says which device it is for)
+case "$model" in
+    *U30Air*|*U30_Air*|*"U30 Air"*) DEVICE=u30air ;;
+    *MU300*|*F50*|*mu300*) DEVICE=f50 ;;
+    *) ask go "$(t 'This does not look like a ZTE F50/MU300 or U30 Air. Continue anyway? (yes/no)')" no; [ "$go" = yes ] || exit 1
+       DEVICE=f50 ;;
+esac
 [ "$(su_do 'getprop ro.boot.slot_suffix')" = _a ] || die "$(t 'Android must be running from slot a')"
 
 
@@ -444,6 +451,7 @@ for f in $files; do
 done
 rm -rf "$REL/kernel" && mkdir -p "$REL/kernel" && tar -xzf "$REL/mu300-kernel.tar.gz" -C "$REL/kernel"
 KOUT=$REL/kernel
+[ $DEVICE = f50 ] || [ -d "$KOUT/modules-$DEVICE" ] || die "$(t 'release {1} does not support this device yet; use a newer one' "$RELEASE")"
 BUSYBOX=$KOUT/busybox; LOGDW=$KOUT/logdw
 # a mainline kernel (6.18, 7.2): its bundle, unpacked
 KMAIN=
@@ -510,7 +518,8 @@ sed "s/^ROOT_OFFSET=[0-9]*/ROOT_OFFSET=$OFF/" "$TOP/boot/init" > "$WORK/init"
 # image that "mu300-update kernel 6.18" (or 7.2) writes on the device
 python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --misc-head "$WORK/dumps/misc-head.bin" \
   --kernel "${KMAIN:-$KOUT}/Image" ${KMAIN:+--append-ramdisk "$KMAIN/ramdisk-generic.lz4"} \
-  --modules "$KOUT/modules" --init "$WORK/init" --busybox "$BUSYBOX" \
+  --modules "$KOUT/modules" --init "$WORK/init" --busybox "$BUSYBOX" --device "$DEVICE" \
+  $([ -d "$KOUT/modules-u30air" ] && echo --device-modules "u30air=$KOUT/modules-u30air") \
   --logdw "$LOGDW" --ueventd-perms "$TOP/android-vendor/ueventd-perms.sh" \
   --android-subset "$WORK/android-subset" --out "$WORK/boot-linux-slotb.img" >/dev/null
 
