@@ -182,8 +182,32 @@ function Die($m) { Write-Host ("`n" + (T 'ERROR:') + " $m") -ForegroundColor Red
 # it runs, names are case-insensitive, and with it called $Cmd, SuDo's { adb shell "su -c '$cmd'" } ran
 # `su -c '<the text of the block>'` - so "su does not work on the device" on every Windows machine (issue #4).
 function Quiet([scriptblock]$QuietBlock_) { $ErrorActionPreference = 'Continue'; & $QuietBlock_ 2>$null }
+# With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
+# fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300, else ask (-Quiet never asks).
+function SelectDevice([switch]$Quiet) {
+    if ($env:ANDROID_SERIAL) { return }
+    $all = @((Quiet { adb devices -l }) | Where-Object { $_ -match '^\S+\s+device\b' })
+    if ($all.Count -eq 0) { return }
+    if ($all.Count -eq 1) { $env:ANDROID_SERIAL = ($all[0] -split '\s+')[0]; return }
+    $f50 = @($all | Where-Object { $_ -match 'model:F50|product:MU300|device:MU300' })
+    if ($f50.Count -eq 1) {
+        $env:ANDROID_SERIAL = ($f50[0] -split '\s+')[0]
+        Write-Host ('  ' + (T 'more than one adb device: using {1} (F50/MU300)' $env:ANDROID_SERIAL))
+        return
+    }
+    if ($Quiet) { return }
+    Write-Host ('  ' + (T 'more than one adb device - which one is the F50?'))
+    for ($i = 0; $i -lt $all.Count; $i++) {
+        $model = if ($all[$i] -match 'model:(\S+)') { $Matches[1] } else { '' }
+        Write-Host ('    {0}) {1} {2}' -f ($i + 1), ($all[$i] -split '\s+')[0], $model)
+    }
+    $n = 0
+    if (-not [int]::TryParse((Ask (T 'Device') '1'), [ref]$n) -or $n -lt 1 -or $n -gt $all.Count) { Die (T 'invalid choice') }
+    $env:ANDROID_SERIAL = ($all[$n - 1] -split '\s+')[0]
+}
 # [string]: with no device adb prints nothing, and `-notmatch` on that empty result is falsy, not true
-function AdbState { [string](Quiet { adb get-state }) }
+function AdbState { SelectDevice -Quiet; [string](Quiet { adb get-state }) }
 function Ask($question, $default) {
     $a = if ($script:AnswerQueue) { NextAnswer $question } else { Read-Host "$question [$(T $default)]" }
     if ([string]::IsNullOrWhiteSpace($a)) { return $default } else { return (NormalizeAnswer $a.Trim()) }
@@ -264,6 +288,7 @@ if (-not $Check) {
     if ($LASTEXITCODE -ne 0) { Die (T 'the lz4 Python module is required to build the boot image: pip install lz4') }
 }
 Quiet { adb start-server } | Out-Null
+SelectDevice
 if ((AdbState) -notmatch 'device') {
     # the device may be running MU300 Linux right now: then only SSH on the USB network answers
     $linux = Test-NetConnection -ComputerName $MU300_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue
