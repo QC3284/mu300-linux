@@ -383,7 +383,14 @@ function run(pi, qs, auth) {
 			else if (c == 'monthly_time')       o[c] = num(live.uptime);
 			else if (c == 'sms_unread_num' || c == 'sms_sim_unread_num') o[c] = unread;
 			else if (c == 'sms_received_flag')  o[c] = unread ? '1' : '0';
-			else if (c == 'wifi_access_sta_num') o[c] = length(clients.clients || clients.list || []);
+			else if (c == 'wifi_access_sta_num') {
+				// ★ 只数真正连在 WiFi 上的(iw station dump)—— 原来数的是全部客户端(含 USB)✗
+				let raw = '';
+				try { raw = fs.readfile('/tmp/mu300-wifi-stations.raw') || ''; } catch (e) { }
+				let cnt = 0;
+				for (let ln in split('' + raw, '\n')) { if (match(ln, /^Station /)) cnt++; }
+				o[c] = cnt;
+			}
 			else if (c == 'battery_value' || c == 'battery_charging' || c == 'battery_vol_percent') o[c] = '';
 			else if (c == 'imei' || c == 'imsi' || c == 'iccid' || c == 'msisdn' || c == 'sim_msisdn') o[c] = readjson('/etc/mu300/ufi-ident.json')[c] || '';
 			else if (c == 'data_volume_limit_switch') o[c] = 0;   // 没配套餐 → 关掉,避免前端显示 NaN
