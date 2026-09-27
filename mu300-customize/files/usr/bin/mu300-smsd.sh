@@ -91,5 +91,12 @@ while :; do
       *) reply '?' "未知动作: $action" ;;
     esac
   fi
+  # 每 3 分钟主动刷一次收件箱(防止 sms watch 因重启/priming 漏消息)
+  RNOW=$(date +%s)
+  if [ -z "$RLAST" ]; then RLAST=0; fi
+  if [ $((RNOW - RLAST)) -ge 180 ]; then
+    RLAST=$RNOW
+    /usr/bin/mu300-sms-refresh >/dev/null 2>&1
+  fi
   sleep 2
 done

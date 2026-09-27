@@ -211,33 +211,14 @@ function run(pi, qs, auth) {
 		}
 		let gid = P['goformId'] || '';
 		if (gid == 'SEND_SMS') {
+			// ★ 正确做法:写 /tmp/mu300-sms.req 给 mu300-smsd(厂商 sms 工具叫 sms,不是 mu300-sms ✗)
+			//   格式是 key=value 多行:action=send / number= / text=
 			let num2 = replace(P['Number'] || '', /[^0-9+]/g, '');
 			let msg = replace(replace(P['MessageBody'] || '', /^"/, ''), /"$/, '');
-			let safe2 = '';
-			for (let ch2 in split(msg, '')) { if (!match(ch2, /['"\`$\\]/)) safe2 += ch2; }
-			let r2 = '';
+			let one = replace(replace(msg, /[\r\n]+/g, ' '), /=/g, ' ');   // 换行/等号会破坏格式
 			try {
-				let fh3 = fs.popen(sprintf("/opt/mu300/bin/mu300-sms send '%s' '%s' 2>&1", num2, safe2), 'r');
-				if (fh3) { r2 = fh3.read('all') || ''; fh3.close(); }
+				fs.writefile('/tmp/mu300-sms.req', sprintf('action=send\nnumber=%s\ntext=%s\n', num2, one));
 			} catch (e) { }
-			try { fs.writefile('/tmp/ufi-sms-send.log', sprintf('%s -> %s\n%s\n', num2, safe2, r2)); } catch (e) { }
-			jreply({ result: 'success' });
-			return;
-		}
-		if (gid == 'INDICATOR_LIGHT_SETTING') {
-			let on = (P['indicator_light_switch'] == '1');
-			if (on) {
-				try { fs.popen('/etc/init.d/mu300-led start >/dev/null 2>&1 &', 'r'); } catch (e) { }
-			} else {
-				// ★ 只停守护不够,LED 会停在最后状态 ✗ 必须 trigger=none + brightness=0
-				try { fs.popen('/etc/init.d/mu300-led stop >/dev/null 2>&1; for c in red green blue; do echo none > /sys/class/leds/sc27xx:$c/trigger 2>/dev/null; echo 0 > /sys/class/leds/sc27xx:$c/brightness 2>/dev/null; done', 'r'); } catch (e) { }
-			}
-			jreply({ result: 'success' });
-			return;
-		}
-		if (gid == 'SAMBA_SETTING') {
-			let on2 = (P['samba_switch'] == '1');
-			try { fs.popen(on2 ? '/etc/init.d/samba start >/dev/null 2>&1 &' : '/etc/init.d/samba stop >/dev/null 2>&1 &', 'r'); } catch (e) { }
 			jreply({ result: 'success' });
 			return;
 		}
@@ -379,13 +360,17 @@ function run(pi, qs, auth) {
 				let idx = 0;
 				for (let m3 in (smsraw.messages || [])) {
 					idx++;
-					let bare = replace(m3.date || '', /  *\(.*$/, '');
-					bare = trim(bare);
-					let pp = split(bare, ' ');
-					let dp = split(pp[0] || '', '-');
-					let tp = split(pp[1] || '', ':');
-					let datestr = join(',', [ dp[0] || '2026', dp[1] || '01', dp[2] || '01',
-						tp[0] || '00', tp[1] || '00', tp[2] || '00' ]);
+					// 日期可能带" (3 parts)"后缀,也可能日期时间之间没空格 → 用正则抠数字最稳 ✓
+					let datestr = '2026,01,01,00,00,00';
+					let dm = match(m3.date || '', /(\d{4})-(\d{1,2})-(\d{1,2})[^0-9]*(\d{1,2}):(\d{2}):(\d{2})/);
+					if (dm) {
+						let pad = function(v) { return (length('' + v) == 1) ? '0' + v : '' + v; };
+						datestr = join(',', [ dm[1], pad(dm[2]), pad(dm[3]), pad(dm[4]), dm[5], dm[6] ]);
+					} else {
+						let bare = trim(replace(m3.date || '', /  *\(.*$/, ''));
+						let dp = split(replace(bare, /[ T]/, '-'), '-');
+						if (length(dp) >= 3) datestr = join(',', [ dp[0], dp[1] || '01', dp[2] || '01', '00', '00', '00' ]);
+					}
 					let ctext = '';
 					try { ctext = b64enc(m3.text || ''); } catch (e) { ctext = ''; }
 					push(msgs, { id: '' + idx, number: m3.from || '', content: ctext,
