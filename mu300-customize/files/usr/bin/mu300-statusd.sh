@@ -114,5 +114,12 @@ while :; do
   if [ $((t % 45)) -eq 1 ]; then
     /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json
   fi
+  # ---- 定时任务(UFI 格式):每分钟检查一次 ✓ ----
+  MMNOW=$(date +%H:%M)
+  if [ "$MMNOW" != "$LASTMINTASK" ]; then
+    LASTMINTASK=$MMNOW
+    /usr/bin/mu300-ufi-tasks.uc "$MMNOW" >/dev/null 2>&1
+  fi
+
   sleep 4
 done

@@ -8,5 +8,5 @@ stop() {
     rm -f $PIDFILE
     for p in $(ps w | grep '/usr/bin/mu300-scheduled.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
 }
-start() { stop; sleep 1; setsid /usr/bin/mu300-scheduled.sh >/dev/null 2>&1 < /dev/null & sleep 1; echo $(pidof mu300-scheduled.sh | awk '{print $1}') > $PIDFILE; }
+start() { stop; setsid /usr/bin/mu300-scheduled.sh >/dev/null 2>&1 < /dev/null & sleep 1; echo $(pidof mu300-scheduled.sh | awk '{print $1}') > $PIDFILE; }
 restart() { stop; sleep 1; start; }

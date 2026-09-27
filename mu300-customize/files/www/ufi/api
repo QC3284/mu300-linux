@@ -445,7 +445,50 @@ function run(pi, qs, auth) {
 			}
 			else o[c] = '';
 		}
+		// ★ 特例:单独请求 sms_data_total 时,ZTE 直接返回 {messages:[...]} 对象 ✓
+		//   (前端 getSmsInfo 把整个响应当 res,然后取 res.messages ✗ 所以不能包一层)
+		if (cmds == 'sms_data_total' && o['sms_data_total'] != null) {
+			let jo3 = {};
+			try { jo3 = json(o['sms_data_total']); } catch (e) { jo3 = { messages: [], total: 0 }; }
+			jreply(jo3);
+			return;
+		}
 		jreply(o);
+		return;
+	}
+
+	// ================= 定时任务(UFI 格式:{id,time,repeatDaily,action})=================
+	if (pi == '/list_tasks' || pi == '/get_task') {
+		let ts = readjson('/etc/mu300/ufi-tasks.json');
+		let arr = [];
+		for (let k in (ts.tasks || {})) {
+			let v = ts.tasks[k];
+			push(arr, { id: k, time: v.time || '', repeatDaily: (v.repeatDaily != false),
+				action: v.action || {}, enabled: (v.enabled != false), last: v.last || '' });
+		}
+		jreply({ tasks: arr });
+		return;
+	}
+	if (pi == '/add_task' || pi == '/remove_task' || pi == '/clear_task') {
+		let body2 = '';
+		try { let cl2 = num(getenv('CONTENT_LENGTH')); if (cl2 > 0 && fs.stdin) body2 = fs.stdin.read(cl2) || ''; } catch (e) { }
+		let ts2 = readjson('/etc/mu300/ufi-tasks.json');
+		if (!ts2.tasks) ts2.tasks = {};
+		let jo2 = {};
+		try { jo2 = json(body2) || {}; } catch (e) { jo2 = {}; }
+		if (pi == '/add_task') {
+			let tid = '' + (jo2.id || '');
+			if (tid == '') { jreply({ result: 'error', error: '缺少 id' }); return; }
+			ts2.tasks[tid] = { time: '' + (jo2.time || ''), repeatDaily: (jo2.repeatDaily != false),
+				action: jo2.action || {}, enabled: true, last: '' };
+		} else if (pi == '/remove_task') {
+			let tid2 = '' + (jo2.id || '');
+			if (tid2 != '') { delete ts2.tasks[tid2]; }
+		} else {
+			ts2.tasks = {};
+		}
+		try { fs.writefile('/etc/mu300/ufi-tasks.json', sprintf('%.J', ts2)); } catch (e) { }
+		jreply({ result: 'success' });
 		return;
 	}
 

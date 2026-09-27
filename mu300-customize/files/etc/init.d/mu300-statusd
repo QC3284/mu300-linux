@@ -9,7 +9,7 @@ stop() {
     for p in $(ps w | grep '/usr/bin/mu300-statusd.sh' | grep -v grep | awk '{print $1}'); do kill -9 $p 2>/dev/null; done
 }
 start() {
-    stop; sleep 1
+    stop
     setsid /usr/bin/mu300-statusd.sh >/dev/null 2>&1 < /dev/null &
     sleep 1
     echo $(pidof mu300-statusd.sh | awk '{print $1}') > $PIDFILE
