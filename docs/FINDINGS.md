@@ -1546,6 +1546,16 @@ The command line still carries four bring-up flags. Measured on the running syst
   itself was fine, the boot counted as good and the board stayed in a Linux without USB until it was forced back
   to Android.
 
+### 31i. A Wi-Fi card that is late at boot panicked the board
+Rebooting OpenWrt on 5.4 again and again (testing v2026.09.29), one boot ended in "WCN BOOT: error: Waiting for
+PCIe scan card timeout", `sprd_pcie_remove`, "Unable to handle kernel paging request at virtual address
+ffffffffffffffe8" in `__wake_up_locked` from `complete()`, and a panic - back to Android. The SC2355 does not always
+show up on the PCIe bus within the 5 s the vendor driver waits; the timeout then removes the half-probed card, and
+`sprd_pcie_remove()` completes `remove_done`, which only `sprd_pcie_remove_card()` initialises - a completion that
+was never set up. It is initialised before every scan now, `remove` checks for a probe that never set its data, and
+a timed-out scan is tried once more before Wi-Fi and Bluetooth are given up. Both copies of the driver: the 5.4
+tree (`kernel/patches/wcn-pcie-scan-timeout.patch`) and `upstream/modules/wcn_bsp`.
+
 ## Updating on the device
 
 ### 32. Old kernels, an idle IPA, and an update that ended in Android
