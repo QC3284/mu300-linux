@@ -1,0 +1,2 @@
+200
+{"result":"success","data":{"tcp":"13","tcp_active":"7","tcp_other":"6","tcp6":"31","udp":"6","udp6":"15","unix":"473"}}

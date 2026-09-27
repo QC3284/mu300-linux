@@ -1,0 +1,27 @@
+200
+{
+    "app_ver": "4.1.5",
+    "app_ver_code": "20260919",
+    "model": "F50",
+    "battery": "50",
+    "daily_data": 28001321,
+    "monthly_data": 298987846612,
+    "internal_available_storage": 7536066560,
+    "internal_used_storage": 17447305216,
+    "internal_total_storage": 24983371776,
+    "external_total_storage": 62529732608,
+    "external_used_storage": 26152009728,
+    "external_available_storage": 36377722880,
+    "cpu_temp_list":[{"type":"nr-thmzone","temp":55927},{"type":"mid6-thmzone","temp":62950},{"type":"apcpu0-thmzone","temp":59988},{"type":"lit0-thmzone","temp":60225},{"type":"lit1-thmzone","temp":59949},{"type":"lit2-thmzone","temp":59975},{"type":"lit3-thmzone","temp":59712},{"type":"gpu-thmzone","temp":58803},{"type":"apcpu1-thmzone","temp":63069},{"type":"ai0-thmzone","temp":58208},{"type":"ai1-thmzone","temp":57724},{"type":"pa-thmzone","temp":55031},{"type":"mm-thmzone","temp":58208},{"type":"lte-thmzone","temp":57966},{"type":"nr0-thmzone","temp":58208},{"type":"nr1-thmzone","temp":57740},{"type":"board-thmzone","temp":57080},{"type":"soc-thmzone","temp":63429},{"type":"big7mid4-thmzone","temp":63056},{"type":"big7-thmzone","temp":62793},{"type":"mid5mid6-thmzone","temp":61492},{"type":"mid4-thmzone","temp":63186},{"type":"mid5-thmzone","temp":63429}],
+    "cpu_temp":63429,
+    "client_ip":"192.168.88.100",
+    "cpu_usage":23.8,
+    "mem_usage":86.0,
+    "cpuFreqInfo":{"cpu7":{"cur":2210,"max":2210},"cpu5":{"cur":2301,"max":2301},"cpu3":{"cur":2002,"max":2002},"cpu1":{"cur":2002,"max":2002},"cpu6":{"cur":2301,"max":2301},"cpu4":{"cur":2301,"max":2301},"cpu2":{"cur":2002,"max":2002},"cpu0":{"cur":2002,"max":2002}},
+    "cpuUsageInfo":{"cpu":"23.8","cpu0":"18.2","cpu1":"18.2","cpu2":"0.0","cpu3":"10.0","cpu4":"20.0","cpu5":"100.0","cpu6":"0.0","cpu7":"30.0"},
+    "memInfo":{"mem_total_kb":1503044,"mem_available_kb":209708,"mem_used_kb":1293336,"mem_usage_percent":"86.0","swap_total_kb":9961464,"swap_free_kb":8578076,"swap_used_kb":1383388,"swap_usage_percent":"13.9"},
+    "current_now":2000000,
+    "voltage_now":3800000,
+    "is_reached_data_flow_limit":false,
+    "boot_time":1604143
+}
