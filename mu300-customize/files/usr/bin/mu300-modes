@@ -65,7 +65,10 @@ while IFS='|' read -r dev m tot used pct; do
   seen="$seen $m"
   kb=$((tot / 1024)); ukb=$((used / 1024))
   [ -n "$storage" ] && storage="$storage,"
-  storage="$storage{\"mount\":\"$m\",\"size_mb\":$kb,\"used_mb\":$ukb,\"pct\":\"$pct\"}"
+    # ★ 动态检测用:输出设备名 + removable 标志(不再靠挂载点名字猜)
+  bdev=$(echo "$dev" | sed 's|/dev/||; s|p[0-9]*$||; s|[0-9]*$||')
+  rem=$(cat /sys/block/$bdev/removable 2>/dev/null || echo 0)
+  storage="$storage{\"dev\":\"$dev\",\"mount\":\"$m\",\"size_mb\":$kb,\"used_mb\":$ukb,\"pct\":\"$pct\",\"removable\":$rem}"
 done < /tmp/.mu300-df.txt
 rm -f /tmp/.mu300-df.txt
 # 当前档位:按 governor+max 推断(performance→性能;max < 硬件最大→节能;否则均衡)

@@ -198,18 +198,28 @@ function run(pi, qs, auth) {
 		let isz = 0, iused = 0;
 		let esz = 0, eused = 0;
 		for (let s2 in (modes.storage || [])) {
-			if (match(s2.mount, /mmcblk1|mmcblk2|\/dev\/sd|sda|sdb/)) { esz = num(s2.size_mb); eused = num(s2.used_mb); }
+			// ★ 动态检测存储(不再靠挂载点名字猜)★
+		//   内部 = 挂载在 / 的那个(它是什么设备就是什么)
+		//   外部 = 基础设备(去掉分区号)与根设备【不同控制器】的,取最大者(SD 卡)
+		let baseof = function(d) {
+			let s = replace('' + d, /^\/dev\//, '');
+			s = replace(s, /p[0-9]+$/, '');
+			s = replace(s, /[0-9]+$/, '');
+			return s;
+		};
+		let rootdev = '';
+		for (let s3 in (modes.storage || [])) {
+			if (s3.mount == '/') { isz = num(s3.size_mb); iused = num(s3.used_mb); rootdev = baseof(s3.dev || ''); }
 		}
-		for (let s2 in (modes.storage || [])) {
-			if (s2.mount == '/' || s2.mount == '/mnt/mu300-disk') { isz = num(s2.size_mb); iused = num(s2.used_mb); break; }
+		let bestsz = -1;
+		for (let s4 in (modes.storage || [])) {
+			if (s4.mount == '/') continue;
+			let bd = baseof(s4.dev || '');
+			if (rootdev != '' && bd == rootdev) continue;
+			if (num(s4.removable) != 1 && !match(bd, /^(sd|mmcblk[1-9])/)) continue;
+			if (num(s4.size_mb) > bestsz) { bestsz = num(s4.size_mb); esz = bestsz; eused = num(s4.used_mb); }
 		}
-
-		let tp = (modes.temps || []);
-		jreply({ app_ver: '4.1.5', app_ver_code: '20260919', model: 'F50',
-			battery: '0', voltage_now: '0', current_now: '0',
-			client_ip: getenv('REMOTE_ADDR') || '',
-			boot_time: num(live.uptime) * 1000,   // ★ 前端 formatBootTime 按毫秒算 ✗(baseDeviceInfo 里的值会覆盖 goform 的 ✓)
-			cpu_usage: cpu_usage,
+		cpu_usage: cpu_usage,
 			cpuUsageInfo: cpuUsageInfo,
 			cpuFreqInfo: cpuFreqInfo,
 			memInfo: { mem_total_kb: num(modes.mem_total) * 1024, mem_used_kb: num(modes.mem_used) * 1024, mem_available_kb: (num(modes.mem_total) - num(modes.mem_used)) * 1024 },
