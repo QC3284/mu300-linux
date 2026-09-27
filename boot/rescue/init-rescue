@@ -4,7 +4,7 @@
 # /sys/fs/pstore/console-ramoops-0 after the fallback boot into Android.
 /bin/busybox mkdir -p /bin /sbin /proc /sys /dev /run /tmp /root /etc /config
 /bin/busybox --install -s /bin
-export PATH=/bin:/sbin HOME=/root TERM=vt100
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin HOME=/root TERM=vt100
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 echo 7 > /proc/sys/kernel/printk
@@ -311,8 +311,9 @@ log "stage=rootfs-unavailable $(cat /run/rootmount.err)"
   echo "  3) keep Linux running:  touch /run/stay"
   echo "  4) back to Android:     reboot"
   echo "=============================================="
-} > /run/www/index.html 2>/dev/null
-cat /run/www/index.html > /dev/kmsg 2>/dev/null
+} > /run/www/rescue.txt 2>/dev/null
+cat /run/www/rescue.txt >> /run/www/index.html 2>/dev/null
+cat /run/www/rescue.txt > /dev/kmsg 2>/dev/null
 restore_slot_a
 ifconfig usb0 192.168.77.1 netmask 255.255.255.0 up
 log "stage=usb0 $(ifconfig usb0 2>&1 | head -1)"

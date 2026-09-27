@@ -28,12 +28,12 @@ done
 echo "SD 卡: $SDDEV"
 
 mkdir -p $SD
-if ! mountpoint -q $SD 2>/dev/null; then
+if ! grep -q " $SD " /proc/mounts 2>/dev/null; then
     for t in vfat exfat ext4; do
         mount -t $t -o ro "$SDDEV" $SD 2>/dev/null && { echo "已挂载($t)"; break; }
     done
 fi
-mountpoint -q $SD 2>/dev/null || { echo "✗ SD 卡挂不上"; exit 1; }
+grep -q " $SD " /proc/mounts 2>/dev/null || { echo "✗ SD 卡挂不上"; exit 1; }
 
 # 列可用镜像
 echo
