@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# MU300: 开机加载我们自编的内核模块(extra/)
+# 这些模块原内核里没有,是用源码+原始config自编的 ✓
+# ★ act_ipt / bonding / ip_vs 会让内核崩溃,绝对不要加进来 ★
+START=39
+STOP=10
+
+start() {
+	for m in nfnetlink_acct sch_netem sch_sfb sch_drr sch_qfq sch_hhf sch_pie cls_flower nbd vhost_net pppoe; do
+		modprobe "$m" 2>/dev/null
+	done
+	logger -t mu300-kmods "extra modules loaded"
+}
+
+stop() {
+	for m in pppoe vhost_net nbd cls_flower sch_pie sch_hhf sch_qfq sch_drr sch_sfb sch_netem nfnetlink_acct; do
+		rmmod "$m" 2>/dev/null
+	done
+}
