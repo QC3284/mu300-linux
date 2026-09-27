@@ -742,8 +742,41 @@ function run(pi, qs, auth) {
 		jreply({ result: 'success', data: { tcp: '' + tcp, tcp_active: '' + act, tcp_other: '' + (tcp - act), tcp6: '' + tcp6, udp: '' + udp, udp6: '' + udp6, unix: '' + unix2 } });
 		return;
 	}
-	if (pi == '/cellularUsage') { jreply({ result: 'success', data: [] }); return; }
-	if (pi == '/adb_wifi_setting') { jreply({ enabled: true }); return; }
+	// ★ 流量历史(对齐 UFI):?startTime=<ms>&endTime=<ms>&method=date-range
+	//   前端按天循环调用,每次取 {usage: <字节数>} 交给 charts.js 画图 ✓
+	//   数据源:/etc/mu300/traffic.json 的 days(我们的 mu300-trafd 早就在按天累计 ✓)
+	// ★ 流量历史(对齐 UFI):?startTime=<ms>&endTime=<ms>&method=date-range
+	//   前端按天循环调用,每次取 {usage: <字节数>} 交给 charts.js 画图 ✓
+	//   数据源:/etc/mu300/traffic.json 的 days(我们的 mu300-trafd 早就在按天累计 ✓)
+	if (pi == '/cellularUsage') {
+		let qs3 = getenv('QUERY_STRING') || '';
+		let m1 = match(qs3, /startTime=([0-9]+)/);
+		let m2 = match(qs3, /endTime=([0-9]+)/);
+		let ts0 = m1 ? int(num(m1[1]) / 1000) : 0;
+		let te0 = m2 ? int(num(m2[1]) / 1000) : time();
+		// 把范围折算成日期字符串(YYYY-MM-DD 可按字典序比较 ✓ 免去逐日换算 ✗)
+		let ds = '', de = '';
+		try { ds = trim(fs.popen(sprintf('date -d @%d +%%F', ts0), 'r').read('all') || ''); } catch (e) { }
+		try { de = trim(fs.popen(sprintf('date -d @%d +%%F', te0), 'r').read('all') || ''); } catch (e) { }
+		let lv = rj('/tmp/mu300-live.json');
+		let lr = num(lv.rx_bytes), lt = num(lv.tx_bytes);
+		let tj = rj('/etc/mu300/traffic.json');
+		let today = '' + (tj.today || '');
+		let list = [];
+		for (let dk in (tj.days || {})) {
+			if (ds != '' && dk < ds) continue;
+			if (de != '' && dk > de) continue;
+			let day = tj.days[dk] || {};
+			let dr = num(day.rx), dt = num(day.tx);
+			if (dk == today) { dr = lr; dt = lt; }   // 今天用实时总数 ✓
+			push(list, { date: dk, usage: dr + dt });
+		}
+		// ★ 前端 getDailyUsageRange 直接返回 data.usage,调用方再 .forEach ✗ → 必须是数组 ✓
+		jreply({ usage: list, result: 'success' });
+		return;
+	}
+
+		if (pi == '/adb_wifi_setting') { jreply({ enabled: true }); return; }
 	if (pi == '/disable_fota')    { jreply({ result: '执行成功,如需强力禁用请使用高级功能!' }); return; }
 	if (pi == '/download_apk_status') { jreply({ status: 'idle', percent: 0, error: '' }); return; }
 	if (pi == '/get_res_server')  { jreply({ res_server: readstr('/etc/mu300/ufi-res-server') || 'https://pan.kanokano.cn' }); return; }
