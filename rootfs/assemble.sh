@@ -4,7 +4,8 @@ set -e
 KREL=5.4.254-gb50db5b6224c
 R=/build/rootfs
 # the Ubuntu release of /w/base.tar (24.04 or 26.04): it names the tarball
-UBUNTU=$(tar -xOf /w/base.tar ./etc/os-release 2>/dev/null | sed -n 's/^VERSION_ID="\(.*\)"/\1/p')
+# (etc/os-release is a link, and docker export names its members without ./)
+UBUNTU=$(tar -xOf /w/base.tar usr/lib/os-release 2>/dev/null | sed -n 's/^VERSION_ID="\(.*\)"/\1/p')
 [ -n "$UBUNTU" ] || UBUNTU=24.04
 
 # Say which mount is missing instead of failing later on a bare "cp: can't stat". This runs inside the
