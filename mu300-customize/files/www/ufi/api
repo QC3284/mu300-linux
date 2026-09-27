@@ -384,12 +384,12 @@ function run(pi, qs, auth) {
 			else if (c == 'sms_unread_num' || c == 'sms_sim_unread_num') o[c] = unread;
 			else if (c == 'sms_received_flag')  o[c] = unread ? '1' : '0';
 			else if (c == 'wifi_access_sta_num') {
-				// ★ 只数真正连在 WiFi 上的(iw station dump)—— 原来数的是全部客户端(含 USB)✗
-				let raw = '';
-				try { raw = fs.readfile('/tmp/mu300-wifi-stations.raw') || ''; } catch (e) { }
-				let cnt = 0;
-				for (let ln in split('' + raw, '\n')) { if (match(ln, /^Station /)) cnt++; }
-				o[c] = cnt;
+				// ★ 改口径:数 clients.json 里 iface=wlan0 的(网桥 FDB 判定)★
+				//   不能用 iw station dump —— sprd 驱动那个是坏的,恒返回空 ✗
+				let cl2 = rj('/tmp/mu300-clients.json');
+				let wn = 0;
+				for (let x2 in (cl2.clients || [])) { if (x2.iface == 'wlan0' || x2.is_wifi == 1) wn++; }
+				o[c] = wn;
 			}
 			else if (c == 'battery_value' || c == 'battery_charging' || c == 'battery_vol_percent') o[c] = '';
 			else if (c == 'imei' || c == 'imsi' || c == 'iccid' || c == 'msisdn' || c == 'sim_msisdn') o[c] = readjson('/etc/mu300/ufi-ident.json')[c] || '';

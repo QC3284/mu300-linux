@@ -57,6 +57,26 @@ for (let i = 0; i < length(N); i++) {
 }
 
 // 合并三个来源的 MAC
+// ══ 网桥 FDB:每个 MAC 落在哪个物理口(★ 内核的表最可靠,sprd 的 iw station dump 常空 ✗)══
+let brport = {};
+let B = lines_of("/tmp/mu300-brports.raw");
+for (let i = 0; i < length(B); i++) {
+	let f = split(trim(B[i]), " ");
+	if (length(f) >= 2) {
+		// sysfs 的 port_no 是十六进制(0x1),brctl 输出是十进制(1)→ 统一成十进制 ✓
+		let pn = '' + f[0];
+		if (match(pn, /^0x/)) pn = '' + int(hex(substr(pn, 2)));
+		brport[pn] = f[1];
+	}
+}
+let fdb = {};
+let F = lines_of("/tmp/mu300-brfdb.raw");
+for (let i = 1; i < length(F); i++) {
+	// ★ brctl showmacs 用 TAB 分隔 ✗ → 先归一化空白再切 ✓
+	let f = split(replace(trim(F[i]), /[ \t]+/g, " "), " ");
+	if (length(f) >= 3 && f[2] == "no") fdb[lc(f[1])] = brport[f[0]] || "";
+}
+
 let macs = {};
 let keys = [];
 for (let m in lease_ip) { if (!(m in macs)) { macs[m] = 1; push(keys, m); } }
@@ -71,7 +91,8 @@ for (let i = 0; i < length(keys); i++) {
 		name: names[m] || '',
 		ip: lease_ip[m] || '',
 		hostname: lease_host[m] || '',
-		iface: (length(w) ? 'wlan0' : (n.iface || '')),
+		iface: (fdb[m] || (length(w) ? 'wlan0' : (n.iface || ''))),
+		is_wifi: ((fdb[m] == 'wlan0') || length(w)) ? 1 : 0,
 		online: (n.state != null && match(n.state, /REACHABLE|STALE|DELAY|PROBE/) != null),
 		signal: w.signal || '',
 		rx: w['rx bytes'] || '',
