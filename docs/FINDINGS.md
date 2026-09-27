@@ -1502,6 +1502,16 @@ is no longer devm-allocated.
 * `dev_addr_check`, "sipa_eth0: Incorrect netdev->dev_addr": `sipa_eth`, `seth` and `sipa_usb` wrote their random
   MAC straight into `netdev->dev_addr`; `eth_hw_addr_random()` sets it through `dev_addr_set()`.
 
+A look at `dmesg` itself (Ubuntu's journal misses the first seconds of the kernel log) found two more:
+* `device_create_file` / `sysfs_create_file_ns`, "Attribute base_addr: read permission without 'show'", four times
+  per boot: `sipx`, `sblock`, `sbuf`, `smem`, `smsg` and the mailbox each created a `base_addr` attribute with
+  neither show nor store, on an embedded `platform_device` that is never registered - it could never be read. Gone.
+* `dev_addr_check` for `sipa_dummy0`: the same direct `dev_addr` write as above; now `eth_hw_addr_set()`.
+
+And the idle load average of 2.0 was two kernel threads parked in D state for good: `slog-0-0` polls every 2 s for
+the modem log to be switched on with an uninterruptible `msleep()`, and the Wi-Fi `SC2355_TX_THREAD` waits for work
+with `wait_for_completion()`. They now sleep interruptibly and in `TASK_IDLE`; the idle load is about 0.4.
+
 The 6.18 bundle also carries `modules.builtin` and `modules.builtin.modinfo` now: without them depmod warned and
 `modprobe` of a built-in driver failed. Three boots after the fixes: no warnings, Wi-Fi AP, mobile data, Bluetooth
 (24 devices in a scan) up.
