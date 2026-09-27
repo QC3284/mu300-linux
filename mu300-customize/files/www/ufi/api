@@ -210,6 +210,40 @@ function run(pi, qs, auth) {
 			jreply({ result: 'success' });
 			return;
 		}
+		if (gid == 'REBOOT_DEVICE') {
+			// ★ 真重启(延迟 3 秒,先把响应回给页面 ✓)
+			try { fs.popen('(sleep 3; sync; reboot) >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
+		if (gid == 'SHUTDOWN_DEVICE') {
+			try { fs.popen('(sleep 3; sync; poweroff) >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
+		if (gid == 'CELL_LOCK' || gid == 'UNLOCK_ALL_CELL') {
+			// 锁基站:AT+SPFORCEFRQ=<rat>,1,<earfcn>,<pci>;解锁 =<rat>,0
+			let rat = '16';
+			if (gid == 'CELL_LOCK') {
+				let rv = P['rat'] || '';
+				rat = match(rv, /4G|LTE|12/) ? '12' : '16';
+				let pci = replace(P['pci'] || '', /[^0-9]/g, '');
+				let fcn = replace(P['earfcn'] || '', /[^0-9]/g, '');
+				try { fs.writefile('/tmp/mu300-celllock.req', sprintf('%s %s %s', rat, fcn, pci)); } catch (e) { }
+			} else {
+				try { fs.writefile('/tmp/mu300-celllock.req', 'unlock 16'); } catch (e) { }
+			}
+			jreply({ result: 'success' });
+			return;
+		}
+		if (gid == 'PERFORMANCE_MODE' || gid == 'PERFORMANCE_MODE_SETTING') {
+			// 性能模式:转给我们现成的 mu300-toolkit
+			let pm = P['performance_mode'] || P['mode'] || '';
+			let prof = (pm == '2' || pm == 'performance') ? 'performance' : ((pm == '0' || pm == 'eco' || pm == 'power_save') ? 'eco' : 'balanced');
+			try { fs.popen(sprintf("/opt/mu300/bin/mu300-toolkit profile %s >/dev/null 2>&1 &", prof), 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
 		if (gid == 'LTE_BAND_LOCK' || gid == 'NR_BAND_LOCK') {
 			let bands = (gid == 'LTE_BAND_LOCK') ? (P['lte_band_lock'] || '') : (P['nr_band_lock'] || '');
 			// 频段号 → 掩码(映射来自之前逆向 ZTE 框架的实测 ✓)
