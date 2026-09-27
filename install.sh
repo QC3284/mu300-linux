@@ -316,6 +316,25 @@ fi
 ask hs "Copy Android's hotspot name and password to Linux? (yes/no)" yes  # kept as-is when updating
 IMPORT_HOTSPOT=0; [ "$hs" = yes ] && IMPORT_HOTSPOT=1
 ask gpu "Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)" yes
+KERNEL=5.4
+if [ $MODE = prebuilt ]; then
+    say "Which kernel?"
+    echo "  1) 5.4   Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports"
+    echo "  2) 6.18  mainline Linux, current long-term (LTS) release: newer drivers and security fixes, the same"
+    echo "           functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet"
+    echo "  3) latest stable mainline kernel (7.2 for now)"
+    echo "  Either one can be changed later on the device: sudo mu300-update kernel 5.4|6.18"
+    while :; do
+        ask kchoice "Kernel" 1
+        case $kchoice in
+            1|5.4) KERNEL=5.4; break ;;
+            2|6.18) KERNEL=6.18; break ;;
+            3|7.2) echo "  The latest stable kernel (7.2) already runs on the device and will be available very soon;"
+                   echo "  for now please choose 5.4 or 6.18 (switching later is one command: mu300-update kernel)." ;;
+            *) echo "  enter 1, 2 or 3" ;;
+        esac
+    done
+fi
 FORMAT=0; WIPE_LEGACY=0; UPDATE=0
 if [ $existing = no ]; then
     FORMAT=1
@@ -381,10 +400,11 @@ base=${MU300_RELEASE_URL:-https://github.com/$REPO/releases/download/$RELEASE}
 say "Downloading release $RELEASE"
 curl -fsSL -o "$REL/SHA256SUMS" "$base/SHA256SUMS" || die "cannot download $base/SHA256SUMS"
 files=mu300-kernel.tar.gz
+[ "$KERNEL" = 6.18 ] && files="$files mu300-kernel-6.18.tar.gz"
 for os in $OSES; do files="$files mu300-$os-rootfs.tar.gz"; done
 for f in $files; do
     want=$(awk -v f="$f" '$2 == f || $2 == "*" f {print $1}' "$REL/SHA256SUMS")
-    [ -n "$want" ] || die "$f is not part of release $RELEASE"
+    [ -n "$want" ] || die "$f is not part of release $RELEASE$([ "$f" = mu300-kernel-6.18.tar.gz ] && echo " (choose kernel 5.4, or a newer release)")"
     have=$( (shasum -a 256 "$REL/$f" 2>/dev/null || sha256sum "$REL/$f" 2>/dev/null) | cut -d' ' -f1)
     if [ "$have" != "$want" ]; then
         echo "  $f"
@@ -397,10 +417,17 @@ done
 rm -rf "$REL/kernel" && mkdir -p "$REL/kernel" && tar -xzf "$REL/mu300-kernel.tar.gz" -C "$REL/kernel"
 KOUT=$REL/kernel
 BUSYBOX=$KOUT/busybox; LOGDW=$KOUT/logdw
+K618=
+if [ "$KERNEL" = 6.18 ]; then
+    K618=$REL/kernel-6.18
+    rm -rf "$K618" && mkdir -p "$K618" && tar -xzf "$REL/mu300-kernel-6.18.tar.gz" -C "$K618"
+    [ -s "$K618/Image" ] && [ -s "$K618/ramdisk-generic.lz4" ] && [ -s "$K618/kernel.release" ] || die "mu300-kernel-6.18.tar.gz is incomplete"
+fi
 say "Adding the vendor files from your device to the images"
 for os in $OSES; do
     python3 "$TOP/tools/vendor-overlay.py" --os $os --firmware "$WORK/firmware" --android-subset "$WORK/android-subset" \
       $([ -d "$WORK/android-gpu-subset" ] && [ "$gpu" = yes ] && echo --gpu-subset "$WORK/android-gpu-subset") \
+      $([ -n "$K618" ] && echo --kernel-bundle "$K618") \
       --out "$WORK/mu300-vendor-$os.tar.gz"
 done
 PWHASH=$(printf '%s\n' "$pw1" | python3 "$TOP/tools/sha512crypt.py")
@@ -450,8 +477,11 @@ fi
 
 say "Building the boot image"
 sed "s/^ROOT_OFFSET=[0-9]*/ROOT_OFFSET=$OFF/" "$TOP/boot/init" > "$WORK/init"
+# 6.18: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the image that
+# "mu300-update kernel 6.18" writes on the device
 python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --misc-head "$WORK/dumps/misc-head.bin" \
-  --kernel "$KOUT/Image" --modules "$KOUT/modules" --init "$WORK/init" --busybox "$BUSYBOX" \
+  --kernel "${K618:-$KOUT}/Image" ${K618:+--append-ramdisk "$K618/ramdisk-generic.lz4"} \
+  --modules "$KOUT/modules" --init "$WORK/init" --busybox "$BUSYBOX" \
   --logdw "$LOGDW" --ueventd-perms "$TOP/android-vendor/ueventd-perms.sh" \
   --android-subset "$WORK/android-subset" --out "$WORK/boot-linux-slotb.img" >/dev/null
 
@@ -459,6 +489,7 @@ python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --
 say "Ready to install"
 echo "  source:         $([ $MODE = prebuilt ] && echo "prebuilt release $RELEASE + vendor files from this device" || echo "local build")"
 echo "  systems:        $OSES (boots: $BOOT_OS)"
+echo "  kernel:         $KERNEL$([ "$KERNEL" = 6.18 ] && echo " (mainline, $(cat "$K618/kernel.release"))")"
 echo "  default boot:   $([ $DEFAULT_LINUX = 1 ] && echo "Linux (Android after $BOOT_ATTEMPTS failed boots in a row)" || echo Android, Linux on demand)"
 echo "  filesystem:     $([ $FORMAT = 1 ] && echo "CREATE new ext4 (erases the Linux region)" || echo "keep existing")"
 [ $UPDATE = 1 ] && echo "  update:         settings and user data of the chosen systems are kept, everything else is replaced"
@@ -478,8 +509,8 @@ for os in $OSES; do
     fi
 done
 env=$(mktemp)
-printf 'OFF=%s\nSIZE=%s\nOFF_S=%s\nSIZE_S=%s\nFORMAT=%s\nOSES="%s"\nWIPE_LEGACY=%s\nUPDATE=%s\nBOOT_OS=%s\nDEFAULT_LINUX=%s\nBOOT_ATTEMPTS=%s\nIMPORT_HOTSPOT=%s\nPWHASH='"'"'%s'"'"'\n' \
-  "$OFF" "$SIZE" "$((OFF / 512))" "$((SIZE / 512))" "$FORMAT" "$OSES" "$WIPE_LEGACY" "$UPDATE" "$BOOT_OS" "$DEFAULT_LINUX" "$BOOT_ATTEMPTS" "$IMPORT_HOTSPOT" "$PWHASH" > "$env"
+printf 'OFF=%s\nSIZE=%s\nOFF_S=%s\nSIZE_S=%s\nFORMAT=%s\nOSES="%s"\nWIPE_LEGACY=%s\nUPDATE=%s\nBOOT_OS=%s\nDEFAULT_LINUX=%s\nBOOT_ATTEMPTS=%s\nIMPORT_HOTSPOT=%s\nKERNEL=%s\nPWHASH='"'"'%s'"'"'\n' \
+  "$OFF" "$SIZE" "$((OFF / 512))" "$((SIZE / 512))" "$FORMAT" "$OSES" "$WIPE_LEGACY" "$UPDATE" "$BOOT_OS" "$DEFAULT_LINUX" "$BOOT_ATTEMPTS" "$IMPORT_HOTSPOT" "$KERNEL" "$PWHASH" > "$env"
 adb push "$env" $T/mu300-install.env >/dev/null; rm -f "$env"
 su_do "sh $T/android-install.sh" | tee "$WORK/device-install.log"
 grep -q MU300-INSTALL-OK "$WORK/device-install.log" || die "installation on the device failed; boot_b and misc were not changed"

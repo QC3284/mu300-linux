@@ -251,6 +251,24 @@ if ($DEFAULT_LINUX -eq 1) {
 }
 $IMPORT_HOTSPOT = if ((Ask "Copy Android's hotspot name and password to Linux? (yes/no)" 'yes') -eq 'yes') { 1 } else { 0 }
 $gpu = Ask 'Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)' 'yes'
+Say 'Which kernel?'
+Write-Host "  1) 5.4   Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports"
+Write-Host '  2) 6.18  mainline Linux, current long-term (LTS) release: newer drivers and security fixes, the same'
+Write-Host '           functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet'
+Write-Host '  3) latest stable mainline kernel (7.2 for now)'
+Write-Host '  Either one can be changed later on the device: sudo mu300-update kernel 5.4|6.18'
+$KERNEL = $null
+while (-not $KERNEL) {
+    switch (Ask 'Kernel' '1') {
+        { $_ -in '1', '5.4' } { $KERNEL = '5.4' }
+        { $_ -in '2', '6.18' } { $KERNEL = '6.18' }
+        { $_ -in '3', '7.2' } {
+            Write-Host '  The latest stable kernel (7.2) already runs on the device and will be available very soon;'
+            Write-Host '  for now please choose 5.4 or 6.18 (switching later is one command: mu300-update kernel).'
+        }
+        default { Write-Host '  enter 1, 2 or 3' }
+    }
+}
 $FORMAT = 0; $WIPE_LEGACY = 0; $UPDATE = 0
 if ($existing -eq 'no') {
     $FORMAT = 1
@@ -307,8 +325,9 @@ foreach ($line in Get-Content "$REL\SHA256SUMS") {
     if ($p.Count -eq 2) { $sums[$p[1].TrimStart('*')] = $p[0] }
 }
 $files = @('mu300-kernel.tar.gz') + ($OSES | ForEach-Object { "mu300-$_-rootfs.tar.gz" })
+if ($KERNEL -eq '6.18') { $files += 'mu300-kernel-6.18.tar.gz' }
 foreach ($f in $files) {
-    if (-not $sums.ContainsKey($f)) { Die "$f is not part of release $Release" }
+    if (-not $sums.ContainsKey($f)) { Die "$f is not part of release $Release$(if ($f -eq 'mu300-kernel-6.18.tar.gz') { ' (choose kernel 5.4, or a newer release)' })" }
     $have = if (Test-Path "$REL\$f") { (Get-FileHash "$REL\$f" -Algorithm SHA256).Hash.ToLower() } else { '' }
     if ($have -ne $sums[$f]) {
         Write-Host "  $f"
@@ -320,12 +339,23 @@ foreach ($f in $files) {
 Remove-Item -Recurse -Force "$REL\kernel" -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$REL\kernel" | Out-Null
 & tar -xzf "$REL\mu300-kernel.tar.gz" -C "$REL\kernel"
+$K618 = $null
+if ($KERNEL -eq '6.18') {
+    $K618 = "$REL\kernel-6.18"
+    Remove-Item -Recurse -Force $K618 -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $K618 | Out-Null
+    & tar -xzf "$REL\mu300-kernel-6.18.tar.gz" -C $K618
+    foreach ($k in 'Image', 'ramdisk-generic.lz4', 'kernel.release') {
+        if (-not (Test-Path "$K618\$k")) { Die 'mu300-kernel-6.18.tar.gz is incomplete' }
+    }
+}
 
 Say 'Adding the vendor files from your device to the images'
 foreach ($os in $OSES) {
     $argv = @("$Top\tools\vendor-overlay.py", '--os', $os, '--firmware', "$Work\firmware",
         '--android-subset', "$Work\android-subset", '--out', "$Work\mu300-vendor-$os.tar.gz")
     if ($gpu -eq 'yes' -and (Test-Path "$Work\android-gpu-subset")) { $argv += @('--gpu-subset', "$Work\android-gpu-subset") }
+    if ($K618) { $argv += @('--kernel-bundle', $K618) }
     Python @argv
 }
 # not `| Python ...`: that helper is an advanced function with no pipeline-bound parameter, so the
@@ -334,14 +364,20 @@ $PWHASH = ($p1 | & $script:PyExe "$Top\tools\sha512crypt.py").Trim()
 
 Say 'Building the boot image'
 WriteUnix "$Work\init" (((Get-Content -Raw "$Top\boot\init") -replace '(?m)^ROOT_OFFSET=[0-9]*', "ROOT_OFFSET=$OFF"))
-Python "$Top\boot\build-boot-image.py" --stock-boot "$Work\dumps\boot_a.img" --misc-head "$Work\dumps\misc-head.bin" `
-    --kernel "$REL\kernel\Image" --modules "$REL\kernel\modules" --init "$Work\init" --busybox "$REL\kernel\busybox" `
-    --logdw "$REL\kernel\logdw" --ueventd-perms "$Top\android-vendor\ueventd-perms.sh" `
-    --android-subset "$Work\android-subset" --out "$Work\boot-linux-slotb.img" | Out-Null
+# 6.18: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the image that
+# "mu300-update kernel 6.18" writes on the device
+$bootArgs = @("$Top\boot\build-boot-image.py", '--stock-boot', "$Work\dumps\boot_a.img", '--misc-head', "$Work\dumps\misc-head.bin",
+    '--kernel', $(if ($K618) { "$K618\Image" } else { "$REL\kernel\Image" }),
+    '--modules', "$REL\kernel\modules", '--init', "$Work\init", '--busybox', "$REL\kernel\busybox",
+    '--logdw', "$REL\kernel\logdw", '--ueventd-perms', "$Top\android-vendor\ueventd-perms.sh",
+    '--android-subset', "$Work\android-subset", '--out', "$Work\boot-linux-slotb.img")
+if ($K618) { $bootArgs += @('--append-ramdisk', "$K618\ramdisk-generic.lz4") }
+Python @bootArgs | Out-Null
 
 Say 'Ready to install'
 Write-Host "  source:         prebuilt release $Release + vendor files from this device"
 Write-Host "  systems:        $($OSES -join ' ') (boots: $BOOT_OS)"
+Write-Host "  kernel:         $KERNEL$(if ($K618) { " (mainline, $((Get-Content "$K618\kernel.release").Trim()))" })"
 Write-Host "  default boot:   $(if ($DEFAULT_LINUX -eq 1) { "Linux (Android after $BOOT_ATTEMPTS failed boots in a row)" } else { 'Android, Linux on demand' })"
 Write-Host "  filesystem:     $(if ($FORMAT -eq 1) { 'CREATE new ext4 (erases the Linux region)' } else { 'keep existing' })"
 if ($UPDATE -eq 1) { Write-Host '  update:         settings and user data of the chosen systems are kept, everything else is replaced' }
@@ -357,7 +393,7 @@ foreach ($os in $OSES) {
 $envFile = "$Work\mu300-install.env"
 $lines = @("OFF=$OFF", "SIZE=$SIZE", "OFF_S=$($OFF / 512)", "SIZE_S=$($SIZE / 512)", "FORMAT=$FORMAT",
     "OSES=`"$($OSES -join ' ')`"", "WIPE_LEGACY=$WIPE_LEGACY", "UPDATE=$UPDATE", "BOOT_OS=$BOOT_OS", "DEFAULT_LINUX=$DEFAULT_LINUX", "BOOT_ATTEMPTS=$BOOT_ATTEMPTS",
-    "IMPORT_HOTSPOT=$IMPORT_HOTSPOT", "PWHASH='$PWHASH'")
+    "IMPORT_HOTSPOT=$IMPORT_HOTSPOT", "KERNEL=$KERNEL", "PWHASH='$PWHASH'")
 WriteUnix $envFile (($lines -join "`n") + "`n")
 & adb push $envFile "$T/mu300-install.env" | Out-Null
 Remove-Item $envFile

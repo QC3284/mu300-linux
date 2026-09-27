@@ -105,6 +105,16 @@ It asks a few questions (Ubuntu, OpenWrt or both; which one boots; a password), 
 copies the Wi-Fi and modem files from your own device, shows exactly what it is about to write, and waits for you to
 type `INSTALL`. Then it reboots into Linux.
 
+It also asks for the **kernel**:
+
+| choice | kernel | |
+|---|---|---|
+| 1 | 5.4 | Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports |
+| 2 | 6.18 | mainline Linux, the current long-term (LTS) release: newer drivers and security fixes, the same functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet |
+| 3 | latest stable (7.2 for now) | runs on the device already; coming to the installer very soon |
+
+Either can be changed later on the device with `sudo mu300-update kernel 5.4` or `sudo mu300-update kernel 6.18`.
+
 If Linux is already installed it asks whether to **update** or **wipe**:
 
 * **update** — reinstalls the systems but keeps your settings and data: `/etc/mu300` (hotspot, VPN, toolkit), user

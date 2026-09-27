@@ -8,9 +8,55 @@ unpacks it over the system. The layout matches rootfs/assemble.sh and openwrt/bu
   android-gpu-subset/  -> opt/mu300/android (files already taken from android-subset win)
 """
 import argparse
+import io
 import os
 import tarfile
 from pathlib import Path
+
+
+def add_bytes(tar, arc, data, seen, mode=0o644):
+    if arc in seen:
+        return
+    seen.add(arc)
+    info = tarfile.TarInfo(arc)
+    info.size, info.mode, info.uid, info.gid, info.uname, info.gname = len(data), mode, 0, 0, 'root', 'root'
+    tar.addfile(info, io.BytesIO(data))
+
+
+def add_dir(tar, arc, seen, keep):
+    """directory entries for arc, but none for its first `keep` components: those exist in the system already, and
+    an entry for one of them could replace it - Ubuntu's lib is a link to usr/lib"""
+    parts = arc.split('/')
+    for i in range(keep + 1, len(parts) + 1):
+        d = '/'.join(parts[:i])
+        if d in seen:
+            continue
+        seen.add(d)
+        info = tarfile.TarInfo(d)
+        info.type, info.mode, info.uid, info.gid, info.uname, info.gname = tarfile.DIRTYPE, 0o755, 0, 0, 'root', 'root'
+        tar.addfile(info)
+
+
+def add_kernel_bundle(tar, bundle: Path, os_name, seen):
+    """the modules of another kernel (an unpacked mu300-kernel-6.18.tar.gz), laid out as mu300-update installs
+    them: Ubuntu under lib/modules/<release>/extra (depmod on the device indexes them), OpenWrt flat (it loads
+    them by path)"""
+    krel = (bundle / 'kernel.release').read_text().strip()
+    kos = sorted((bundle / 'modules').glob('*.ko'))
+    # the real path: in Ubuntu lib is a link to usr/lib, in OpenWrt a directory
+    parent = 'usr/lib/modules' if os_name == 'ubuntu' else 'lib/modules'
+    base = f'{parent}/{krel}'
+    sub = f'{base}/extra' if os_name == 'ubuntu' else base
+    add_dir(tar, sub, seen, keep=len(parent.split('/')))
+    for ko in kos:
+        add_bytes(tar, f'{sub}/{ko.name}', ko.read_bytes(), seen)
+    if os_name == 'ubuntu':
+        for f in ('modules.builtin', 'modules.builtin.modinfo'):
+            if (bundle / f).is_file():
+                add_bytes(tar, f'{base}/{f}', (bundle / f).read_bytes(), seen)
+        # the index (modules.dep): wifi-start runs depmod early in every boot
+        add_bytes(tar, f'{base}/modules.order', b'', seen)
+    return krel, len(kos)
 
 
 def add_tree(tar, src: Path, dest: str, seen: set, rename=None):
@@ -47,6 +93,8 @@ def main():
     ap.add_argument('--firmware', type=Path)
     ap.add_argument('--android-subset', type=Path, required=True)
     ap.add_argument('--gpu-subset', type=Path)
+    ap.add_argument('--kernel-bundle', type=Path,
+                    help='unpacked mu300-kernel-6.18.tar.gz: its modules go into the system too')
     ap.add_argument('--out', type=Path, required=True)
     a = ap.parse_args()
 
@@ -68,6 +116,9 @@ def main():
         add_tree(tar, a.android_subset, 'opt/mu300/android', seen, android)
         if a.gpu_subset and a.gpu_subset.is_dir():
             add_tree(tar, a.gpu_subset, 'opt/mu300/android', seen, gpu)
+        if a.kernel_bundle:
+            krel, n = add_kernel_bundle(tar, a.kernel_bundle, a.os, seen)
+            print(f'{a.out}: {n} modules for {krel}')
     print(f'{a.out}: {len(seen)} entries')
 
 
