@@ -226,7 +226,12 @@ function run(pi, qs, auth) {
 		}
 		if (gid == 'INDICATOR_LIGHT_SETTING') {
 			let on = (P['indicator_light_switch'] == '1');
-			try { fs.popen(on ? '/etc/init.d/mu300-led start >/dev/null 2>&1 &' : '/etc/init.d/mu300-led stop >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			if (on) {
+				try { fs.popen('/etc/init.d/mu300-led start >/dev/null 2>&1 &', 'r'); } catch (e) { }
+			} else {
+				// ★ 只停守护不够,LED 会停在最后状态 ✗ 必须 trigger=none + brightness=0
+				try { fs.popen('/etc/init.d/mu300-led stop >/dev/null 2>&1; for c in red green blue; do echo none > /sys/class/leds/sc27xx:$c/trigger 2>/dev/null; echo 0 > /sys/class/leds/sc27xx:$c/brightness 2>/dev/null; done', 'r'); } catch (e) { }
+			}
 			jreply({ result: 'success' });
 			return;
 		}
@@ -265,7 +270,8 @@ function run(pi, qs, auth) {
 		if (gid == 'PERFORMANCE_MODE' || gid == 'PERFORMANCE_MODE_SETTING') {
 			// 性能模式:转给我们现成的 mu300-toolkit
 			let pm = P['performance_mode'] || P['mode'] || '';
-			let prof = (pm == '2' || pm == 'performance') ? 'performance' : ((pm == '0' || pm == 'eco' || pm == 'power_save') ? 'eco' : 'balanced');
+			// 前端:performance_mode '1'=开性能模式,'0'=关(回均衡)✓
+			let prof = (pm == '1' || pm == '2' || pm == 'performance' || pm == 'on') ? 'performance' : 'balanced';
 			try { fs.popen(sprintf("/opt/mu300/bin/mu300-toolkit profile %s >/dev/null 2>&1 &", prof), 'r'); } catch (e) { }
 			jreply({ result: 'success' });
 			return;
@@ -418,6 +424,12 @@ function run(pi, qs, auth) {
 				else o[c] = '';
 			}
 			else if (match(c, /^ipv6_APN_config[0-9]+$/)) o[c] = '';
+			else if (c == 'performance_mode') {
+				// 前端用 cmd=performance_mode 判断按钮是否高亮(缺了按钮就是灰的 ✗)
+				let tc = '';
+				try { tc = fs.readfile('/etc/mu300/toolkit.conf') || ''; } catch (e) { }
+				o[c] = match(tc, /CPU_PROFILE=performance/) ? '1' : '0';
+			}
 			else if (c == 'indicator_light_switch') {
 				// 指示灯:我们有 mu300-led 守护,用它的运行状态当开关 ✓
 				let ledrun = '';
