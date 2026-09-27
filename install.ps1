@@ -33,7 +33,10 @@ function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
 # Windows PowerShell 5.1 turns every stderr line of a native command into an ErrorRecord once stderr is
 # redirected, and with ErrorActionPreference Stop that aborts the script (adb's "daemon not running",
 # "no devices", push progress). Run such commands with Continue and drop their stderr.
-function Quiet([scriptblock]$Cmd) { $ErrorActionPreference = 'Continue'; & $Cmd 2>$null }
+# The parameter must not share a name with any variable the blocks use: a scriptblock looks its variables up where
+# it runs, names are case-insensitive, and with it called $Cmd, SuDo's { adb shell "su -c '$cmd'" } ran
+# `su -c '<the text of the block>'` - so "su does not work on the device" on every Windows machine (issue #4).
+function Quiet([scriptblock]$QuietBlock_) { $ErrorActionPreference = 'Continue'; & $QuietBlock_ 2>$null }
 # [string]: with no device adb prints nothing, and `-notmatch` on that empty result is falsy, not true
 function AdbState { [string](Quiet { adb get-state }) }
 function Ask($question, $default) {
