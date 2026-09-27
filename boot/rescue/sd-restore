@@ -1,80 +1,108 @@
 #!/bin/busybox sh
-# ═══════════════════════════════════════════════════════════════
-#  MU300 initramfs: 从 SD 卡恢复 Linux rootfs
-#  备份在 SD 卡的 /f50-backup/ 目录(由主机上的备份脚本拷入)
-#  用法:sd-restore [镜像文件名]
-#    · 不带参数 → 列出可用的镜像
-#    · 带参数   → 用它恢复(会二次确认)
-# ═══════════════════════════════════════════════════════════════
+# MU300 initramfs: 从 SD 卡恢复 Linux rootfs
+# ★ 全部动态探测,没有写死的设备名/UUID/路径 ★
+# 用法: sd-restore [-y] [镜像文件名]
 PATH=/bin:/sbin:/usr/bin:/usr/sbin
-SD=/mnt/sd
-BK=$SD/f50-backup
+DIRNAME=f50-backup
+[ -n "$MU300_BACKUP_DIR" ] && DIRNAME=$MU300_BACKUP_DIR
 
-# 找 rootfs 分区(fulldumpdb)
+echo "=== MU300 rescue: restore rootfs from SD ==="
+
+# 1 rootfs 分区:按 PARTNAME 动态找
 ROOTPART=
 for u in /sys/class/block/mmcblk*p*/uevent; do
     grep -qx PARTNAME=fulldumpdb "$u" 2>/dev/null && ROOTPART=/dev/$(basename "$(dirname "$u")")
 done
-[ -n "$ROOTPART" ] || { echo "✗ 找不到 fulldumpdb 分区"; exit 1; }
-echo "rootfs 分区: $ROOTPART ($(blockdev --getsize64 $ROOTPART 2>/dev/null) 字节)"
+[ -n "$ROOTPART" ] || { echo "ERR: no PARTNAME=fulldumpdb partition"; exit 1; }
+echo "rootfs partition: $ROOTPART ($(blockdev --getsize64 $ROOTPART 2>/dev/null) bytes)"
 
-# 找 SD 卡(mmcblk1)
-SDDEV=
-for u in /sys/class/block/mmcblk1*/uevent; do
-    d=/dev/$(basename "$(dirname "$u")")
-    [ -b "$d" ] && [ "$d" != "$ROOTPART" ] && SDDEV=$d
-done
-[ -n "$SDDEV" ] || { echo "✗ 没找到 SD 卡"; exit 1; }
-echo "SD 卡: $SDDEV"
-
+# 2 ★ 动态找 SD:遍历所有块设备,找能挂载且含备份目录的 ★
+SD=/mnt/sd
 mkdir -p $SD
-if ! grep -q " $SD " /proc/mounts 2>/dev/null; then
-    for t in vfat exfat ext4; do
-        mount -t $t -o ro "$SDDEV" $SD 2>/dev/null && { echo "已挂载($t)"; break; }
+umount $SD 2>/dev/null
+FOUND=
+for d in /dev/mmcblk*p* /dev/sd*; do
+    [ -b "$d" ] || continue
+    [ "$d" = "$ROOTPART" ] && continue
+    PN=$(cat /sys/class/block/$(basename $d)/uevent 2>/dev/null | sed -n 's/^PARTNAME=//p')
+    case "$PN" in misc|boot_a|boot_b|*dump*|*super*|*cache*|*metadata*) continue;; esac
+    for t in exfat vfat ext4 ext2; do
+        if mount -t "$t" -o ro "$d" $SD 2>/dev/null; then
+            if [ -d "$SD/$DIRNAME" ]; then
+                FOUND=$d
+                echo "SD card: $d (mounted $t) OK"
+                break
+            fi
+            umount $SD 2>/dev/null
+        fi
     done
-fi
-grep -q " $SD " /proc/mounts 2>/dev/null || { echo "✗ SD 卡挂不上"; exit 1; }
-
-# 列可用镜像
-echo
-echo "★ 可用镜像:"
-if [ -d "$BK" ]; then
-    ls -la $BK/*.img.gz 2>/dev/null | while read -r line; do echo "  $line"; done
-    echo
-    echo "  (推荐用 rootfs-CLEAN 那个 —— 它是 e2fsck 洗过的)"
-else
-    echo "  ✗ $BK 不存在 (SD 卡上没有备份目录)"
-    echo "  主机上把备份拷进去:"
-    echo "    scp /home/qc233/zte/backups/*.gz root@<设备>:/mnt/mmcblk1p1/f50-backup/"
+    [ -n "$FOUND" ] && break
+done
+if [ -z "$FOUND" ]; then
+    echo "ERR: no SD card with a $DIRNAME directory found"
+    echo "tried these block devices:"
+    ls /dev/mmcblk*p* /dev/sd* 2>/dev/null | head -20 | sed 's/^/    /'
     exit 1
 fi
+BK=$SD/$DIRNAME
 
+# 3 列可用镜像
+echo
+echo "* available images:"
+ls -la $BK/*.img.gz 2>/dev/null | while read -r line; do echo "  $line"; done
+
+# 4 参数
+ASSUME_YES=0
+case "$1" in
+    -y|--yes) ASSUME_YES=1; shift ;;
+esac
 IMG="$1"
 if [ -z "$IMG" ]; then
     echo
-    echo "用法: sd-restore <镜像文件名>"
-    echo "例如: sd-restore rootfs-CLEAN.img.gz"
+    echo "usage: sd-restore [-y] <image-filename>"
+    echo "       -y  skip the confirmation (safe to run in background)"
     exit 0
 fi
-
 SRC=$BK/$IMG
-[ -f "$SRC" ] || { echo "✗ 找不到 $SRC"; exit 1; }
-SZ=$(wc -c < "$SRC")
-echo
-echo "★★★ 即将把 $IMG ($SZ 字节) 写入 $ROOTPART ★★★"
-echo "    这会把当前 rootfs 完全覆盖!"
-printf "    确认?输入 yes: "
-read a
-[ "$a" = "yes" ] || { echo "已取消"; exit 0; }
+[ -f "$SRC" ] || { echo "ERR: $SRC not found"; exit 1; }
 
-echo "写入中…"
+# 5 前置检查
+echo
+echo "  target : $ROOTPART ($(blockdev --getsize64 $ROOTPART 2>/dev/null) bytes)"
+echo "  image  : $SRC"
+echo "  packed : $(wc -c < "$SRC") bytes"
+echo
+echo "*** about to write $IMG to $ROOTPART ***"
+echo "    this fully overwrites the current rootfs!"
+if [ "$ASSUME_YES" = "1" ]; then
+    echo "    (-y given, skipping confirmation)"
+else
+    printf "    confirm? type yes: "
+    read a
+    [ "$a" = "yes" ] || { echo "cancelled"; exit 0; }
+fi
+
+# 6 写入
+echo "writing..."
 umount /disk 2>/dev/null
 sync
 gzip -dc "$SRC" | dd of="$ROOTPART" bs=4M 2>&1 | tail -2
 sync
+echo "  (dd done)"
+
+# 7 必须 fsck
 echo
-echo "写入完成。现在修一下文件系统(保证能挂):"
-/usr/sbin/fsck.ext4 -fy "$ROOTPART" 2>&1 | tail -6
+echo "checking/repairing filesystem (required):"
+/usr/sbin/fsck.ext4 -fy "$ROOTPART" 2>&1 | tail -8
 sync
+
+# 8 验证
 echo
-echo "★★★ 完成!现在执行 reboot 重启进 Linux ★★★"
+MAGIC=$(dd if="$ROOTPART" bs=1 skip=1080 count=2 2>/dev/null | hexdump -C | head -1 | awk '{print $2$3}')
+echo "  magic (expect 53ef): $MAGIC"
+if [ "$MAGIC" = "53ef" ]; then
+    echo "*** done! run: reboot ***"
+else
+    echo "ERR: magic is $MAGIC - restore may have failed"
+    exit 1
+fi
