@@ -31,6 +31,9 @@ while :; do
     if [ -n "$TYP" ] && [ $# -ge 5 ]; then
       mu300-band write "$1" "$2" "$3" "$4" "$5" >/dev/null 2>&1
       echo "bandlock $TYP $1 $2 $3 $4 $5" >>/tmp/ufi-bandlock.log
+      # ★ 立刻重跑一次采集,让网页读回新掩码(采集器本身 180 秒才跑一次 ✗)
+      /usr/bin/mu300-status > /tmp/mu300-status.json.tmp 2>/dev/null && mv /tmp/mu300-status.json.tmp /tmp/mu300-status.json
+      echo "  已重跑采集: nr=$(grep -o '"nr_band_mask": *"[^"]*"' /tmp/mu300-status.json 2>/dev/null)" >>/tmp/ufi-bandlock.log
     fi
   fi
   if [ -f /tmp/mu300-celllock.req ]; then
