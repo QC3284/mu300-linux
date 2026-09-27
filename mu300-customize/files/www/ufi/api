@@ -404,6 +404,8 @@ function run(pi, qs, auth) {
 			else if (c == 'ppp_status')         o[c] = 'ipv4_ipv6_connected';
 			else if (c == 'realtime_rx_thrpt')  o[c] = rx_rate;
 			else if (c == 'realtime_tx_thrpt')  o[c] = tx_rate;
+			else if (c == 'boot_time')       o[c] = num(live.uptime) * 1000;   // ★ 前端 formatBootTime 按【毫秒】算 ✗(kano_formatTime 才是秒 ✓)
+			
 			else if (c == 'realtime_time')      o[c] = num(live.uptime);
 			else if (c == 'monthly_rx_bytes')   o[c] = m_rx;
 			else if (c == 'monthly_tx_bytes')   o[c] = m_tx;
