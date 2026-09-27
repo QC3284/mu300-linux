@@ -1584,6 +1584,24 @@ newer boot images count failed boots instead (5 in a row before Android).
 The full old-user path (installer boot_b with kernel #11, both systems reinstalled, boot image written) then took
 40 s, and the board started the new kernel.
 
+### 32a. The offset in init, replaced by every boot image update
+A user installed 6.18 with the installer and got "MU300 standalone Linux ... automatically reboots to Android
+after 300 seconds": the root filesystem was not found. `boot/init` finds the Linux region at `ROOT_OFFSET`, a number
+in the file - our test board's region (27762098176). The installer writes the device's own offset into that
+line, but that init lives in the device's ramdisk segment, and the generic segment behind it - what
+`mu300-update` puts there for every kernel and boot image update since v2026.09.27, and what the installer adds for
+a mainline kernel - brings its own init, which replaces the file, with the default. On every device whose region
+is somewhere else, each such boot image went looking at the test board's offset, dropped into standalone mode and
+went back to Android: the boot image did not have to be broken for "the update always ends in Android", which is
+very likely what the report of section 32 was too. The test board never showed it: its region is the default.
+
+init now finds the region itself, as the installer places it - the first 2 MiB boundary after the last partition
+(from sysfs) - and takes the first candidate that holds the mu300root filesystem (ext4 magic and label), the
+number in the file only as the last one. Tested with a generic segment whose default was wrong on purpose:
+"stage=root-offset found=27762098176 (default 12884901888)", and the board booted. A device left in Android by
+this needs one reinstall from a computer (the installer's `update` keeps settings and data); from v2026.09.29 on
+every generic segment carries the new init.
+
 Found on the way: the account merge rewrote `/etc/passwd` and friends in place (a reader at first boot could see a
 half-written file: `Failed to resolve user 'messagebus'`); it now writes a copy and renames it, and
 `mu300-accounts` runs before tmpfiles, sysusers and D-Bus. `rollback` removed `<os>.broken` even when that was the
