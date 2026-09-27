@@ -354,16 +354,24 @@ function run(pi, qs, auth) {
 			else if (c == 'loginfo')            o[c] = 'ok';   // ★ 前端 login() 靠这个判登录成功
 			else if (c == 'cr_version')         o[c] = readstr('/etc/mu300/ufi-version') || 'ImmortalWrt 25.12.2';
 			else if (c == 'sms_data_total') {
-				// ZTE 约定:短信列表以 JSON 字符串放在这个字段里
+				// ZTE 约定:列表放在这个字段里;★ content 必须是 base64 ★ date 必须是 "年,月,日,时,分,秒" ★
+				//   (前端 render 里 decodeBase64(item.content) + item.date.split(',') ✗ 不按要求就报错/卡 Loading)
 				let smsraw = readjson('/etc/mu300/sms-messages.json');
 				let msgs = [];
 				let idx = 0;
 				for (let m3 in (smsraw.messages || [])) {
 					idx++;
-					let d3 = m3.date || '';
-					let bare = replace(d3, / \(.*$/, '');
-					push(msgs, { id: '' + idx, number: m3.from || '', content: m3.text || '',
-						date: bare, received_time: bare, tag: '1', draft_group_id: '0', status: '0' });
+					let bare = replace(m3.date || '', /  *\(.*$/, '');
+					bare = trim(bare);
+					let pp = split(bare, ' ');
+					let dp = split(pp[0] || '', '-');
+					let tp = split(pp[1] || '', ':');
+					let datestr = join(',', [ dp[0] || '2026', dp[1] || '01', dp[2] || '01',
+						tp[0] || '00', tp[1] || '00', tp[2] || '00' ]);
+					let ctext = '';
+					try { ctext = b64enc(m3.text || ''); } catch (e) { ctext = ''; }
+					push(msgs, { id: '' + idx, number: m3.from || '', content: ctext,
+						date: datestr, received_time: datestr, tag: '1', draft_group_id: '0', status: '0' });
 				}
 				o[c] = sprintf('{"messages":%.J,"total":%d}', msgs, idx);
 			}
@@ -382,6 +390,8 @@ function run(pi, qs, auth) {
 				for (let c3 in (cl2.clients || [])) { push(nm, { mac: c3.mac || '', name: c3.name || c3.hostname || '' }); }
 				o[c] = sprintf('%.J', nm);
 			}
+			else if (c == 'psw_fail_num_str')   o[c] = '0';   // 密码失败次数(字符串 ✗ 前端用 == '0' 比)
+			else if (c == 'login_lock_time')    o[c] = '0';   // 锁定剩余秒数
 			else if (c == 'wa_inner_version')    o[c] = readstr('/etc/mu300/ufi-version') || 'ImmortalWrt';
 			else if (c == 'Language')            o[c] = 'zh_cn';
 			else if (c == 'data_volume_limit_unit') o[c] = 'B';
@@ -493,6 +503,8 @@ function run(pi, qs, auth) {
 	}
 
 	if (pi == '/getSupportNrBandList') { jreply({ slot: 0, band_list: [ 6, 41, 78, 1, 8, 28, 5 ] }); return; }
+	// 前端在登录/改口令后会 POST 这里,失败就存不下 token → 短信面板卡 Loading ✗
+	if (pi == '/update_admin_pwd') { jreply({ result: 'success' }); return; }
 	if (pi == '/device_id')   { jreply({ device_id: readstr('/etc/mu300/ufi-device-id') || '0a36488d00922a29' }); return; }
 	if (pi == '/hasTTYD')     { jreply({ code: '200', ip: '192.168.77.1:22' }); return; }
 	if (pi == '/usb_status')  { jreply({ maxSpeed: 0, details: { typec_mode: 'gadget', gadget_speed: 'USB 3.0 (5Gbps)', devices: [] } }); return; }
