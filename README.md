@@ -116,9 +116,9 @@ It also asks for the **kernel**:
 |---|---|---|
 | 1 | 5.4 | Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports |
 | 2 | 6.18 | mainline Linux, the current long-term (LTS) release: newer drivers and security fixes, the same functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet |
-| 3 | latest stable (7.2 for now) | runs on the device already; coming to the installer very soon |
+| 3 | latest stable (7.2 for now) | the newest mainline release: the newest drivers, the same functions as 6.18; tested less than 6.18 |
 
-Either can be changed later on the device with `sudo mu300-update kernel 5.4` or `sudo mu300-update kernel 6.18`.
+It can be changed later on the device with `sudo mu300-update kernel 5.4`, `... kernel 6.18` or `... kernel 7.2`.
 
 If Linux is already installed it asks whether to **update** or **wipe**:
 

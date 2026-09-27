@@ -57,6 +57,8 @@ M=kernel_modules/kernel5.4
 fetch /src/realme "$MODULES_REPO" "$MODULES_REV" $M/wcn/wlan/wlan_combo $M/wcn/bluetooth/driver $M/gpu/natt/mali
 [ -d /src/ext-wlan_combo ] || cp -r /src/realme/$M/wcn/wlan/wlan_combo /src/ext-wlan_combo
 [ -d /src/ext-sprdbt ] || cp -r /src/realme/$M/wcn/bluetooth/driver /src/ext-sprdbt
+# like build-wlan.sh does for Wi-Fi: the MU300 fixes of the Bluetooth driver, skipped when already applied
+(cd /src/ext-sprdbt && for p in /work/patches/sprdbt-*.patch; do patch -p1 --forward -s < "$p" || true; done)
 [ -d /src/ext-mali ] || cp -r /src/realme/$M/gpu/natt/mali /src/ext-mali
 
 echo "==> kernel"

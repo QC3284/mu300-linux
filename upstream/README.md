@@ -5,8 +5,8 @@ MU300 (Unisoc UMS9620): all 8 CPUs (4×A55, 4×A76), eMMC, USB NCM + ACM, the 5 
 with mobile data (downlink and uplink), SMS, the VPN, the Mali GPU, thermal/cpufreq, the PMIC watchdog and
 reboot. `docs/FINDINGS.md` 31-31f has what it took and what is still open.
 
-On a device: `sudo mu300-update kernel 6.18` (from a release that carries `mu300-kernel-6.18.tar.gz`), and
-`sudo mu300-update kernel 5.4` back. Both kernels' modules stay installed.
+On a device: `sudo mu300-update kernel 6.18` (or `7.2`, the newest stable release), and `sudo mu300-update kernel
+5.4` back; the installer offers all three. Every kernel's modules stay installed.
 
 Reference: Unisoc's UMS9620 DT series (LKML, 2023-12-15, "arm64: dts: sprd: Add support for Unisoc's UMS9620", not
 merged) describes the same GIC/UART/timer layout; this device is derived from their ums9620-2h10 reference board.
@@ -66,8 +66,9 @@ next jump is kept small.) One source serves both:
 * `.github/workflows/mainline.yml` builds the port every week against the current longterm and the newest stable
   release, so the next break shows up as a red run rather than at the next jump.
 
-To try another version: `KV=7.2.8` for `build.sh` and `build-modules.sh`, then `make-bundle.sh` and, on the
-device, `MU300_KERNEL_BUNDLE=<bundle> mu300-update boot` (`mu300-update rollback-boot` goes back).
+Releases carry it as `mu300-kernel-7.2.tar.gz`: `sudo mu300-update kernel 7.2` on the device, or choice 3 in the
+installer. It is built next to 6.18: `OUTDIR=out-7.2 KV=7.2.8` for `build.sh` and `build-modules.sh`, and
+`MU300_UPSTREAM_OUT=upstream/out-7.2` for `make-bundle.sh`; `tools/make-release.sh` packs both.
 
 ## Remaining mainline work (as of 2026-09-26)
 

@@ -377,17 +377,15 @@ Say (T 'Which kernel?')
 Write-Host ('  ' + (T "1) 5.4   Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports"))
 Write-Host ('  ' + (T '2) 6.18  mainline Linux, current long-term (LTS) release: newer drivers and security fixes, the same'))
 Write-Host ('  ' + (T '         functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet'))
-Write-Host ('  ' + (T '3) latest stable mainline kernel (7.2 for now)'))
-Write-Host ('  ' + (T 'Either one can be changed later on the device: sudo mu300-update kernel 5.4|6.18'))
+Write-Host ('  ' + (T '3) 7.2   the newest stable mainline Linux (7.2 for now): the newest drivers, the same functions'))
+Write-Host ('  ' + (T '         as 6.18; tested less than 6.18'))
+Write-Host ('  ' + (T 'This can be changed later on the device: sudo mu300-update kernel 5.4|6.18|7.2'))
 $KERNEL = $null
 while (-not $KERNEL) {
     switch (Ask (T 'Kernel') '1') {
         { $_ -in '1', '5.4' } { $KERNEL = '5.4' }
         { $_ -in '2', '6.18' } { $KERNEL = '6.18' }
-        { $_ -in '3', '7.2' } {
-            Write-Host ('  ' + (T 'The latest stable kernel (7.2) already runs on the device and will be available very soon;'))
-            Write-Host ('  ' + (T 'for now please choose 5.4 or 6.18 (switching later is one command: mu300-update kernel).'))
-        }
+        { $_ -in '3', '7.2' } { $KERNEL = '7.2' }
         default { Write-Host ('  ' + (T 'enter 1, 2 or 3')) }
     }
 }
@@ -447,10 +445,10 @@ foreach ($line in Get-Content "$REL\SHA256SUMS") {
     if ($p.Count -eq 2) { $sums[$p[1].TrimStart('*')] = $p[0] }
 }
 $files = @('mu300-kernel.tar.gz') + ($OSES | ForEach-Object { "mu300-$_-rootfs.tar.gz" })
-if ($KERNEL -eq '6.18') { $files += 'mu300-kernel-6.18.tar.gz' }
+if ($KERNEL -ne '5.4') { $files += "mu300-kernel-$KERNEL.tar.gz" }
 foreach ($f in $files) {
     if (-not $sums.ContainsKey($f)) {
-        $why = if ($f -eq 'mu300-kernel-6.18.tar.gz') { ' ' + (T '(choose kernel 5.4, or a newer release)') } else { '' }
+        $why = if ($KERNEL -ne '5.4' -and $f -eq "mu300-kernel-$KERNEL.tar.gz") { ' ' + (T '(choose kernel 5.4, or a newer release)') } else { '' }
         Die ((T '{1} is not part of release {2}' $f $Release) + $why)
     }
     $have = if (Test-Path "$REL\$f") { (Get-FileHash "$REL\$f" -Algorithm SHA256).Hash.ToLower() } else { '' }
@@ -464,14 +462,15 @@ foreach ($f in $files) {
 Remove-Item -Recurse -Force "$REL\kernel" -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$REL\kernel" | Out-Null
 & tar -xzf "$REL\mu300-kernel.tar.gz" -C "$REL\kernel"
-$K618 = $null
-if ($KERNEL -eq '6.18') {
-    $K618 = "$REL\kernel-6.18"
-    Remove-Item -Recurse -Force $K618 -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $K618 | Out-Null
-    & tar -xzf "$REL\mu300-kernel-6.18.tar.gz" -C $K618
+# a mainline kernel (6.18, 7.2): its bundle, unpacked
+$KMAIN = $null
+if ($KERNEL -ne '5.4') {
+    $KMAIN = "$REL\kernel-$KERNEL"
+    Remove-Item -Recurse -Force $KMAIN -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $KMAIN | Out-Null
+    & tar -xzf "$REL\mu300-kernel-$KERNEL.tar.gz" -C $KMAIN
     foreach ($k in 'Image', 'ramdisk-generic.lz4', 'kernel.release') {
-        if (-not (Test-Path "$K618\$k")) { Die (T '{1} is incomplete' 'mu300-kernel-6.18.tar.gz') }
+        if (-not (Test-Path "$KMAIN\$k")) { Die (T '{1} is incomplete' "mu300-kernel-$KERNEL.tar.gz") }
     }
 }
 
@@ -480,7 +479,7 @@ foreach ($os in $OSES) {
     $argv = @("$Top\tools\vendor-overlay.py", '--os', $os, '--firmware', "$Work\firmware",
         '--android-subset', "$Work\android-subset", '--out', "$Work\mu300-vendor-$os.tar.gz")
     if ($gpu -eq 'yes' -and (Test-Path "$Work\android-gpu-subset")) { $argv += @('--gpu-subset', "$Work\android-gpu-subset") }
-    if ($K618) { $argv += @('--kernel-bundle', $K618) }
+    if ($KMAIN) { $argv += @('--kernel-bundle', $KMAIN) }
     Python @argv
 }
 # not `| Python ...`: that helper is an advanced function with no pipeline-bound parameter, so the
@@ -489,20 +488,20 @@ $PWHASH = ($p1 | & $script:PyExe "$Top\tools\sha512crypt.py").Trim()
 
 Say (T 'Building the boot image')
 WriteUnix "$Work\init" (((Get-Content -Raw "$Top\boot\init") -replace '(?m)^ROOT_OFFSET=[0-9]*', "ROOT_OFFSET=$OFF"))
-# 6.18: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the image that
-# "mu300-update kernel 6.18" writes on the device
+# a mainline kernel: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the
+# image that "mu300-update kernel 6.18" (or 7.2) writes on the device
 $bootArgs = @("$Top\boot\build-boot-image.py", '--stock-boot', "$Work\dumps\boot_a.img", '--misc-head', "$Work\dumps\misc-head.bin",
-    '--kernel', $(if ($K618) { "$K618\Image" } else { "$REL\kernel\Image" }),
+    '--kernel', $(if ($KMAIN) { "$KMAIN\Image" } else { "$REL\kernel\Image" }),
     '--modules', "$REL\kernel\modules", '--init', "$Work\init", '--busybox', "$REL\kernel\busybox",
     '--logdw', "$REL\kernel\logdw", '--ueventd-perms', "$Top\android-vendor\ueventd-perms.sh",
     '--android-subset', "$Work\android-subset", '--out', "$Work\boot-linux-slotb.img")
-if ($K618) { $bootArgs += @('--append-ramdisk', "$K618\ramdisk-generic.lz4") }
+if ($KMAIN) { $bootArgs += @('--append-ramdisk', "$KMAIN\ramdisk-generic.lz4") }
 Python @bootArgs | Out-Null
 
 Say (T 'Ready to install')
 Write-Host ('  ' + (T 'source:         {1}' (T 'prebuilt release {1} + vendor files from this device' $Release)))
 Write-Host ('  ' + (T 'systems:        {1} (boots: {2})' ($OSES -join ' ') $BOOT_OS))
-Write-Host ('  ' + (T 'kernel:         {1}' "$KERNEL$(if ($K618) { " (mainline, $((Get-Content "$K618\kernel.release").Trim()))" })"))
+Write-Host ('  ' + (T 'kernel:         {1}' "$KERNEL$(if ($KMAIN) { " (mainline, $((Get-Content "$KMAIN\kernel.release").Trim()))" })"))
 Write-Host ('  ' + (T 'default boot:   {1}' $(if ($DEFAULT_LINUX -eq 1) { T 'Linux (Android after {1} failed boots in a row)' $BOOT_ATTEMPTS } else { T 'Android, Linux on demand' })))
 Write-Host ('  ' + (T 'filesystem:     {1}' $(if ($FORMAT -eq 1) { T 'CREATE new ext4 (erases the Linux region)' } else { T 'keep existing' })))
 if ($UPDATE -eq 1) { Write-Host ('  ' + (T 'update:         settings and user data of the chosen systems are kept, everything else is replaced')) }

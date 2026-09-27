@@ -12,7 +12,7 @@
 #   BOOT_ATTEMPTS=1-6  with DEFAULT_LINUX=1: failed boots in a row before Android (.mu300/boot-attempts)
 #   PWHASH             SHA-512 crypt hash for the "ubuntu" (Ubuntu) and "root" (OpenWrt) accounts
 #   IMPORT_HOTSPOT=0|1 copy Android's hotspot SSID/passphrase into each system
-#   KERNEL=5.4|6.18    the kernel in the new boot image; mu300-update keeps installing that one (boot/kernel)
+#   KERNEL=5.4|6.18|7.2  the kernel in the new boot image; mu300-update keeps installing that one (boot/kernel)
 set -e
 T=/data/local/tmp
 . $T/mu300-install.env
@@ -148,7 +148,7 @@ mkdir -p $M/.mu300
 echo "$BOOT_OS" > $M/.mu300/boot-os
 case ${BOOT_ATTEMPTS:-} in [1-6]) echo "$BOOT_ATTEMPTS" > $M/.mu300/boot-attempts ;; esac
 case ${KERNEL:-5.4} in
-    5.4|6.18) mkdir -p $M/boot; echo "${KERNEL:-5.4}" > $M/boot/kernel; echo "${KERNEL:-5.4}" > $M/boot/installed.kernel ;;
+    5.4|6.18|7.2) mkdir -p $M/boot; echo "${KERNEL:-5.4}" > $M/boot/kernel; echo "${KERNEL:-5.4}" > $M/boot/installed.kernel ;;
 esac
 [ -n "$ssid" ] && say "hotspot: SSID $ssid imported (passphrase ${#psk} chars)"
 say "installed: $(ls -d $M/ubuntu $M/openwrt 2>/dev/null | sed "s|$M/||g" | tr '\n' ' ')boot-os=$BOOT_OS default-linux=$DEFAULT_LINUX"
