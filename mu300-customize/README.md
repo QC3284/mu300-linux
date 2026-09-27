@@ -109,3 +109,22 @@ cd /home/qc233/zte/mu300-work
 .venv-ui/bin/python ui-shot.py status 1366,900 ui-shots/x.png dark   # 会用 Chrome 自动登录 + 截图
 ```
 (依赖:chromedriver156 + .venv-ui/selenium;截图时关缓存、模拟 `prefers-color-scheme: dark`)
+
+## 自建 UFI-TOOLS 兼容后台(2026-09-27 加)
+
+全新做的一套后台:**复用 UFI-TOOLS 的前端**,后端用 ucode 自己实现,数据全部来自本机。
+
+- 入口:http://<设备IP>:2333/(免密或口令 CHANGE_ME)
+- 前端:在 /www/ufi/(原版 Vue SPA)
+- 后端:在 /www/ufi/api(ucode CGI,由 uhttpd 的 -x /api 调用)
+- 服务:/etc/init.d/mu300-ufi(开机自启,procd 管理,监听 2333)
+- 与 LuCI 并存(80 端口不动)
+
+### ucode 的坑(踩过的都记在这)
+- fs.write() 不存在 → 用 fs.writefile()
+- 整数相除会截断(322/343=0)→ 用整数百分比运算
+- arr[] = x 不支持 → push(arr, x)
+- 没有 isNaN/Math/pow/JSON/urldecode;map/filter 是全局函数
+- exit() 在 CGI 下不 flush 输出 → 用 return
+- 数值字段必须返回数字(字符串会让前端相加变拼接 → 显示 344TB)
+- 数组字段必须返回数组(前端用 .map → 字符串会报错)

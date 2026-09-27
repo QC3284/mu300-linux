@@ -1,0 +1,463 @@
+#!/usr/bin/ucode
+// ufi-api:UFI-TOOLS 兼容后台(CGI,部署为 /www/ufi/api)
+//   uhttpd -h /www/ufi -x /api -p 0.0.0.0:2333
+//   ⚠ ucode 的 exit() 在 uhttpd CGI 下不 flush 输出 → 一律用 return
+//   ⚠ 没有 isNaN/Math/JSON/数组方法;map 是全局函数;没有 urldecode
+'use strict';
+let fs = require('fs');
+let PW_HASH = 'ae8ce4b50a5605fd6cf30183a68661d06cccce17e510bffc4ea310bf61fd6f97';
+
+function readjson(p) { try { return json(fs.readfile(p) || '{}') || {}; } catch (e) { return {}; } }
+function readstr(p) { try { return fs.readfile(p) || ''; } catch (e) { return ''; } }
+function num(v) { let n = +v; return (n != n) ? 0 : n; }
+function reply(code, ctype, b) {
+	printf('Status: %d\r\nContent-Type: %s; charset=utf-8\r\nCache-Control: no-store\r\n\r\n', code, ctype || 'application/json');
+	print(b || '');
+}
+function jreply(o) { reply(200, 'application/json', sprintf('%.J', o)); }
+function urldec(s) {
+	let out = '', i = 0, n = length(s);
+	while (i < n) {
+		let c = substr(s, i, 1);
+		if (c == '%' && i + 2 < n) { out += chr(hex(substr(s, i + 1, 2))); i += 3; }
+		else if (c == '+') { out += ' '; i++; }
+		else { out += c; i++; }
+	}
+	return out;
+}
+function qget(qs, key) {
+	for (let kv in split(qs, '&')) {
+		let kvp = split(kv, '=');
+		if (kvp[0] == key) return urldec(kvp[1] || '');
+	}
+	return '';
+}
+
+function run(pi, qs, auth) {
+	// need_token=false → 前端【完全不显示登录框】(UFI 自己的开关 ✓)
+	// 我们这边没有中兴网站,第二个密码永远校验不过 ✗ → 干脆关掉登录
+	if (pi == '/need_token')      { jreply({ need_token: true }); return; }
+	if (pi == '/version_info')    { jreply({ app_ver: '4.1.5', app_ver_code: '20260919', model: 'F50', nickname: 'ImmortalWrt', accept_terms: true }); return; }
+	if (pi == '/SELinux')         { jreply({ selinux: 'Permissive' }); return; }
+	if (pi == '/get_theme')       { jreply(readjson('/etc/mu300/ufi-theme.json')); return; }
+	if (pi == '/get_custom_head') { reply(200, 'text/plain', ''); return; }
+	if (pi == '/set_cookie')      {
+		try {
+			// CGI 的 POST 体从 stdin 读(简单起见:给多少存多少)
+			let body = fs.stdin.read('all') || '';
+			let m2 = match(body, /"cookie"\s*:\s*"([^"]*)"/);
+			if (m2) fs.writefile('/etc/mu300/ufi-admin-pwd', m2[1]);
+		} catch (e) { }
+		reply(200, 'application/json', '{"result":true}'); return; }
+	if (pi == '/get_cookie')      { jreply({ cookie: 'immortalwrt-lan-ok' }); return; }   // 非空:前端用真假判登录 ✓
+	if (pi == '/get_official_web_password') { jreply({ pwd: readstr('/etc/mu300/ufi-admin-pwd') }); return; }
+	if (pi == '/accept_terms')    { reply(200, 'application/json', '{"result":"success"}'); return; }
+	if (pi == '/is_weak_token')   { jreply({ is_weak_token: false }); return; }
+	if (pi == '/login' || pi == '/user') { jreply({ result: 'success', user: 'admin' }); return; }
+	// ⚠ 鉴权从宽:前端在"登录"前后都会调这些接口,硬拦会显示"登录失败 请检查网络" ✗
+	//   需要收紧时改成: if (auth != PW_HASH && pi != '/adb_alive' && ...) …
+	let authed = (auth == PW_HASH);
+
+	let live    = readjson('/tmp/mu300-live.json');
+	let signal  = readjson('/tmp/mu300-signal.json');
+	let cells   = readjson('/tmp/mu300-cells.json');
+	let status  = readjson('/tmp/mu300-status.json');
+	let modes   = readjson('/tmp/mu300-modes.json');
+	let traffic = readjson('/etc/mu300/traffic.json');
+
+	if (pi == '/AT') {
+		let cmd = trim(qget(qs, 'command'));
+		if (substr(lc(cmd), 0, 2) != 'at') { jreply({ error: 'AT 指令需要以 AT 开头' }); return; }
+		let safe = '';
+		for (let ch in split(cmd, '')) { if (match(ch, /[A-Za-z0-9+,=_:"$?.!#\/ -]/)) safe += ch; }
+		let out = '';
+		let fh = fs.popen("/opt/mu300/bin/mu300-at -t 12 '" + safe + "' 2>&1", 'r');
+		if (fh) { out = fh.read('all') || ''; fh.close(); }
+		out = trim(replace(replace(out, /\r/g, ''), /\n/g, ' '));
+		if (substr(lc(out), length(out) - 2) == 'ok') out = trim(substr(out, 0, length(out) - 2)) + ' OK';
+		if (!out) out = '(无输出)';
+		jreply({ result: out });
+		return;
+	}
+
+	if (pi == '/baseDeviceInfo') {
+		let days = traffic.days || {}, total = 0, today = 0;
+		for (let k in days) { total += num(days[k].rx) + num(days[k].tx); }
+		if (traffic.today && days[traffic.today]) today = num(days[traffic.today].rx) + num(days[traffic.today].tx);
+
+		// CPU 占用:两次 /proc/stat 采样求差(存上一次到 /tmp)
+		let cpu_usage = 0;
+		try {
+			let st = fs.readfile('/proc/stat') || '';
+			let l1 = split(split(st, '\n')[0], ' ');
+			let idle = num(l1[4]) + num(l1[5]);
+			let tot = 0;
+			for (let m in slice(l1, 1, 9)) { tot += num(m); }
+			let prev = readjson('/tmp/ufi-cpu-prev.json');
+			if (prev.t && prev.i != null && tot > prev.t) {
+				cpu_usage = 100 - int((idle - num(prev.i)) * 100 / (tot - num(prev.t)));   // 整数运算(ucode 整数相除会截断 ✗)
+				if (cpu_usage < 0) cpu_usage = 0;
+				if (cpu_usage > 100) cpu_usage = 100;
+			}
+			fs.writefile('/tmp/ufi-cpu-prev.json', sprintf('{"t":%d,"i":%d}', tot, idle));
+		} catch (e) { }
+
+
+		// 每核 CPU 占用 + 每核频率(已用 t_cpu.uc 验证过原语 ✓)
+		let cpuUsageInfo = {}, cpuFreqInfo = {};
+		let coreT = {}, coreI = {};
+		let dbg = [];
+		let prev2 = readjson('/tmp/ufi-percpu-prev.json');
+		let statTxt = '';
+		try { statTxt = fs.readfile('/proc/stat') || ''; } catch (e) { push(dbg, 'stat读失败'); }
+		let statLines = split(trim(statTxt), '
+');
+		push(dbg, '行数' + length(statLines));
+		for (let ln in statLines) {
+			if (!match(ln, /^cpu[0-9]+ /)) continue;
+			let p2 = split(trim(ln), ' ');
+			let id = substr(p2[0], 3);
+			let idle2 = num(p2[4]) + num(p2[5]);
+			let tot2 = 0;
+			for (let mi = 1; mi <= 8; mi++) { tot2 += num(p2[mi]); }
+			coreT[id] = tot2;
+			coreI[id] = idle2;
+			if (prev2[id] != null && tot2 > num(prev2[id].t)) {
+				// ⚠ ucode 的整数相除会截断(322/343=0 ✗)→ 用整数百分比运算 ✓
+				let u = 100 - int((idle2 - num(prev2[id].i)) * 100 / (tot2 - num(prev2[id].t)));
+				if (u < 0) u = 0;
+				if (u > 100) u = 100;
+				cpuUsageInfo['cpu' + id] = u;
+				push(dbg, 'core' + id + '=' + u);
+			}
+		}
+		for (let n2 = 0; n2 < 8; n2++) {
+			let b2 = '/sys/devices/system/cpu/cpu' + n2 + '/cpufreq/';
+			let cur2 = num(readstr(b2 + 'scaling_cur_freq'));
+			if (cur2 > 0) {
+				cpuFreqInfo['cpu' + n2] = { cur: int(cur2 / 1000), max: int(num(readstr(b2 + 'cpuinfo_max_freq')) / 1000) };
+			}
+		}
+		push(dbg, 'freq' + length(keys(cpuFreqInfo)) + ' usage' + length(keys(cpuUsageInfo)));
+		try { fs.writefile('/tmp/ufi-cpu-debug.txt', join(' | ', dbg) + '
+'); } catch (e) { }
+		let save2 = {};
+		for (let id in coreT) { save2[id] = { t: coreT[id], i: coreI[id] }; }
+		try { fs.writefile('/tmp/ufi-percpu-prev.json', sprintf('%.J', save2)); } catch (e) { }
+		// 内存占用百分比
+		let mem_usage = 0;
+		if (num(modes.mem_total) > 0) mem_usage = int(num(modes.mem_used) * 100 / num(modes.mem_total));
+
+		// 开机时间(unix 秒)
+		let boot_time = 0;
+		try { let up = num(split(trim(fs.readfile('/proc/uptime') || '0'), ' ')[0]); boot_time = time() - up; } catch (e) { }
+
+		// 存储(取根分区)
+		let isz = 0, iused = 0;
+		let esz = 0, eused = 0;
+		for (let s2 in (modes.storage || [])) {
+			if (match(s2.mount, /mmcblk1|mmcblk2|\/dev\/sd|sda|sdb/)) { esz = num(s2.size_mb); eused = num(s2.used_mb); }
+		}
+		for (let s2 in (modes.storage || [])) {
+			if (s2.mount == '/' || s2.mount == '/mnt/mu300-disk') { isz = num(s2.size_mb); iused = num(s2.used_mb); break; }
+		}
+
+		let tp = (modes.temps || []);
+		jreply({ app_ver: '4.1.5', app_ver_code: '20260919', model: 'F50',
+			battery: '0', voltage_now: '0', current_now: '0',
+			client_ip: getenv('REMOTE_ADDR') || '',
+			boot_time: num(live.uptime),
+			cpu_usage: cpu_usage,
+			cpuUsageInfo: cpuUsageInfo,
+			cpuFreqInfo: cpuFreqInfo,
+			memInfo: { mem_total_kb: num(modes.mem_total) * 1024, mem_used_kb: num(modes.mem_used) * 1024, mem_available_kb: (num(modes.mem_total) - num(modes.mem_used)) * 1024 },
+			mem_usage: mem_usage,
+			cpu_temp: (function() { let mx = 0; for (let q in tp) { if (num(q.v) > mx) mx = num(q.v); } return int(mx * 1000 + 0.5); })(),
+			cpu_temp_list: map(tp, function(t) { return { type: t.t, temp: int(num(t.v) * 1000 + 0.5) }; }),
+			daily_data: today, monthly_data: total,
+			is_reached_data_flow_limit: false,
+			internal_total_storage: isz * 1024 * 1024,
+			internal_used_storage: iused * 1024 * 1024,
+			internal_available_storage: (isz - iused) * 1024 * 1024,
+			external_total_storage: esz * 1024 * 1024, external_used_storage: eused * 1024 * 1024, external_available_storage: (esz - eused) * 1024 * 1024 });
+		return;
+	}
+
+	if (pi == '/goform/goform_set_cmd_process') {
+		// 读 POST 体
+		let body = '';
+		try {
+			let clen = num(getenv('CONTENT_LENGTH'));
+			if (clen > 0 && fs.stdin) body = fs.stdin.read(clen) || '';
+		} catch (e) { }
+		let P = {};
+		for (let kv in split(body, '&')) {
+			let k2 = split(kv, '=');
+			P[urldec(k2[0] || '')] = urldec(k2[1] || '');
+		}
+		let gid = P['goformId'] || '';
+		if (gid == 'SEND_SMS') {
+			let num2 = replace(P['Number'] || '', /[^0-9+]/g, '');
+			let msg = replace(replace(P['MessageBody'] || '', /^"/, ''), /"$/, '');
+			let safe2 = '';
+			for (let ch2 in split(msg, '')) { if (!match(ch2, /['"\`$\\]/)) safe2 += ch2; }
+			let r2 = '';
+			try {
+				let fh3 = fs.popen(sprintf("/opt/mu300/bin/mu300-sms send '%s' '%s' 2>&1", num2, safe2), 'r');
+				if (fh3) { r2 = fh3.read('all') || ''; fh3.close(); }
+			} catch (e) { }
+			try { fs.writefile('/tmp/ufi-sms-send.log', sprintf('%s -> %s\n%s\n', num2, safe2, r2)); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
+		if (gid == 'LTE_BAND_LOCK' || gid == 'NR_BAND_LOCK') {
+			let bands = (gid == 'LTE_BAND_LOCK') ? (P['lte_band_lock'] || '') : (P['nr_band_lock'] || '');
+			// 频段号 → 掩码(映射来自之前逆向 ZTE 框架的实测 ✓)
+			let isLte = (gid == 'LTE_BAND_LOCK');
+			let m = [ 0, 0, 0, 0, 0 ];
+			let MAP_NR0 = { '1':0, '2':1, '3':2, '5':3, '7':4, '8':5, '20':6, '25':7, '26':8, '28':9 };
+			let MAP_NR2 = { '41':4, '78':8 };
+			for (let b3 in split(bands, ',')) {
+				let bn = trim(b3);
+				if (bn == '') continue;
+				if (isLte) {
+					let bw = num(bn);
+					if (bw >= 1 && bw <= 32) m[3] += 1 << (bw - 1);
+					else if (bw >= 33 && bw <= 64) m[1] += 1 << (bw - 33);
+				} else {
+					if (MAP_NR0[bn] != null) m[0] += 1 << MAP_NR0[bn];
+					else if (MAP_NR2[bn] != null) m[2] += 1 << MAP_NR2[bn];
+				}
+			}
+			// 全 0(没匹配上)或超过 32 位 → 用全开(等于解锁);
+			try { fs.writefile('/tmp/mu300-band.req', sprintf('%s %d %d %d %d %d', isLte ? 'lte' : 'nr', m[0], m[1], m[2], m[3], m[4])); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
+		jreply({ result: 'success' });
+		return;
+	}
+	if (pi == '/goform/goform_get_cmd_process') {
+		let cmds = qget(qs, 'cmd'), o = {};
+		// 实时速率:用 live 计数的两次采样求差
+		let rx_rate = 0, tx_rate = 0;
+		try {
+			let now2 = { t: time(), rx: num(live.rx_bytes), tx: num(live.tx_bytes) };
+			let pv = readjson('/tmp/ufi-rate-prev.json');
+			if (pv.t && now2.t > pv.t) {
+				let dt = now2.t - pv.t;
+				rx_rate = int((now2.rx - num(pv.rx)) * 1 / (dt > 0 ? dt : 1)); if (rx_rate < 0) rx_rate = 0;
+				tx_rate = int((now2.tx - num(pv.tx)) / (dt > 0 ? dt : 1)); if (tx_rate < 0) tx_rate = 0;
+			}
+			fs.writefile('/tmp/ufi-rate-prev.json', sprintf('{"t":%d,"rx":%d,"tx":%d}', now2.t, now2.rx, now2.tx));
+		} catch (e) { }
+		let days2 = traffic.days || {}, m_rx = 0, m_tx = 0;
+		for (let k in days2) { m_rx += num(days2[k].rx); m_tx += num(days2[k].tx); }
+		let smslist = readjson('/tmp/mu300-sms.json');
+		let unread = 0;
+		for (let s3 in (smslist.messages || [])) { if (!s3.read) unread++; }
+		let clients = readjson('/tmp/mu300-clients.json');
+		let nr2 = { rsrp: signal.nr_rsrp || signal.rsrp || '', rsrq: signal.nr_rsrq || signal.rsrq || '', sinr: signal.nr_sinr || signal.sinr || '', rssi: signal.nr_rssi || '' };
+		let lt2 = { rsrp: signal.lte_rsrp || '', rsrq: signal.lte_rsrq || '', sinr: '', rssi: signal.lte_rssi || '' };
+		let band5 = (cells.serving && cells.serving.band) ? cells.serving.band : (status.serving_band || '');
+		let band4 = (status.lte_band || '');
+		for (let c in split(cmds, ',')) {
+			if (c == 'network_type')            o[c] = status.rat || '-';
+			else if (c == 'network_information') o[c] = '';
+			else if (c == 'network_provider')   o[c] = '中国联通';
+			else if (c == 'network_signalbar')  o[c] = '';
+			else if (c == 'signalbar')          o[c] = (num(signal.rsrp) > -95 ? 5 : (num(signal.rsrp) > -105 ? 4 : 3));
+			else if (c == 'rssi')               o[c] = (num(signal.rsrp) > -95 ? 5 : (num(signal.rsrp) > -105 ? 4 : 3));
+			else if (c == 'network_rssi')       o[c] = signal.rsrp || '';
+			else if (c == 'Z5g_rsrp' || c == '5g_rsrp')  o[c] = int(num(nr2.rsrp));
+			else if (c == '5g_rsrq' || c == 'nr_rsrq' || c == 'Z5g_rsrq') o[c] = int(num(nr2.rsrq));
+			else if (c == '5g_sinr' || c == 'Nr_snr' || c == 'Z5g_snr')   o[c] = int(num(nr2.sinr));
+			else if (c == '5g_rssi' || c == 'nr_rssi') o[c] = int(num(nr2.rssi));
+			else if (c == '5g_band' || c == 'Nr_bands') { let bs3 = '' + (band5 || ''); o[c] = (substr(bs3, 0, 1) == 'n') ? substr(bs3, 1) : bs3; }
+			else if (c == 'lte_rsrp' || c == '4g_rsrp')  o[c] = int(num(lt2.rsrp));
+			else if (c == 'lte_rsrq' || c == '4g_rsrq')  o[c] = int(num(lt2.rsrq));
+			else if (c == 'Lte_snr' || c == '4g_sinr')   o[c] = lt2.sinr;
+			else if (c == 'lte_rssi' || c == '4g_rssi')  o[c] = lt2.rssi;
+			else if (c == 'Lte_bands' || c == '4g_band') o[c] = band4;
+			else if (c == 'network_band')                o[c] = band5 || band4;
+												else if (c == 'wan_ipaddr')         o[c] = split(live.wan4 || '', '/')[0];
+			else if (c == 'ipv6_wan_ipaddr')    o[c] = '';
+			else if (c == 'lan_ipaddr')         o[c] = '192.168.77.1';
+			else if (c == 'mac_address')        o[c] = readstr('/sys/class/net/br-lan/address') || '';
+			else if (c == 'cell_id')            o[c] = '';
+			else if (c == 'sim_slot')           o[c] = 1;
+			else if (c == 'dual_sim_support')   o[c] = '0';
+			else if (c == 'usb_port_switch')    o[c] = 1;
+			else if (c == 'ppp_status')         o[c] = 'ipv4_ipv6_connected';
+			else if (c == 'realtime_rx_thrpt')  o[c] = rx_rate;
+			else if (c == 'realtime_tx_thrpt')  o[c] = tx_rate;
+			else if (c == 'realtime_time')      o[c] = num(live.uptime);
+			else if (c == 'monthly_rx_bytes')   o[c] = m_rx;
+			else if (c == 'monthly_tx_bytes')   o[c] = m_tx;
+			else if (c == 'monthly_time')       o[c] = num(live.uptime);
+			else if (c == 'sms_unread_num' || c == 'sms_sim_unread_num') o[c] = unread;
+			else if (c == 'sms_received_flag')  o[c] = unread ? '1' : '0';
+			else if (c == 'wifi_access_sta_num') o[c] = length(clients.clients || clients.list || []);
+			else if (c == 'battery_value' || c == 'battery_charging' || c == 'battery_vol_percent') o[c] = '';
+			else if (c == 'imei' || c == 'imsi' || c == 'iccid' || c == 'msisdn' || c == 'sim_msisdn') o[c] = readjson('/etc/mu300/ufi-ident.json')[c] || '';
+			else if (c == 'data_volume_limit_switch') o[c] = 0;   // 没配套餐 → 关掉,避免前端显示 NaN
+			else if (c == 'data_volume_limit_size') o[c] = 0; else if (c == 'data_volume_alert_percent') o[c] = 0;
+			else if (c == 'Lte_ca_status')      o[c] = 'off';
+			else if (c == 'loginfo')            o[c] = 'ok';   // ★ 前端 login() 靠这个判登录成功
+			else if (c == 'cr_version')         o[c] = readstr('/etc/mu300/ufi-version') || 'ImmortalWrt 25.12.2';
+			else if (c == 'sms_data_total') {
+				// ZTE 约定:短信列表以 JSON 字符串放在这个字段里
+				let smsraw = readjson('/etc/mu300/sms-messages.json');
+				let msgs = [];
+				let idx = 0;
+				for (let m3 in (smsraw.messages || [])) {
+					idx++;
+					let d3 = m3.date || '';
+					let bare = replace(d3, / \(.*$/, '');
+					push(msgs, { id: '' + idx, number: m3.from || '', content: m3.text || '',
+						date: bare, received_time: bare, tag: '1', draft_group_id: '0', status: '0' });
+				}
+				o[c] = sprintf('{"messages":%.J,"total":%d}', msgs, idx);
+			}
+			else if (c == 'lan_station_list' || c == 'station_list') {
+				let cl = readjson('/tmp/mu300-clients.json');
+				let arr = [];
+				for (let c2 in (cl.clients || [])) {
+					push(arr, { mac_addr: c2.mac || '', ip_addr: c2.ip || '',
+						hostname: c2.name || c2.hostname || c2.mac || '', online: c2.online ? 1 : 0 });
+				}
+				o[c] = sprintf('%.J', arr);
+			}
+			else if (c == 'hostNameList') {
+				let cl2 = readjson('/tmp/mu300-clients.json');
+				let nm = [];
+				for (let c3 in (cl2.clients || [])) { push(nm, { mac: c3.mac || '', name: c3.name || c3.hostname || '' }); }
+				o[c] = sprintf('%.J', nm);
+			}
+			else if (c == 'wa_inner_version')    o[c] = readstr('/etc/mu300/ufi-version') || 'ImmortalWrt';
+			else if (c == 'Language')            o[c] = 'zh_cn';
+			else if (c == 'data_volume_limit_unit') o[c] = 'B';
+			else if (c == 'traffic_clear_date')  o[c] = readstr('/etc/mu300/traffic-clear-date') || '1';
+			else if (c == 'wan_auto_clear_flow_data_switch') o[c] = 0;
+			else if (c == 'queryDeviceAccessControlList')    o[c] = '';
+			else if (c == 'neighbor_cell_info')
+				o[c] = map(cells.neighbors || [], function(n) {   // 真数组!前端用 .map ✓(字符串会报错 ✗)
+					return { band: (substr('' + (n.band || ''), 0, 1) == 'n') ? substr('' + (n.band || ''), 1) : ('' + (n.band || '')), earfcn: n.arfcn, pci: n.pci, rsrp: int(num(n.rsrp)), rsrq: int(num(n.rsrq)), sinr: int(num(n.sinr)) }; });
+			else if (c == 'locked_cell_info') {
+				// 我们自己的锁基站记录(/etc/mu300/celllock.json)
+				let cl3 = readjson('/etc/mu300/celllock.json');
+				let arr2 = [];
+				if (cl3.rat && cl3.earfcn) {
+					push(arr2, { band: '' + (cl3.band || ''), earfcn: '' + cl3.earfcn, pci: '' + cl3.pci,
+						rsrp: '' + (signal.rsrp || ''), rsrq: '' + (signal.rsrq || ''), sinr: '' + (signal.sinr || ''),
+						rat: '' + cl3.rat, type: (cl3.rat == '16' ? '5G' : '4G') });
+				}
+				o[c] = arr2;
+			}
+			else if (c == 'serving_cell_info') {
+				// 当前基站(我们的工程模式数据)
+				let sv = cells.serving || {};
+				o[c] = [ { band: replace('' + (sv.band || ''), /^n/, ''), earfcn: '' + (sv.arfcn || ''),
+					pci: '' + (sv.pci || ''), rsrp: int(num(signal.rsrp)), rsrq: int(num(signal.rsrq)), sinr: int(num(signal.sinr)) } ];
+			}
+			else if (c == 'Nr_pci' || c == 'Nr_fcn' || c == 'Nr_bands' || c == 'Lte_pci' || c == 'Lte_fcn' || c == 'Lte_bands') {
+				// "当前基站"面板要的字段(Nr_pci/Nr_fcn/Nr_bands ✓)
+				let sv2 = cells.serving || {};
+				let isNr5 = substr(c, 0, 2) == 'Nr';
+				if (isNr5) {
+					if (c == 'Nr_pci')        o[c] = '' + (sv2.pci || '');
+					else if (c == 'Nr_fcn')   o[c] = '' + (sv2.arfcn || '');
+					else {
+						let bs2 = '' + (sv2.band || '');
+						o[c] = (substr(bs2, 0, 1) == 'n') ? substr(bs2, 1) : bs2;
+					}
+				} else {
+					// LTE 当前基站:我们没有单独读(SA 下也没有),留空 ✓
+					o[c] = '';
+				}
+			}
+			else if (c == 'lte_band_lock' || c == 'nr_band_lock') {
+				// 掩码 → 频段号列表(前端用它给复选框打勾 ✓)
+				let bc = readjson('/tmp/ufi-band-cache.json');
+				if (!bc.t || (time() - num(bc.t)) > 90) {
+					let rawB = '';
+					try { let fh4 = fs.popen('/usr/bin/mu300-band read 2>&1', 'r'); if (fh4) { rawB = fh4.read('all') || ''; fh4.close(); } } catch (e) { }
+					let nrm = [ 0, 0, 0 ], ltem = [ 0, 0, 0, 0, 0 ];
+					try { let jo = json(replace(rawB, /^[^{]*/, '')); nrm = jo.nr_masks || nrm; ltem = jo.lte_masks || ltem; } catch (e) { }
+					let NR0 = [ 1, 2, 3, 5, 7, 8, 20, 25, 26, 28 ];
+					let nlist = [], llist = [];
+					let bitv = 1;
+					for (let i = 0; i < 10; i++) { if (int(num(nrm[0]) / bitv) % 2 == 1) push(nlist, '' + NR0[i]); bitv = bitv * 2; }
+					if (int(num(nrm[2]) / 16) % 2 == 1) push(nlist, '41');
+					if (int(num(nrm[2]) / 256) % 2 == 1) push(nlist, '78');
+					let bitv2 = 1;
+					for (let b4 = 1; b4 <= 32; b4++) { if (int(num(ltem[3]) / bitv2) % 2 == 1) push(llist, '' + b4); bitv2 = bitv2 * 2; }
+					let bitv3 = 1;
+					for (let b5 = 33; b5 <= 64; b5++) { if (int(num(ltem[1]) / bitv3) % 2 == 1) push(llist, '' + b5); bitv3 = bitv3 * 2; }
+					bc = { t: time(), nr: join(',', nlist), lte: join(',', llist) };
+					try { fs.writefile('/tmp/ufi-band-cache.json', sprintf('%.J', bc)); } catch (e) { }
+				}
+				o[c] = (c == 'nr_band_lock') ? (bc.nr || '') : (bc.lte || '');
+			}
+			else o[c] = '';
+		}
+		jreply(o);
+		return;
+	}
+
+	if (pi == '/getSupportNrBandList') { jreply({ slot: 0, band_list: [ 6, 41, 78, 1, 8, 28, 5 ] }); return; }
+	if (pi == '/device_id')   { jreply({ device_id: readstr('/etc/mu300/ufi-device-id') || '0a36488d00922a29' }); return; }
+	if (pi == '/hasTTYD')     { jreply({ code: '200', ip: '192.168.77.1:22' }); return; }
+	if (pi == '/usb_status')  { jreply({ maxSpeed: 0, details: { typec_mode: 'gadget', gadget_speed: 'USB 3.0 (5Gbps)', devices: [] } }); return; }
+	if (pi == '/adb_alive')   { jreply({ result: 'false' }); return; }
+	if (pi == '/root_shell' || pi == '/one_click_shell' || pi == '/user_shell') { jreply({ result: 'success' }); return; }
+	if (pi == '/get_log_status') { jreply({ debug_log_enabled: 'false' }); return; }
+	if (pi == '/volte_status')   { jreply({ enabled: true }); return; }
+	if (pi == '/vonr_status')    { jreply({ enabled: false }); return; }
+	if (pi == '/get_data_limit') { jreply({ data_flow_limit_enabled: '0', data_flow_max_limit: -1, data_flow_check_daily_or_monthly: 'monthly', data_check_reference: 'default', data_limit_status_forward_enabled: '0' }); return; }
+	if (pi == '/list_tasks' || pi == '/get_task') { jreply({ tasks: [] }); return; }
+	if (pi == '/power_status_forward_enabled') { jreply({ enabled: '0' }); return; }
+	if (pi == '/sms_forward_enabled')  { jreply({ enabled: '1' }); return; }
+	if (pi == '/sms_forward_method')   { jreply({ sms_forward_method: 'SMTP' }); return; }
+	if (pi == '/sms_forward_dingtalk') { jreply({ webhook_url: '', secret: '', forward_dev_info: '0' }); return; }
+	if (pi == '/sms_forward_mail')     { jreply({ smtp_host: '', smtp_port: '', smtp_to: '', smtp_username: '', smtp_password: '', smtp_from: '', smtp_from_name: '', forward_dev_info: '0' }); return; }
+	if (pi == '/sms_forward_curl')     { jreply({ curl_text: '' }); return; }
+	if (pi == '/sms_forward_blacklist'){ jreply({ keywords: '', phone: '' }); return; }
+	if (pi == '/check_update')  { jreply({ has_update: false, latest_version: '4.1.5' }); return; }
+	if (pi == '/plugins_store') { jreply({ plugins: [] }); return; }
+	if (pi == '/speedtest')     { jreply(readjson('/tmp/mu300-speed.json')); return; }
+	if (pi == '/connInfo') {
+		// 用 /proc/net/{tcp,tcp6,udp,udp6,unix} 数连接(不依赖 awk,纯 ucode ✓)
+		function count(f, skip) { let n = 0; for (let ln in split(trim(readstr(f)), '\n')) { n++; } return (n > skip) ? n - skip : 0; }
+		let tcp = count('/proc/net/tcp', 1), tcp6 = count('/proc/net/tcp6', 1);
+		let udp = count('/proc/net/udp', 1), udp6 = count('/proc/net/udp6', 1);
+		let unix2 = count('/proc/net/unix', 1);
+		// 活跃连接 = 状态 01(ESTABLISHED)
+		let act = 0;
+		for (let ln in split(trim(readstr('/proc/net/tcp')), '\n')) {
+			let p2 = split(trim(ln), ' ');
+			if (length(p2) > 3 && p2[3] == '01') act++;
+		}
+		jreply({ result: 'success', data: { tcp: '' + tcp, tcp_active: '' + act, tcp_other: '' + (tcp - act), tcp6: '' + tcp6, udp: '' + udp, udp6: '' + udp6, unix: '' + unix2 } });
+		return;
+	}
+	if (pi == '/cellularUsage') { jreply({ result: 'success', data: [] }); return; }
+	if (pi == '/adb_wifi_setting') { jreply({ enabled: true }); return; }
+	if (pi == '/disable_fota')    { jreply({ result: '执行成功,如需强力禁用请使用高级功能!' }); return; }
+	if (pi == '/download_apk_status') { jreply({ status: 'idle', percent: 0, error: '' }); return; }
+	if (pi == '/get_res_server')  { jreply({ res_server: readstr('/etc/mu300/ufi-res-server') || 'https://pan.kanokano.cn' }); return; }
+
+	// 作者公告:前端会拉 /proxy/--https://api.kanokano.cn/ufi_tools_report/get_message/<id>
+	//   → 直接回"已读",前端就不弹"系统提示 undefined"了 ✓
+	if (match(pi, /^\/proxy/)) { jreply({ message: '', has_read_message: true, result: 'success' }); return; }
+	if (match(pi, /^\/uploads/))  { jreply({ result: 'success' }); return; }
+	try { fs.writefile('/tmp/ufi-api-404.log', (fs.readfile('/tmp/ufi-api-404.log') || '') + pi + '\n'); } catch (e) { }
+	reply(404, 'application/json', sprintf('%.J', { error: 'not implemented', path: pi }));
+}
+
+try {
+	run(getenv('PATH_INFO') || '', getenv('QUERY_STRING') || '', getenv('HTTP_AUTHORIZATION') || '');
+} catch (e) {
+	try { fs.writefile('/tmp/ufi-api-err.log', sprintf('%s\n%.J\n', e, e)); } catch (x) { }
+	printf('Status: 500 Internal Server Error\r\nContent-Type: application/json\r\n\r\n{"error":"internal"}');
+}

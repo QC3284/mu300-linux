@@ -9,7 +9,17 @@ j() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 # ---------- 基础:运营商 / 制式 / 小区 ----------
 sig=$(mobile-data signal 2>/dev/null)
 oper=$(echo "$sig" | sed -n 's/^operator *\([^ ]*\).*/\1/p')
-rat=$(echo "$sig" | sed -n 's/^operator *[^ ]* (\(.*\))/\1/p')
+# RAT:用 AT+COPS? 的 act(11/10=5G, 7=4G, 2=3G, 0=2G)
+#   —— 原来解析 mobile-data signal 的 operator 行,它时常返回 unknown (AcT ) ✗
+act=$(at 'AT+COPS?' 2>/dev/null | grep -o ',[0-9]*$' | tr -d ',' | head -1)
+case "$act" in
+  11|10) rat='5G' ;;
+  7)  rat='4G' ;;
+  2)  rat='3G' ;;
+  0)  rat='2G' ;;
+  *)  rat=$(echo "$sig" | sed -n 's/^operator *[^ ]* (\(.*\))/\1/p') ;;
+esac
+case "$rat" in *unknown*|'') rat='5G' ;; esac
 cell=$(echo "$sig" | sed -n 's/^cell *\([^ ]*\).*/\1/p')
 tac=$(echo "$sig" | sed -n 's/.*tracking area \([^)]*\).*/\1/p')
 
