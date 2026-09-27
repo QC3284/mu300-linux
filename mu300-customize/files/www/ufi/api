@@ -202,7 +202,7 @@ function run(pi, qs, auth) {
 		jreply({ app_ver: '4.1.5', app_ver_code: '20260919', model: 'F50',
 			battery: '0', voltage_now: '0', current_now: '0',
 			client_ip: getenv('REMOTE_ADDR') || '',
-			boot_time: num(live.uptime),
+			boot_time: num(live.uptime) * 1000,   // ★ 前端 formatBootTime 按毫秒算 ✗(baseDeviceInfo 里的值会覆盖 goform 的 ✓)
 			cpu_usage: cpu_usage,
 			cpuUsageInfo: cpuUsageInfo,
 			cpuFreqInfo: cpuFreqInfo,
