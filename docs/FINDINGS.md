@@ -1488,7 +1488,9 @@ ignored that result, failed on the next dependency ("does not exist"), and the f
 under the connection thread it had already started. On Ubuntu the delegate is loaded before there is traffic,
 the call returns 0, and none of this happens. Fixed in the module: `-EINPROGRESS` is success, the result of
 `sipa_delegator_start()` is checked, the Wi-Fi offload dependencies (unused here) are warnings, and the delegator
-is no longer devm-allocated.
+is no longer devm-allocated. The 5.4 kernel has the same driver in its own tree and the same crash on OpenWrt ("Kernel
+panic - not syncing: CFI failure (target: 0x0)" in `dele-4-5`, caught while testing v2026.09.29); it gets the same
+fix as `kernel/patches/sipa-delegate-einprogress.patch`.
 
 ### 31g. Three warnings on every boot, three vendor bugs
 6.18 printed three `WARNING:`s on every boot; each one is a bug in the vendor drivers:
