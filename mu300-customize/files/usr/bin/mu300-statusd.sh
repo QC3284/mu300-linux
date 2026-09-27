@@ -169,5 +169,19 @@ while :; do
     touch /var/run/mu300-netmode.applied
   fi
 
+  # ---- 每 5 分钟采集 WiFi 信息(供网页 WiFi 面板)----
+  WT=$(date +%s)
+  WLT=$(cat /var/run/mu300-wifi.ts 2>/dev/null)
+  WLT=$((WLT+0))
+  if [ $((WT - WLT)) -ge 300 ]; then
+    date +%s > /var/run/mu300-wifi.ts
+    ( WD=$(uci get wireless.radio0.disabled 2>/dev/null)
+      WS=$(uci get wireless.ap0.ssid 2>/dev/null)
+      WC=$(uci get wireless.radio0.channel 2>/dev/null)
+      WB=$(uci get wireless.radio0.band 2>/dev/null)
+      printf '{"disabled":"%s","ssid":"%s","channel":"%s","band":"%s"}
+' "$WD" "$WS" "$WC" "$WB" > /tmp/mu300-wifi.json ) &
+  fi
+
   sleep 4
 done

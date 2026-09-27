@@ -296,6 +296,16 @@ function run(pi, qs, auth) {
 			jreply({ result: 'success' });
 			return;
 		}
+		if (gid == 'switchWiFiModule' || gid == 'switchWiFiChip') {
+			let want = '0';
+			if (gid == 'switchWiFiChip') { want = '1'; }
+			else if (P['SwitchOption'] == '1' || P['SwitchOption'] == 1) { want = '1'; }
+			let disv = (want == '1') ? '0' : '1';
+			let cmd = sprintf('uci set wireless.radio0.disabled=%s; uci commit wireless; (sleep 1; wifi reload) >/dev/null 2>&1 &', disv);
+			try { fs.popen(cmd, 'r'); } catch (e) { }
+			jreply({ result: 'success' });
+			return;
+		}
 		if (gid == 'INDICATOR_LIGHT_SETTING') {
 			// 指示灯开关:关灯要同时清 trigger + brightness(只停守护 LED 会停在最后亮度 ✗)
 			let onled = (P['indicator_light_switch'] == '1');
@@ -520,6 +530,18 @@ function run(pi, qs, auth) {
 				let ledrun = '';
 				try { ledrun = trim(fs.popen('pidof mu300-led 2>/dev/null || ps w | grep -c "[m]u300-led.sh"', 'r').read('all') || ''); } catch (e) { }
 				o[c] = (ledrun != '' && ledrun != '0') ? '1' : '0';
+			}
+			else if (c == 'queryWiFiModuleSwitch') {
+				let dis = '';
+				try { dis = trim(fs.popen('uci get wireless.radio0.disabled 2>/dev/null', 'r').read('all') || ''); } catch (e) { }
+				o[c] = (dis == '1') ? '0' : '1';
+			}
+			else if (c == 'queryAccessPointInfo') {
+				// ★ 前端要真数组(.length/.forEach)✗ 不能给字符串
+				let r0 = {};
+				try { r0 = rj('/tmp/mu300-wifi.json'); } catch (e) { r0 = {}; }
+				o[c] = [ { ChipIndex: '0', AccessPointSwitchStatus: (r0.disabled == '1') ? '0' : '1',
+					Ssid: r0.ssid || '', Channel: r0.channel || '', Band: r0.band || '', WorkMode: '0' } ];
 			}
 			else if (c == 'samba_switch') {
 				let smbrun = '';
