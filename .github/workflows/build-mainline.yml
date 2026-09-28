@@ -67,7 +67,8 @@ jobs:
         run: |
           set -eu
           upstream/make-bundle.sh "$PWD/mu300-kernel-6.18-qc.tar.gz" /tmp/ref-5.4.tar.gz
-          python3 upstream/wrap-image.py upstream/out/Image upstream/out/Image.lk
+          # upstream/out 是 docker 里 root 建的,跳板必须写到 runner 自己的目录
+          python3 upstream/wrap-image.py upstream/out/Image "$PWD/Image.lk"
           krel=$(cat /dev/null; strings upstream/out/Image | sed -n 's/^Linux version \([^ ]*\) .*/\1/p' | head -1)
           {
             echo "team:      zte-f50 / t10(A 全换主线 + D 试验槽)"
@@ -75,13 +76,13 @@ jobs:
             echo "kernel:    $KV   release=$krel"
             echo "built:     $(date -u +%FT%TZ)   runner=$(uname -m)/$(nproc)cpu"
             echo "bundle:    mu300-kernel-6.18-qc.tar.gz ($(wc -c < mu300-kernel-6.18-qc.tar.gz) bytes)"
-            echo "Image.lk:  $(wc -c < upstream/out/Image.lk) bytes"
+            echo "Image.lk:  $(wc -c < Image.lk) bytes"
             echo "modules:   $(ls upstream/out/modules/*.ko | wc -l) 个"
             (cd upstream/out/modules && for f in *.ko; do
                printf '  %-26s %s\n' "$f" "$(strings "$f" | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)"; done)
             echo "modules.builtin: $(wc -l < upstream/out/modules.builtin) 行"
           } > MANIFEST.txt
-          sha256sum mu300-kernel-6.18-qc.tar.gz upstream/out/Image upstream/out/Image.lk > SHA256SUMS
+          sha256sum mu300-kernel-6.18-qc.tar.gz upstream/out/Image Image.lk > SHA256SUMS
           cat MANIFEST.txt; cat SHA256SUMS
       - name: 失败时给出构建日志尾部
         if: failure()
@@ -95,7 +96,7 @@ jobs:
             MANIFEST.txt
             SHA256SUMS
             upstream/out/Image
-            upstream/out/Image.lk
+            Image.lk
             upstream/out/modules/*.ko
             upstream/out/modules.builtin
             upstream/out/modules.builtin.modinfo
@@ -138,8 +139,8 @@ jobs:
         run: |
           set -eu
           upstream/make-bundle.sh "$PWD/mu300-kernel-6.18-qc-cross.tar.gz" /tmp/ref-5.4.tar.gz
-          python3 upstream/wrap-image.py upstream/out/Image upstream/out/Image.lk
-          sha256sum mu300-kernel-6.18-qc-cross.tar.gz upstream/out/Image upstream/out/Image.lk > SHA256SUMS
+          python3 upstream/wrap-image.py upstream/out/Image "$PWD/Image.lk"
+          sha256sum mu300-kernel-6.18-qc-cross.tar.gz upstream/out/Image Image.lk > SHA256SUMS
           cat SHA256SUMS
       - name: 失败时给出构建日志尾部
         if: failure()
@@ -151,7 +152,7 @@ jobs:
             mu300-kernel-6.18-qc-cross.tar.gz
             SHA256SUMS
             upstream/out/Image
-            upstream/out/Image.lk
+            Image.lk
             upstream/out/modules/*.ko
           if-no-files-found: error
           retention-days: 30
