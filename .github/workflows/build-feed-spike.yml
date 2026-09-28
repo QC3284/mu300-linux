@@ -11,25 +11,20 @@ name: feed spike (ImmortalWrt master + our external kernel tree)
 #   include/kernel.mk:132    外部树时不再强加 KERNELRELEASE=$(LINUX_VERSION)
 # 所以:我们的树必须【在树内(in-tree)】构建过,带 .config / include/config/kernel.release / Module.symvers。
 
+# 触发:GitHub 的 workflow_dispatch 只认【默认分支】上的工作流,所以这里用 push 触发本分支;
+# 模式(stage1 / allkmods)从仓库里的一个小文件读,切换模式 = 改文件再 push(可追溯、可复现)。
 on:
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: 'stage1 = 12 个代表 kmod;allkmods = CONFIG_ALL_KMODS 全量'
-        default: 'stage1'
-        type: choice
-        options: [stage1, allkmods]
-      kv:
-        description: 'kernel version'
-        default: '6.18.52'
+  push:
+    branches: [qc/feed-ci]
+  workflow_dispatch:      # 默认分支上若有同名文件,也可以手动触发并传参
 
 jobs:
   spike:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 300
     env:
-      KV: ${{ github.event.inputs.kv || '6.18.52' }}
-      MODE: ${{ github.event.inputs.mode || 'stage1' }}
+      KV: 6.18.52
+      MODE_FILE: .github/feed-spike-mode
       IW: /work/immortalwrt
       KTREE: /work/kernel/linux-6.18.52
       NUM: /work/NUMBERS.txt
@@ -38,6 +33,9 @@ jobs:
       - name: 环境与磁盘(开始)
         run: |
           set -x
+          MODE=$(cat "$MODE_FILE" 2>/dev/null || echo stage1)
+          MODE=$(echo "$MODE" | tr -d '[:space:]')
+          echo "MODE=$MODE" >> "$GITHUB_ENV"
           echo "arch=$(uname -m) cpus=$(nproc) mode=$MODE kv=$KV"
           df -h /; free -m | head -2
           mkdir -p /work && echo "SPIKE-STAGE: env done $(date -u +%FT%TZ)" | tee -a $NUM
