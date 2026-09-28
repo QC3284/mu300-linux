@@ -108,7 +108,7 @@ jobs:
           echo "  buildroot head = $(git rev-parse --short HEAD)" | tee -a "$NUM"
           grep -o 'LINUX_VERSION-6.18 = .*' target/linux/generic/kernel-6.18 | tee -a "$NUM" || true
           T1=$(date +%s); echo "SPIKE-STAGE: buildroot cloned in $((T1-T0))s du=$(du -sh "$IW" | cut -f1)" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "buildroot-cloned-in-T1-T0-s-du=-du--sh"
+          sh "$WORK/beacon.sh" "stage2-done clone elapsed=$((T1-T0))s du=$(du -sh "$IW" | cut -f1)"
       - name: "阶段1:准备我们的内核树(树内构建,供 external tree 使用)"
         id: stage1
         run: |
@@ -126,19 +126,28 @@ jobs:
             elif patch -p1 -R -s -f --dry-run < "$p" >/dev/null 2>&1; then :
             else echo "patch does not apply to $KV: $p" >&2; exit 1; fi
           done
-          # ★ 关键:OpenWrt 的 generic hack 补丁(hack-6.18/*)必须叠到外部树上 —— 否则任何依赖这些
-          # 补丁的出树包都编不过(run 36430322980:gpio-button-hotplug 缺 broadcast_uevent(),
-          # 该符号由 target/linux/generic/hack-6.18/911-kobject_add_broadcast_uevent.patch 提供)。
-          # 非致命:逐个尝试,统计成功/失败,失败的不影响本阶段(便于先拿到验证点 a/b)。
-          hp_ok=0; hp_no=0; hp_list=
+          # ★ 但只叠【白名单】里的 hack:全量叠加会踩到引用了 OpenWrt target 专有文件的补丁
+          #   (run 36457544020 实测:drivers/net/phy/Kconfig:113 引用了不存在于我们树里的
+          #    drivers/net/phy/b53/Kconfig ⇒ make allnoconfig 直接 Error 1)。
+          #   其余补丁只做 dry-run 统计(报告用,便于产品化时决定要带哪些),不实际应用。
+          HACK_WHITELIST="911-kobject_add_broadcast_uevent.patch"
+          hp_ok=0; hp_no=0; hp_dry=0; ok_list=; no_list=; dry_list=
           for hp in "$IW"/target/linux/generic/hack-6.18/*.patch; do
             [ -f "$hp" ] || continue
-            if patch -p1 -N -s --batch --forward < "$hp" >/dev/null 2>&1; then hp_ok=$((hp_ok+1)); else hp_no=$((hp_no+1)); hp_list="$hp_list $(basename "$hp")"; fi
+            b=$(basename "$hp"); keep=0
+            for w in $HACK_WHITELIST; do if [ "$b" = "$w" ]; then keep=1; fi; done
+            if [ "$keep" = 1 ]; then
+              if patch -p1 -N -s --batch --forward < "$hp" >/dev/null 2>&1; then hp_ok=$((hp_ok+1)); ok_list="$ok_list $b"; else hp_no=$((hp_no+1)); no_list="$no_list $b"; fi
+            else
+              if patch -p1 -N -s --batch --forward --dry-run < "$hp" >/dev/null 2>&1; then hp_dry=$((hp_dry+1)); dry_list="$dry_list $b"; fi
+            fi
           done
-          echo "  OpenWrt hack 补丁:应用 $hp_ok 个,未应用 $hp_no 个" | tee -a "$NUM"
-          [ -n "$hp_list" ] && echo "  未应用的:$hp_list" | tee -a "$NUM"
-          if grep -q 'broadcast_uevent' include/linux/kobject.h; then
-            echo "  验证:kobject.h 里已有 broadcast_uevent ✓(gpio-button-hotplug 这类包可以编了)" | tee -a "$NUM"
+          echo "  hack 白名单:应用 $hp_ok 个 ; 失败 $hp_no 个" | tee -a "$NUM"
+          if [ -n "$ok_list" ]; then echo "  已应用:$ok_list" | tee -a "$NUM"; fi
+          if [ -n "$no_list" ]; then echo "  白名单内失败:$no_list" | tee -a "$NUM"; fi
+          echo "  其余 dry-run 可干净应用的 $hp_dry 个(未应用,报告用)" | tee -a "$NUM"
+          if grep -q "broadcast_uevent" include/linux/kobject.h; then
+            echo "  验证:kobject.h 里已有 broadcast_uevent ✓" | tee -a "$NUM"
           else
             echo "  ⚠ 验证:kobject.h 里仍没有 broadcast_uevent(911 补丁没打上)" | tee -a "$NUM"
           fi
@@ -164,7 +173,7 @@ jobs:
             [ -f "$k" ] && printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a "$NUM"
           done
           T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "tree-built-in-T1-T0-s-du=-du--sh"
+          sh "$WORK/beacon.sh" "stage1-done tree-built elapsed=$((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)"
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段3:buildroot 配置(armsr/armv8 + DEVEL + external tree + 选包)"
         id: stage3
@@ -209,7 +218,7 @@ jobs:
           make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
           Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "host-tools-in-Tt-T0-s"
+          sh "$WORK/beacon.sh" "stage4-done tools/install elapsed=$((Tt-T0))s"
           # 上一轮(run 36420475944)教训:直接 package/kernel/linux/compile 时,package/libs/toolchain 打包
           # libgcc1-*.apk 会因为 staging_dir/toolchain-*/lib/libgcc_s.so.* 不存在而失败 ⇒ 必须先把【完整工具链】
           # 建出来(make toolchain/install),再编内核与 kmod。
@@ -229,7 +238,7 @@ jobs:
           sh "$WORK/beacon.sh" "stage4-start package/index"
           make -j"$(nproc)" package/index V=s >> "$WORK/buildroot.log" 2>&1 || { echo "SPIKE-FAILED-AT: package/index" | tee -a "$NUM"; tail -30 "$WORK/buildroot.log"; exit 1; }
           T2=$(date +%s); echo "SPIKE-STAGE: index in $((T2-T1))s" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "index-in-T2-T1-s"
+          sh "$WORK/beacon.sh" "stage4-done package/index elapsed=$((T2-T1))s"
           du -sh bin build_dir staging_dir dl 2>/dev/null | tee -a "$NUM" || true
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段5:收集 feed + 关键验证点"
