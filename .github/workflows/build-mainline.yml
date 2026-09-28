@@ -33,7 +33,11 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 240
     env:
-      KV: ${{ github.event.inputs.kv || '6.18.54' }}
+      # 6.18.52 = ImmortalWrt armsr 6.18 的版本(target/linux/generic/kernel-6.18: LINUX_VERSION-6.18 = .52)。
+      # 伪装试验要的就是同版同指纹:官方 kmod 的依赖串是 kernel=6.18.52~2e107f3f74eefa4459193e9332551c74-r1,
+      # 模块也装到 /lib/modules/6.18.52/。临时要别的版本仍可用 workflow_dispatch 的 kv 输入。
+      # upstream/build.sh 保持上游原样(它只从 env 读 KV,默认值用不到,少一个与上游的差异点)。
+      KV: ${{ github.event.inputs.kv || '6.18.52' }}
     steps:
       - uses: actions/checkout@v4
       - name: 环境与磁盘(开始)
@@ -117,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
-      KV: ${{ github.event.inputs.kv || '6.18.54' }}
+      KV: ${{ github.event.inputs.kv || '6.18.52' }}
       CROSS_COMPILE: aarch64-linux-gnu-
     steps:
       - uses: actions/checkout@v4
