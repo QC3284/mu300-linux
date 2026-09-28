@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-import pathlib
-p = pathlib.Path('/tmp/initramfs-live/init')
+# 对【现役】init 施加 6 处改动(见 README「补丁做了哪 6 件事」)。
+# 结果应与 boot/rescue/init-rescue(= 现役 v5 镜像里的 init)逐字节相同:
+#   sha256 36b210be4927c635a9db13e753970bd0a893d1af1b611ac214704d95fe61fbbd
+# 用法: patch-init.py [init 路径]      默认 /tmp/initramfs-live/init(README 流程用的路径)
+import pathlib, sys
+p = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '/tmp/initramfs-live/init')
 t = p.read_text()
 orig = t
 n = 0
@@ -68,6 +72,27 @@ if old3 in t:
     t = t.replace(old3, new3, 1); n += 1
 else:
     print('!! 3 no match')
+
+# ④ PATH 里没有 /usr/bin、/usr/sbin —— 而 sd-restore 在 /usr/bin,e2fsck/mke2fs 在 /usr/sbin。
+#   2026-09-28 真实演练时发现:不补 PATH,救援模式里敲 sd-restore 直接 "not found"。
+old4 = 'export PATH=/bin:/sbin HOME=/root TERM=vt100'
+if old4 in t:
+    t = t.replace(old4, 'export PATH=/bin:/sbin:/usr/bin:/usr/sbin HOME=/root TERM=vt100', 1)
+    n += 1
+else:
+    print('!! 4 no match')
+
+# ⑤ 救援自诊断块写在 /run/www/index.html,但原版 init 之后会用首页覆盖它 —— 白写。
+#   改成写自己的 rescue.txt,再追加进首页(2026-09-28 真实演练时发现)。
+old5 = '} > /run/www/index.html 2>/dev/null\ncat /run/www/index.html > /dev/kmsg 2>/dev/null'
+if old5 in t:
+    new5 = ('} > /run/www/rescue.txt 2>/dev/null\n'
+            'cat /run/www/rescue.txt >> /run/www/index.html 2>/dev/null\n'
+            'cat /run/www/rescue.txt > /dev/kmsg 2>/dev/null')
+    t = t.replace(old5, new5, 1)
+    n += 1
+else:
+    print('!! 5 no match')
 
 p.write_text(t)
 print('changed:', n, 'places; lines', len(orig.split(chr(10))), '->', len(t.split(chr(10))))

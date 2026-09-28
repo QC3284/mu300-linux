@@ -7,10 +7,11 @@
 
 | 文件 | 说明 |
 |---|---|
-| `init-rescue` | 打了补丁的 init(基于**现役** boot_b 提取的 339 行版 → 378 行) |
+| `init-rescue` | 打了补丁的 init(基于**现役** boot_b 提取的 339 行版 → 379 行)= **现役 v5 镜像里那份** |
 | `sd-restore` | 从 SD 卡一键恢复 rootfs 的脚本(放进 initramfs 的 /usr/bin/) |
-| `patch-init.py` | 补丁脚本(对现役 init 施加 4 处改动) |
-| `build-rescue-img.py` | 把改好的 ramdisk 装回 boot 镜像 |
+| `patch-init.py` | 补丁脚本(对现役 init 施加 6 处改动;结果与 `init-rescue` 逐字节相同) |
+| `build-rescue-img.py` | 把改好的 ramdisk 装回 boot 镜像(路径写死在文件开头,按需改) |
+| `compare-ramdisk.py` | **重建复核工具**:按「数据段」比对两个 ramdisk/boot 镜像,忽略 cpio 元数据差异 |
 | `test-rescue.sh` | **零风险**实测脚本(在设备上 chroot 跑,只碰 /tmp) |
 | `README.md` | 本文件 |
 
@@ -56,7 +57,7 @@ Error relocating /usr/lib/libblkid.so.1: __subtf3: symbol not found
 Error relocating /usr/lib/libblkid.so.1: __floatditf: symbol not found
 ```
 
-## 补丁做了哪 4 件事
+## 补丁做了哪 6 件事
 
 1. **提高 loglevel** —— 设备 cmdline 是 `loglevel=1`,以前串口/dmesg 什么都看不到;
    现在早期就 `echo 7 > /proc/sys/kernel/printk`
@@ -65,6 +66,11 @@ Error relocating /usr/lib/libblkid.so.1: __floatditf: symbol not found
 3. **故障自诊断** —— 打印分区/大小/魔数/fsck日志/挂载错误 + 4 条救援办法,
    并写进 `http://192.168.77.1` 的救援首页
 4. **sd-restore** —— 从 SD 卡 `/f50-backup/` 一键恢复 rootfs
+5. **PATH 补全** —— 原版 init 是 `PATH=/bin:/sbin`,而 `sd-restore` 在 `/usr/bin`、
+   `e2fsck`/`mke2fs` 在 `/usr/sbin`。**不补 PATH,救援时敲 `sd-restore` 直接 "not found"**
+   (2026-09-28 真实演练时踩到,当年写在临时脚本 `fix_bugs_v3.py` 里,现已并回本目录)
+6. **救援诊断页不被覆盖** —— 第 3 条的诊断块原来写 `/run/www/index.html`,
+   但原版 init 之后会用首页覆盖它 —— 等于白写。现在先写 `/run/www/rescue.txt` 再追加进首页
 
 ## 怎么做新镜像
 
@@ -83,16 +89,31 @@ pathlib.Path('/tmp/ramdisk.lz4').write_bytes(d[ro:ro+rs])
 print('ramdisk 偏移', ro, '大小', rs)
 EOF
 lz4 -d -f /tmp/ramdisk.lz4 /tmp/ramdisk.cpio
-mkdir -p work && cd work && cpio -idm --quiet < /tmp/ramdisk.cpio
+mkdir -p work
+
+# ★ 解包必须用 sudo ★ 现役归档里有 dev/console(crw------- root:root 5,1);
+#   普通用户解包会「mknod: 不允许的操作」,节点直接缺失(cpio 退出码 2)
+sudo sh -c 'cd work && cpio -idm --quiet < /tmp/ramdisk.cpio'
 
 # ③ 放 e2fs 工具(见上面清单)到 work/lib、work/usr/lib、work/usr/sbin
-# ④ 把 sd-restore 放到 work/usr/bin/ 并 chmod 755
-# ⑤ 施加 init 补丁
-python3 patch-init.py work/init
+sudo cp -a initramfs-extra/. work/                 # 套件在 mu300-work/initramfs-extra/
+sudo chown -R "$USER":"$USER" work                 # 现役归档属主 = 1000:1000
+sudo chown root:root work/dev/console              # 只有 dev/console 是 root:root(与现役一致)
 
-# ⑥ 重新打包(root 权限,保证设备节点)
-sudo sh -c 'cd work && find . | cpio -o -H newc --quiet > /tmp/new.cpio'
+# ④ ★ 先建 /usr/bin ★ 现役 ramdisk 里根本没有 /usr 目录,不建这步会 cp 失败(以前漏写了)
+sudo mkdir -p work/usr/bin
+sudo cp sd-restore work/usr/bin/ && sudo chmod 755 work/usr/bin/sd-restore
+
+# ⑤ 施加 init 补丁(6 处);结果应与 init-rescue 逐字节相同
+python3 patch-init.py work/init
+sha256sum work/init   # 现役 v5 = 36b210be4927c635a9db13e753970bd0a893d1af1b611ac214704d95fe61fbbd
+
+# ⑥ 重新打包
+#   ★ 不要用 sudo 打包 ★ 以 root 打包会把所有条目属主写成 root(现役是 1000:1000),
+#   设备节点在 ② 已经拿到了。lz4 用 -l -12(legacy 格式 + 最高压缩,与现役一致)
+sh -c 'cd work && find . | cpio -o -H newc --quiet > /tmp/new.cpio'
 lz4 -l -12 -c /tmp/new.cpio > /tmp/new.ramdisk.lz4
+sha256sum /tmp/new.ramdisk.lz4   # ★ 不会等于现役,属正常 —— 见下一节
 
 # ⑦ 装回镜像(更新头部的 ramdisk_size!)
 python3 build-rescue-img.py
@@ -100,6 +121,52 @@ python3 build-rescue-img.py
 # ⑧ ★ 先测再刷 ★
 #    见 test-rescue.sh
 ```
+
+### ③b 没有 root 怎么办(fakeroot「保状态」法)
+
+非 root 造不出真的字符设备节点,但可以让 fakeroot 把「这个文件是 c 5,1」记进状态文件,
+打包时再读回来:
+
+```sh
+FR=/tmp/fakeroot.state
+fakeroot -s $FR -- sh -c 'cd work && cpio -idm --quiet < /tmp/ramdisk.cpio'   # 代替 ② 里的 sudo 解包
+# ③ ④ ⑤ 照做(③④ 不用 sudo,文件属主就是你自己)
+fakeroot -i $FR -s $FR -- sh -c 'cd work && find . | cpio -o -H newc --quiet > /tmp/new.cpio'   # 代替 ⑥
+```
+
+代价:这样打出来的包,**所有条目 uid/gid 都是 0**(现役是 1000:1000)。功能上无影响
+(内核解包时一律按 root 处理),只影响 sha256。
+2026-09-28 实测:用这条路径重建出的包,`compare-ramdisk.py` 报告 `数据段不一致条目数: 0`。
+
+## ★ 为什么重建出的镜像 sha256 和现役不一样(打包不确定性)
+
+GNU cpio 的 newc 归档头里带着**宿主文件系统**的痕迹,它们每次都不一样:
+
+| 字段 | 是什么 | 现役 v5 实测 |
+|---|---|---|
+| `ino` | inode 号(tmpfs 全局自增,每次解包都不同) | 0..6809;重建时 525 条都不同 |
+| `st_dev` | 归档来源文件系统的 dev | `0,43`(同一台机器换一次启动就变成 `0,44`) |
+| `mtime` | 解包/新建目录的时间(= 重建时刻) | 28 条不同 |
+| 条目顺序 | `find` 走的是 tmpfs readdir 顺序 | 现役 `usr` 排在 `lib` 前 |
+| 名称前缀 | `find . \| cpio` 会写出 `./usr/...` | 现役无前缀,打包后大 887 字节 |
+| `dev/console` | 非 root 解不出字符设备 | `crw------- root:root 5,1` |
+
+实测(2026-09-28,同一台机器、同一输入、同一条流程**连跑两次**):
+
+```
+526 个条目的【数据段】完全相同,但 ino 差 525 条、mtime 差 24 条 → 两次镜像的 sha256 不同
+```
+
+**所以「sha256 是否等于现役」不是有效的验收标准**,有效的是「数据段是否一致」:
+
+```sh
+python3 compare-ramdisk.py bootb-rescue5.img /tmp/new-bootb-rescue.img
+#   数据段不一致条目数: 0   → 重建内容正确(元数据差异会列出来,但不算失败)
+#   退出码 0 = 通过;1 = 有条目缺失 / 内容不同
+```
+
+要**逐字节**复现,得把这些字段也钉死 —— 把参考归档的头部元数据套回重建出来的数据上(「归一化」)。
+2026-09-28 的复现就是这么做,最终得到与现役**逐字节相同**的 `sha256 718e0fbb…`。
 
 ## 刷写(boot_b)
 
@@ -160,6 +227,17 @@ boot_b 内部分三段:
 
 ## 版本
 
+- **v5(2026-09-28 02:13)—— 现役**,`sha256 718e0fbb442b50d968d79c2cb6764b2f607a7bd69a311a22905b65caffe5ffb7`
+  ramdisk 9,240,458 字节;init 补丁 6 处(与本目录 `init-rescue` 逐字节相同);sd-restore 全部动态化(不写死 SD 卡 UUID/设备名)
+- v4 / v3 —— 救援调试的中间版(`mu300-work/bootb-rescue4.img` / `bootb-rescue3.img`)
 - v2(2026-09-28 01:0x)—— `sha256 26d581741e8260268d6045865f5518db339fd77bf254c294d4dea3ce876df829`
   ramdisk 9,240,019 字节,含 libgcc_s(修复 v1 的致命缺陷)
 - v1 —— 9,179,105 字节,**缺 libgcc_s,已废弃**
+
+## 变更记录
+
+- 2026-09-28(**本次**):把当年临时脚本 `fix_bugs_v3.py` 的两处修复并进 `patch-init.py`
+  (PATH 补 `/usr/bin:/usr/sbin`、救援诊断页改用 `rescue.txt`);README 补 `sudo` 解包、
+  `mkdir -p work/usr/bin`、`dev/console` 与「打包不确定性」说明;新增 `compare-ramdisk.py`。
+  依据:t5 字节级复现报告(重建 init 与现役 `36b210be…` 逐字节相同;归一化后整镜像与现役 `718e0fbb…` 逐字节相同)。
+- 2026-09-28:sd-restore 全部动态化(不写死 SD 卡 UUID / 设备名),即现役 v5。
