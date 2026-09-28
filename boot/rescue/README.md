@@ -196,13 +196,30 @@ rootfs      = fulldumpdb 分区 = /dev/mmcblk0p54  (LBA 7841792,2 GB)
 /misc       = /dev/mmcblk0p3   (1 MB)
 userdata    = /dev/mmcblk0p75
 
-boot_b 内部分三段:
+```
+
+boot_b 的【设计】分三段:
+```
   0-39 MB   镜像本体(内核 28 MB + ramdisk)
   39-48 MB  AVB 数据
   48-64 MB  ★ 8 MB 持久日志区(init 写的,比 pstore 更耐断电)★
-
-所以 boot_b 的分区内容 ≠ 单纯的镜像文件 —— 对比时要分段算 sha256。
 ```
+
+★ 注意:上面是【设计】,下面是【备份镜像文件】的实测 —— 别混为一谈 ★
+
+实测(2026-09-28 逐字节扫描 `bootb-live.img` 与现役 `bootb-rescue5.img` 两份 64 MB 文件):
+```
+  0 - 35.90 MB   镜像本体:kernel 28,400,128 + ramdisk
+                 (现役 v5 的 ramdisk 到 35.902 MB;bootb-live 那份到 34.935 MB),之后到 48 MB 全是零
+  39 - 48 MB     9,437,184 字节【逐字节全零】—— 这两份文件里没有 AVB 数据
+                 (设计上这段是 AVB;实测对象只是这两份镜像文件,不能据此断言设备分区里也没有 AVB)
+  48 - 64 MB     持久日志区:首行 MU300-PERSIST-BEGIN uptime=377.42 (early-recor…
+                 非零数据集中在 48.000-48.693 MB(726,269 字节)与 48.781-49.007 MB(237,280 字节),
+                 文件末尾另有 35 字节,其余为零
+                 —— 现役救援镜像里这段是 bootb-live(9/27 22:10 dump)旧日志的原样拷贝
+```
+
+所以 boot_b 的分区内容 ≠ 单纯的镜像文件 —— 对比时要分段算 sha256(镜像本体 / 39-48MB / 48-64MB)。
 
 ## ★ 救援能力实测(chroot 法,零风险)
 
@@ -236,7 +253,9 @@ boot_b 内部分三段:
 
 ## 变更记录
 
-- 2026-09-28(**本次**):把当年临时脚本 `fix_bugs_v3.py` 的两处修复并进 `patch-init.py`
+- 2026-09-28(**本次**):「关键设备布局」区分为【设计三段】与【备份镜像文件实测】,更正 39-48 MB 的 AVB 说法
+  —— 实测两份 64 MB 镜像该段逐字节全零(9,437,184 字节里 0 个非零);并写明 48-64 MB 日志段非零数据的实际分布。
+- 2026-09-28(提交 `0da6ad0`):把当年临时脚本 `fix_bugs_v3.py` 的两处修复并进 `patch-init.py`
   (PATH 补 `/usr/bin:/usr/sbin`、救援诊断页改用 `rescue.txt`);README 补 `sudo` 解包、
   `mkdir -p work/usr/bin`、`dev/console` 与「打包不确定性」说明;新增 `compare-ramdisk.py`。
   依据:t5 字节级复现报告(重建 init 与现役 `36b210be…` 逐字节相同;归一化后整镜像与现役 `718e0fbb…` 逐字节相同)。
