@@ -125,6 +125,11 @@ jobs:
           cd "$IW"
           T0=$(date +%s)
           df -h "$WORK" | tail -1 | tee -a "$NUM"
+          # 上一轮教训:buildroot 生成签名密钥要用它自己的 host openssl(package/Makefile:78),
+          # 而 host 工具默认不编 ⇒ 必须先把 tools 装上(Error 127 / private-key.pem)。
+          make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
+            echo "SPIKE-FAILED-AT: tools/install"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
+          Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
           make -j"$(nproc)" package/kernel/linux/compile V=s > "$WORK/buildroot.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: package/kernel/linux/compile"; tail -60 "$WORK/buildroot.log"
             grep -n -E 'Error [0-9]|error:|ERROR|No rule to make target' "$WORK/buildroot.log" | head -30 || true; exit 1; }
