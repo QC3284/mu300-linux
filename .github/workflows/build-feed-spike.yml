@@ -44,7 +44,7 @@ jobs:
           echo "arch=$(uname -m) cpus=$(nproc) mode=$MODE kv=$KV" | tee -a "$NUM"
           df -h "$WORK" | tail -1 | tee -a "$NUM"; free -m | head -2 | tee -a "$NUM"
           echo "SPIKE-STAGE: env done $(date -u +%FT%TZ)" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "env-done-date--u-FT-TZ"
+          # 注意:这一步里还不能调 beacon.sh(它在下一步"信标初始化"里才生成)
       - name: 信标初始化(开工 + 进度 + 5 分钟心跳)
         # 三个文件都在同一分支:
         #   LAST-START.txt   本 run 的开始(mode/commit/时间)
@@ -297,7 +297,7 @@ jobs:
           mkdir -p feed-spike && cp "$OUT" feed-spike/LAST-RUN.txt
           git add feed-spike/LAST-RUN.txt
           git commit -q -m "feed-spike status: run $GITHUB_RUN_ID (${{ job.status }})"
-          git remote add origin "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git"
+          # origin 已由上面的 clone 带好(含 token),不要再 add(否则 remote origin already exists → exit 3)
           if git push -q -f origin "HEAD:$STATUS_BRANCH"; then
             echo "信标已推送:$STATUS_BRANCH/feed-spike/LAST-RUN.txt"
           else
