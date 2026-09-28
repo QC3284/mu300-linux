@@ -1,0 +1,4 @@
+官方整份 sha256sums 的 sha256 = de37cd4f4509a08bbf6665487e3aee112b7e29f6e77d0f26b29f0c690c6c45f4
+官方整份 sha256sums 大小 = 201333 字节
+原始 URL = https://downloads.immortalwrt.org/snapshots/targets/armsr/armv8/sha256sums
+本镜像是从中抽出与本镜像 7 个文件对应的条目(见同目录 SHA256SUMS)
