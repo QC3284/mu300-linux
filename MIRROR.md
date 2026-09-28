@@ -39,17 +39,19 @@ kmods feed: <前缀>/kmods/6.18.52-1-2e107f3f74eefa4459193e9332551c74/packages.a
 
 ## 4. 设备侧 feed 样例(mu300-spoof.list)
 
-把 COMMIT 换成 qc/kmod-mirror 的提交号(不可变):
+**数据提交(pin 这个)= 3d07682f3df21348c47a8236a250efa1b0cce95c**(qc/kmod-mirror;本文件以后再更新,feed 仍指向这个数据提交):
 ~~~text
-https://raw.githubusercontent.com/QC3284/mu300-linux/COMMIT/snapshots/targets/armsr/armv8/packages/packages.adb
-https://raw.githubusercontent.com/QC3284/mu300-linux/COMMIT/snapshots/targets/armsr/armv8/kmods/6.18.52-1-2e107f3f74eefa4459193e9332551c74/packages.adb
+https://raw.githubusercontent.com/QC3284/mu300-linux/3d07682f3df21348c47a8236a250efa1b0cce95c/snapshots/targets/armsr/armv8/packages/packages.adb
+https://raw.githubusercontent.com/QC3284/mu300-linux/3d07682f3df21348c47a8236a250efa1b0cce95c/snapshots/targets/armsr/armv8/kmods/6.18.52-1-2e107f3f74eefa4459193e9332551c74/packages.adb
 ~~~
+★ 已实测:从 raw(该 commit)抓 packages.adb / kernel apk / kmods 的 packages.adb 三个文件,sha256 与官方**逐字节相同**;
+  并在容器里把上面两行当 apk 仓库跑通:apk update OK,apk search -x 能看到 kernel-6.18.52~…-r1 与 kmod-nf-nat / kmod-nf-nathelper / kmod-pppoe / kmod-tun。
 ★ apk v3 的 repositories 行**直接指向 packages.adb**(与设备现有 /etc/apk/repositories.d/*.list 同款)。
 
 ## 5. 安装命令(镜像版,替换 v7/FINAL-v7.md §4 的 ① ② ③)
 
 ~~~sh
-COMMIT=<qc/kmod-mirror 的提交号>
+COMMIT=3d07682f3df21348c47a8236a250efa1b0cce95c   # qc/kmod-mirror 的数据提交(不可变)
 cat > /etc/apk/repositories.d/mu300-spoof.list <<EOF
 https://raw.githubusercontent.com/QC3284/mu300-linux/$COMMIT/snapshots/targets/armsr/armv8/packages/packages.adb
 https://raw.githubusercontent.com/QC3284/mu300-linux/$COMMIT/snapshots/targets/armsr/armv8/kmods/6.18.52-1-2e107f3f74eefa4459193e9332551c74/packages.adb
