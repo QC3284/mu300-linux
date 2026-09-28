@@ -26,6 +26,8 @@ jobs:
       contents: write             # 完成信标要往 qc/spike-status 分支 push
     env:
       KV: 6.18.52
+      STATUS_BRANCH: qc/spike-status
+      GH_TOKEN: ${{ github.token }}
       MODE_FILE: .github/feed-spike-mode
       WORK: ${{ github.workspace }}/work
       IW: ${{ github.workspace }}/work/immortalwrt
@@ -42,12 +44,15 @@ jobs:
           echo "arch=$(uname -m) cpus=$(nproc) mode=$MODE kv=$KV" | tee -a "$NUM"
           df -h "$WORK" | tail -1 | tee -a "$NUM"; free -m | head -2 | tee -a "$NUM"
           echo "SPIKE-STAGE: env done $(date -u +%FT%TZ)" | tee -a "$NUM"
-      - name: 开工信标(started:写 LAST-START.txt —— job 被超时/取消也能看出跑过)
+          sh "$WORK/beacon.sh" "env-done-date--u-FT-TZ"
+      - name: 信标初始化(开工 + 进度 + 5 分钟心跳)
+        # 三个文件都在同一分支:
+        #   LAST-START.txt   本 run 的开始(mode/commit/时间)
+        #   PROGRESS.txt     本 run 的进度,每阶段前后各一行 + 心跳(某阶段 10 分钟无新行 = 疑似卡死)
+        #   LAST-RUN.txt     上一次 run 的完成结果(本次开始时先抓下来保留)
         if: always()
-        env:
-          STATUS_BRANCH: qc/spike-status
         run: |
-          OUT="$GITHUB_WORKSPACE/LAST-START.txt"
+          set -x
           {
             echo "# feed-spike 最近一次 run 的开始"
             echo "run:      $GITHUB_RUN_ID"
@@ -57,19 +62,32 @@ jobs:
             echo "mode:     $MODE"
             echo "kv:       $KV"
             echo "started:  $(date -u +%FT%TZ)"
-          } > "$OUT"
-          cat "$OUT"
-          D=$(mktemp -d)
-          if git clone -q --depth 1 -b "$STATUS_BRANCH" "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git" "$D" 2>/dev/null; then :; else
-            mkdir -p "$D"; cd "$D"; git init -q -b "$STATUS_BRANCH"
-          fi
-          cd "$D"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p feed-spike && cp "$OUT" feed-spike/LAST-START.txt
-          git add feed-spike/LAST-START.txt
-          git commit -q -m "feed-spike start: run $GITHUB_RUN_ID (mode=$MODE)"
-          git push -q origin "HEAD:$STATUS_BRANCH" && echo "开工信标已推送" || echo "★ 开工信标推送失败(不影响 job)"
+          } > "$WORK/LAST-START.txt"
+          curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$STATUS_BRANCH/feed-spike/LAST-RUN.txt" -o "$WORK/LAST-RUN.txt" 2>/dev/null || true
+          {
+            echo "# feed-spike 当前 run 的进度(run $GITHUB_RUN_ID;每阶段前后各一行 + 每 5 分钟一行心跳)"
+            echo "# 读法:https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$STATUS_BRANCH/feed-spike/LAST-PROGRESS.txt"
+          } > "$WORK/LAST-PROGRESS.txt"
+          # 信标小工具(每个阶段前后调它;push 失败只打印一行,绝不影响 job)
+          : > "$WORK/beacon.sh"
+          echo '#!/bin/sh' >> "$WORK/beacon.sh"
+          echo 'echo "[$(date -u +%H:%M:%SZ)] $* (run $GITHUB_RUN_ID)" >> "$WORK/LAST-PROGRESS.txt"' >> "$WORK/beacon.sh"
+          echo 'echo "$*" > "$WORK/STAGE"' >> "$WORK/beacon.sh"
+          echo 'R="$WORK/status-repo"' >> "$WORK/beacon.sh"
+          echo 'mkdir -p "$R/feed-spike"' >> "$WORK/beacon.sh"
+          echo 'for f in LAST-START.txt LAST-RUN.txt LAST-PROGRESS.txt; do [ -f "$WORK/$f" ] && cp "$WORK/$f" "$R/feed-spike/$f"; done' >> "$WORK/beacon.sh"
+          echo 'cd "$R" || exit 0' >> "$WORK/beacon.sh"
+          echo 'if [ ! -d .git ]; then git init -q -b "$STATUS_BRANCH"; git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"; git remote add origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"; fi' >> "$WORK/beacon.sh"
+          echo 'git add -A >/dev/null 2>&1' >> "$WORK/beacon.sh"
+          echo 'git commit -q --amend -m "feed-spike status (run $GITHUB_RUN_ID)" >/dev/null 2>&1 || git commit -q -m "feed-spike status (run $GITHUB_RUN_ID)" >/dev/null 2>&1' >> "$WORK/beacon.sh"
+          echo 'git push -q -f origin "HEAD:$STATUS_BRANCH" >/dev/null 2>&1 && echo "  [beacon] $*" || echo "  [beacon] push failed (ignored): $*"' >> "$WORK/beacon.sh"
+          chmod +x "$WORK/beacon.sh"
+          sh -n "$WORK/beacon.sh" && echo "beacon.sh 语法 OK" || echo "beacon.sh 语法有问题(不阻塞)"
+          # 心跳:每 5 分钟一行,内容=当前阶段(便于区分"卡死"与"只是慢")
+          ( while :; do sleep 300; sh "$WORK/beacon.sh" "heartbeat $(cat "$WORK/STAGE" 2>/dev/null)" >/dev/null 2>&1 || true; done ) &
+          echo $! > "$WORK/heartbeat.pid"
+          # 首推(之后每阶段前后各推一次)
+          sh "$WORK/beacon.sh" "run-start mode=$MODE kv=$KV"
       - name: 构建依赖
         run: |
           set -e
@@ -78,10 +96,12 @@ jobs:
             file wget unzip rsync python3 python3-pip git subversion mercurial bzip2 gzip tar \
             time patch perl cpio curl ca-certificates bc flex bison libssl-dev device-tree-compiler
           echo "SPIKE-STAGE: deps done $(date -u +%FT%TZ)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "deps-done"
       - name: "阶段1:准备我们的内核树(树内构建,供 external tree 使用)"
         id: stage1
         run: |
           set -eo pipefail
+          sh "$WORK/beacon.sh" "stage1-start tree-prep"
           T0=$(date +%s); mkdir -p "$WORK/kernel"; cd "$WORK/kernel"
           base=https://cdn.kernel.org/pub/linux/kernel/v${KV%%.*}.x
           curl -fsSLO "$base/linux-$KV.tar.xz"
@@ -105,6 +125,7 @@ jobs:
           done < "$GITHUB_WORKSPACE/upstream/mu300-mainline.config"
           [ -z "$bad" ] || { printf "config options not taken:$bad\n" >&2; exit 1; }
           echo "SPIKE-STAGE: tree configured $(date -u +%FT%TZ)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "tree-configured"
           make ARCH=arm64 -j"$(nproc)" Image modules > "$WORK/kernel/build.log" 2>&1 || { echo "SPIKE-FAILED-AT: kernel build"; tail -40 "$WORK/kernel/build.log"; exit 1; }
           {
             echo "  kernel.release = $(cat include/config/kernel.release)"
@@ -115,22 +136,26 @@ jobs:
             [ -f "$k" ] && printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a "$NUM"
           done
           T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "tree-built-in-T1-T0-s-du=-du--sh"
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段2:shallow clone ImmortalWrt master"
         id: stage2
         run: |
           set -eo pipefail
           T0=$(date +%s)
+          sh "$WORK/beacon.sh" "stage2-start clone-buildroot"
           git clone --depth 1 --branch master https://github.com/immortalwrt/immortalwrt.git "$IW"
           cd "$IW"
           echo "  buildroot head = $(git rev-parse --short HEAD)" | tee -a "$NUM"
           grep -o 'LINUX_VERSION-6.18 = .*' target/linux/generic/kernel-6.18 | tee -a "$NUM" || true
           T1=$(date +%s); echo "SPIKE-STAGE: buildroot cloned in $((T1-T0))s du=$(du -sh "$IW" | cut -f1)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "buildroot-cloned-in-T1-T0-s-du=-du--sh"
       - name: "阶段3:buildroot 配置(armsr/armv8 + DEVEL + external tree + 选包)"
         id: stage3
         run: |
           set -eo pipefail
           cd "$IW"
+          sh "$WORK/beacon.sh" "stage3-start config"
           make defconfig >/dev/null
           {
             echo 'CONFIG_TARGET_armsr=y'
@@ -152,6 +177,7 @@ jobs:
           grep -E '^CONFIG_PACKAGE_kmod-' .config | tee "$WORK/selected-kmods.txt" | head -40
           echo "  选中 $(wc -l < "$WORK/selected-kmods.txt") 个"
           echo "SPIKE-STAGE: config done $(date -u +%FT%TZ)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "config-done"
       - name: "阶段4:编内核 + kmod 包 + feed 索引(计时/磁盘)"
         id: stage4
         run: |
@@ -161,24 +187,31 @@ jobs:
           df -h "$WORK" | tail -1 | tee -a "$NUM"
           # 上一轮教训:buildroot 生成签名密钥要用它自己的 host openssl(package/Makefile:78),
           # 而 host 工具默认不编 ⇒ 必须先把 tools 装上(Error 127 / private-key.pem)。
+          sh "$WORK/beacon.sh" "stage4-start tools/install"
           make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
           Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "host-tools-in-Tt-T0-s"
           # 上一轮(run 36420475944)教训:直接 package/kernel/linux/compile 时,package/libs/toolchain 打包
           # libgcc1-*.apk 会因为 staging_dir/toolchain-*/lib/libgcc_s.so.* 不存在而失败 ⇒ 必须先把【完整工具链】
           # 建出来(make toolchain/install),再编内核与 kmod。
+          sh "$WORK/beacon.sh" "stage4-start toolchain/install"
           make -j"$(nproc)" toolchain/install V=s > "$WORK/buildroot-toolchain.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: toolchain/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-toolchain.log"; exit 1; }
           Tc=$(date +%s); echo "SPIKE-STAGE: toolchain in $((Tc-Tt))s" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "stage4-start target/linux/compile"
           make -j"$(nproc)" target/linux/compile V=s >> "$WORK/buildroot.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: target/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"; exit 1; }
           Tk=$(date +%s); echo "SPIKE-STAGE: kernel(target/linux) in $((Tk-Tc))s" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "stage4-start package/kernel/linux/compile"
           make -j"$(nproc)" package/kernel/linux/compile V=s > "$WORK/buildroot.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: package/kernel/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"
             grep -n -E 'Error [0-9]|error:|ERROR|No rule to make target' "$WORK/buildroot.log" | head -30 || true; exit 1; }
           T1=$(date +%s); echo "SPIKE-STAGE: kernel+kmods compiled in $((T1-T0))s" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "stage4-start package/index"
           make -j"$(nproc)" package/index V=s >> "$WORK/buildroot.log" 2>&1 || { echo "SPIKE-FAILED-AT: package/index" | tee -a "$NUM"; tail -30 "$WORK/buildroot.log"; exit 1; }
           T2=$(date +%s); echo "SPIKE-STAGE: index in $((T2-T1))s" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "index-in-T2-T1-s"
           du -sh bin build_dir staging_dir dl 2>/dev/null | tee -a "$NUM" || true
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段5:收集 feed + 关键验证点"
@@ -187,6 +220,7 @@ jobs:
           set -e
           cd "$IW"
           {
+          sh "$WORK/beacon.sh" "stage5-start collect-verify"
             echo "=== .apk 总数: $(find bin -name '*.apk' | wc -l)"
             echo "=== index 文件 ==="; find bin -name 'packages.adb' | head -10
             echo "=== 验证 a:kernel 包(版本应为 6.18.52~<我们 config md5>-r1)==="
@@ -199,6 +233,7 @@ jobs:
           echo "=== 验证 c:磁盘 ===" | tee -a "$NUM"
           du -sh build_dir staging_dir dl bin 2>/dev/null | tee -a "$NUM" || true
           echo "SPIKE-STAGE: done $(date -u +%FT%TZ)" | tee -a "$NUM"
+          sh "$WORK/beacon.sh" "done"
       - name: 上传 feed 与数字
         if: always()
         uses: actions/upload-artifact@v4
@@ -225,6 +260,7 @@ jobs:
         env:
           STATUS_BRANCH: qc/spike-status
         run: |
+          kill "$(cat "$WORK/heartbeat.pid" 2>/dev/null)" 2>/dev/null || true   # 先停心跳,免得它把旧内容又推上去
           OUT="$GITHUB_WORKSPACE/LAST-RUN.txt"
           {
             echo "# feed-spike 最近一次 run 的结果"
