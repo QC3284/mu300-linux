@@ -1,0 +1,157 @@
+name: mainline 6.18 kernel + modules + bundle (qc)
+
+# 团队 t10(A 全换主线 + D 试验槽)的构建线:重活全部放 GitHub runner,本机(i5-3230M/2 核)不编译。
+#   1) 用【上游原样的构建环境】(upstream/Dockerfile + build.sh + build-modules.sh)编 mainline 6.18.x:
+#      Image + 全部出树模块(31 个,含 25 个 modem/trusty);
+#   2) 用上游 make-bundle.sh 打成与官方 release 同格式的 bundle(mu300-kernel-6.18-qc.tar.gz),
+#      额外产出 Image.lk(wrap-image.py 跳板)、模块清单与 SHA256SUMS。
+# 本机组装 slot b 试验镜像(misc 切槽 / header v4 / LZ4 legacy / 厂商 DTB)不在 CI 做 —— 见 t10 刷写计划。
+on:
+  workflow_dispatch:
+    inputs:
+      kv:
+        description: '内核版本(默认 6.18.54 = upstream/build.sh 的默认)'
+        required: false
+        default: '6.18.54'
+      mode:
+        description: 'native = arm64 runner + 上游 docker 环境(推荐);cross = x86_64 + gcc-aarch64-linux-gnu'
+        required: false
+        default: 'native'
+  push:
+    branches: ['qc/mainline-ci']
+
+permissions:
+  contents: read
+
+env:
+  REF_TAG: v2026.09.30      # 只用于取 5.4 bundle 里的 busybox/logdw(make-bundle.sh 需要)
+  UPSTREAM_REV: 4036413     # 本分支基于的上游提交
+
+jobs:
+  native:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.mode == 'native' || github.event.inputs.mode == '' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    env:
+      KV: ${{ github.event.inputs.kv || '6.18.54' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 环境与磁盘(开始)
+        run: |
+          echo "arch=$(uname -m) cpus=$(nproc)"; df -h /; free -m | head -2
+      - name: 构建镜像(上游 Dockerfile,原样)
+        run: docker build -t mu300-mainline-build upstream/
+      - name: 内核:port + patches + config + Image
+        run: |
+          docker volume create mu300-mainline
+          docker run --rm -e KV="$KV" -v mu300-mainline:/src -v "$PWD/upstream":/work \
+            mu300-mainline-build bash /work/build.sh
+          df -h /
+      - name: 出树模块(wcn_bsp / sprd_wlan_combo / sprdbt_tty / sprd_modem / sprd_pmic_wdt / mali)
+        run: |
+          docker run --rm -e KV="$KV" -v mu300-mainline:/src -v "$PWD/upstream":/work \
+            mu300-mainline-build bash /work/build-modules.sh | tail -6
+          echo "模块数: $(ls upstream/out/modules/*.ko | wc -l)"
+          df -h /
+      - name: 释放 docker 构建卷(腾磁盘)
+        run: |
+          docker volume rm mu300-mainline || true
+          docker image rm mu300-mainline-build || true
+          df -h /
+      - name: 取 5.4 bundle(只取 busybox / logdw)
+        run: |
+          curl -fsSL -o /tmp/ref-5.4.tar.gz \
+            "https://github.com/dikeckaan/mu300-linux/releases/download/$REF_TAG/mu300-kernel.tar.gz"
+          tar -tzf /tmp/ref-5.4.tar.gz | grep -E '^\./(busybox|logdw)$'
+      - name: 打 bundle(上游 make-bundle.sh)+ 跳板 + 清单
+        run: |
+          set -eu
+          upstream/make-bundle.sh "$PWD/mu300-kernel-6.18-qc.tar.gz" /tmp/ref-5.4.tar.gz
+          python3 upstream/wrap-image.py upstream/out/Image upstream/out/Image.lk
+          krel=$(cat /dev/null; strings upstream/out/Image | sed -n 's/^Linux version \([^ ]*\) .*/\1/p' | head -1)
+          {
+            echo "team:      zte-f50 / t10(A 全换主线 + D 试验槽)"
+            echo "upstream:  $UPSTREAM_REV ($(git rev-parse HEAD))"
+            echo "kernel:    $KV   release=$krel"
+            echo "built:     $(date -u +%FT%TZ)   runner=$(uname -m)/$(nproc)cpu"
+            echo "bundle:    mu300-kernel-6.18-qc.tar.gz ($(wc -c < mu300-kernel-6.18-qc.tar.gz) bytes)"
+            echo "Image.lk:  $(wc -c < upstream/out/Image.lk) bytes"
+            echo "modules:   $(ls upstream/out/modules/*.ko | wc -l) 个"
+            (cd upstream/out/modules && for f in *.ko; do
+               printf '  %-26s %s\n' "$f" "$(strings "$f" | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)"; done)
+            echo "modules.builtin: $(wc -l < upstream/out/modules.builtin) 行"
+          } > MANIFEST.txt
+          sha256sum mu300-kernel-6.18-qc.tar.gz upstream/out/Image upstream/out/Image.lk > SHA256SUMS
+          cat MANIFEST.txt; cat SHA256SUMS
+      - name: 失败时给出构建日志尾部
+        if: failure()
+        run: tail -n 80 upstream/out/build.log upstream/out/modules/*.log 2>/dev/null || true
+      - name: 上传 artifact(bundle + Image + 模块 + 清单)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mu300-mainline-6.18-qc
+          path: |
+            mu300-kernel-6.18-qc.tar.gz
+            MANIFEST.txt
+            SHA256SUMS
+            upstream/out/Image
+            upstream/out/Image.lk
+            upstream/out/modules/*.ko
+            upstream/out/modules.builtin
+            upstream/out/modules.builtin.modinfo
+          if-no-files-found: error
+          retention-days: 30
+
+  cross:
+    # 备用路线:arm64 runner 不可用/排队太久时,用 x86_64 + gcc-aarch64-linux-gnu 交叉(build.sh 认 CROSS_COMPILE)
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'cross' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      KV: ${{ github.event.inputs.kv || '6.18.54' }}
+      CROSS_COMPILE: aarch64-linux-gnu-
+    steps:
+      - uses: actions/checkout@v4
+      - name: 装交叉工具链与依赖(等价于 upstream/Dockerfile)
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev lz4 cpio kmod \
+            python3 curl device-tree-compiler xz-utils ca-certificates
+          df -h /
+      - name: 内核:port + patches + config + Image(交叉)
+        run: |
+          sudo mkdir -p /src /work && sudo chown "$USER" /src /work
+          ln -sfn "$PWD/upstream" /work
+          CROSS_COMPILE=aarch64-linux-gnu- bash /work/build.sh
+          df -h /
+      - name: 出树模块(交叉)
+        run: |
+          CROSS_COMPILE=aarch64-linux-gnu- bash /work/build-modules.sh | tail -6
+          echo "模块数: $(ls upstream/out/modules/*.ko | wc -l)"
+          df -h /
+      - name: 取 5.4 bundle(只取 busybox / logdw)
+        run: |
+          curl -fsSL -o /tmp/ref-5.4.tar.gz \
+            "https://github.com/dikeckaan/mu300-linux/releases/download/$REF_TAG/mu300-kernel.tar.gz"
+      - name: 打 bundle + 跳板 + 清单
+        run: |
+          set -eu
+          upstream/make-bundle.sh "$PWD/mu300-kernel-6.18-qc-cross.tar.gz" /tmp/ref-5.4.tar.gz
+          python3 upstream/wrap-image.py upstream/out/Image upstream/out/Image.lk
+          sha256sum mu300-kernel-6.18-qc-cross.tar.gz upstream/out/Image upstream/out/Image.lk > SHA256SUMS
+          cat SHA256SUMS
+      - name: 失败时给出构建日志尾部
+        if: failure()
+        run: tail -n 80 upstream/out/build.log upstream/out/modules/*.log 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mu300-mainline-6.18-qc-cross
+          path: |
+            mu300-kernel-6.18-qc-cross.tar.gz
+            SHA256SUMS
+            upstream/out/Image
+            upstream/out/Image.lk
+            upstream/out/modules/*.ko
+          if-no-files-found: error
+          retention-days: 30
