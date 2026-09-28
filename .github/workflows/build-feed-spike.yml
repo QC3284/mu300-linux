@@ -42,6 +42,34 @@ jobs:
           echo "arch=$(uname -m) cpus=$(nproc) mode=$MODE kv=$KV" | tee -a "$NUM"
           df -h "$WORK" | tail -1 | tee -a "$NUM"; free -m | head -2 | tee -a "$NUM"
           echo "SPIKE-STAGE: env done $(date -u +%FT%TZ)" | tee -a "$NUM"
+      - name: 开工信标(started:写 LAST-START.txt —— job 被超时/取消也能看出跑过)
+        if: always()
+        env:
+          STATUS_BRANCH: qc/spike-status
+        run: |
+          OUT="$GITHUB_WORKSPACE/LAST-START.txt"
+          {
+            echo "# feed-spike 最近一次 run 的开始"
+            echo "run:      $GITHUB_RUN_ID"
+            echo "run_url:  $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "branch:   $GITHUB_REF_NAME"
+            echo "commit:   $GITHUB_SHA"
+            echo "mode:     $MODE"
+            echo "kv:       $KV"
+            echo "started:  $(date -u +%FT%TZ)"
+          } > "$OUT"
+          cat "$OUT"
+          D=$(mktemp -d)
+          if git clone -q --depth 1 -b "$STATUS_BRANCH" "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git" "$D" 2>/dev/null; then :; else
+            mkdir -p "$D"; cd "$D"; git init -q -b "$STATUS_BRANCH"
+          fi
+          cd "$D"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p feed-spike && cp "$OUT" feed-spike/LAST-START.txt
+          git add feed-spike/LAST-START.txt
+          git commit -q -m "feed-spike start: run $GITHUB_RUN_ID (mode=$MODE)"
+          git push -q origin "HEAD:$STATUS_BRANCH" && echo "开工信标已推送" || echo "★ 开工信标推送失败(不影响 job)"
       - name: 构建依赖
         run: |
           set -e
@@ -136,6 +164,15 @@ jobs:
           make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
           Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
+          # 上一轮(run 36420475944)教训:直接 package/kernel/linux/compile 时,package/libs/toolchain 打包
+          # libgcc1-*.apk 会因为 staging_dir/toolchain-*/lib/libgcc_s.so.* 不存在而失败 ⇒ 必须先把【完整工具链】
+          # 建出来(make toolchain/install),再编内核与 kmod。
+          make -j"$(nproc)" toolchain/install V=s > "$WORK/buildroot-toolchain.log" 2>&1 || {
+            echo "SPIKE-FAILED-AT: toolchain/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-toolchain.log"; exit 1; }
+          Tc=$(date +%s); echo "SPIKE-STAGE: toolchain in $((Tc-Tt))s" | tee -a "$NUM"
+          make -j"$(nproc)" target/linux/compile V=s >> "$WORK/buildroot.log" 2>&1 || {
+            echo "SPIKE-FAILED-AT: target/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"; exit 1; }
+          Tk=$(date +%s); echo "SPIKE-STAGE: kernel(target/linux) in $((Tk-Tc))s" | tee -a "$NUM"
           make -j"$(nproc)" package/kernel/linux/compile V=s > "$WORK/buildroot.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: package/kernel/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"
             grep -n -E 'Error [0-9]|error:|ERROR|No rule to make target' "$WORK/buildroot.log" | head -30 || true; exit 1; }
@@ -214,8 +251,11 @@ jobs:
             fi
           } > "$OUT" 2>&1 || true
           echo "=== LAST-RUN.txt ==="; cat "$OUT" || true
-          D=$(mktemp -d); cd "$D"
-          git init -q -b "$STATUS_BRANCH"
+          D=$(mktemp -d)
+          if git clone -q --depth 1 -b "$STATUS_BRANCH" "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git" "$D" 2>/dev/null; then :; else
+            mkdir -p "$D"; cd "$D"; git init -q -b "$STATUS_BRANCH"
+          fi
+          cd "$D"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p feed-spike && cp "$OUT" feed-spike/LAST-RUN.txt
