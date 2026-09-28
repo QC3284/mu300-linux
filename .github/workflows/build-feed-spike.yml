@@ -164,6 +164,10 @@ jobs:
             echo 'CONFIG_DEVEL=y'
             echo "CONFIG_EXTERNAL_KERNEL_TREE=\"$KTREE\""
             [ "$MODE" = "allkmods" ] && echo 'CONFIG_ALL_KMODS=y'
+            # OpenWrt 的 gpio-button-hotplug 调用 broadcast_uevent() —— 那是 OpenWrt 内核补丁带的符号;
+            # 我们的 external tree = kernel.org 6.18.52 + 自己的 port 补丁,没有这套补丁 ⇒ 该包编不过
+            # (run 36430322980 的实际失败点)。本设备没有 GPIO 按键,spike 里先关掉。
+            echo '# CONFIG_PACKAGE_gpio-button-hotplug is not set'
             for p in kmod-pppoe kmod-pppox kmod-nbd kmod-vhost-net kmod-sch-netem kmod-sch-hhf kmod-sch-sfb \
                      kmod-sch-drr kmod-sch-qfq kmod-sch-pie kmod-cls-flower kmod-nfnetlink-acct \
                      kmod-tun kmod-nf-nat kmod-nf-nathelper kmod-sched-cake kmod-wireguard; do
