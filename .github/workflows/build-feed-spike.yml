@@ -1,0 +1,181 @@
+name: feed spike (ImmortalWrt master + our external kernel tree)
+
+# P2 spike(t17):证明「ImmortalWrt master buildroot + 我们的主线内核树(external kernel tree)
+# → 完整 kmod apk feed」这条路可行,并拿到耗时/磁盘/冲突清单。纯 CI,不碰设备。
+#
+# 机制(已从源码核实):
+#   config/Config-devel.in:152  config EXTERNAL_KERNEL_TREE  (string, "Use external kernel tree" if DEVEL)
+#   include/kernel-defaults.mk:38-46  外部树时:Kernel/Prepare = `ln -s $(CONFIG_EXTERNAL_KERNEL_TREE) $(LINUX_DIR)`
+#                                     ⇒ buildroot 不下载、不 patch,直接把我们预先打好补丁/配好/编好的树当 LINUX_DIR
+#   include/kernel.mk:67/73  外部树时 LINUX_UNAME_VERSION = cat $(LINUX_DIR)/include/config/kernel.release
+#   include/kernel.mk:132    外部树时不再强加 KERNELRELEASE=$(LINUX_VERSION)
+# 所以:我们的树必须【在树内(in-tree)】构建过,带 .config / include/config/kernel.release / Module.symvers。
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'stage1 = 12 个代表 kmod;allkmods = CONFIG_ALL_KMODS 全量'
+        default: 'stage1'
+        type: choice
+        options: [stage1, allkmods]
+      kv:
+        description: 'kernel version'
+        default: '6.18.52'
+
+jobs:
+  spike:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 300
+    env:
+      KV: ${{ github.event.inputs.kv || '6.18.52' }}
+      MODE: ${{ github.event.inputs.mode || 'stage1' }}
+      IW: /work/immortalwrt
+      KTREE: /work/kernel/linux-6.18.52
+      NUM: /work/NUMBERS.txt
+    steps:
+      - uses: actions/checkout@v4
+      - name: 环境与磁盘(开始)
+        run: |
+          set -x
+          echo "arch=$(uname -m) cpus=$(nproc) mode=$MODE kv=$KV"
+          df -h /; free -m | head -2
+          mkdir -p /work && echo "SPIKE-STAGE: env done $(date -u +%FT%TZ)" | tee -a $NUM
+      - name: 构建依赖
+        run: |
+          set -e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential gawk gettext libncurses-dev zlib1g-dev \
+            file wget unzip rsync python3 python3-pip git subversion mercurial bzip2 gzip tar \
+            time patch perl cpio curl ca-certificates bc flex bison libssl-dev dtc
+          echo "SPIKE-STAGE: deps done $(date -u +%FT%TZ)" | tee -a $NUM
+      - name: "阶段1:准备我们的内核树(在树内构建,给 external tree 用)"
+        run: |
+          set -eo pipefail
+          T0=$(date +%s)
+          mkdir -p /work/kernel && cd /work/kernel
+          base=https://cdn.kernel.org/pub/linux/kernel/v${KV%%.*}.x
+          curl -fsSLO "$base/linux-$KV.tar.xz"
+          curl -fsSL "$base/sha256sums.asc" | grep " linux-$KV.tar.xz\$" | sha256sum -c -
+          tar -xJf linux-$KV.tar.xz && rm linux-$KV.tar.xz
+          cd linux-$KV
+          # 与我们 CI 完全一致的准备流程(port 27 驱动 + patches),但【不带 O=】—— 外部树要 in-tree
+          python3 "$GITHUB_WORKSPACE/upstream/port/install.py" .
+          for p in "$GITHUB_WORKSPACE"/upstream/patches/*.patch; do
+            if patch -p1 -N -s --dry-run < "$p" >/dev/null 2>&1; then patch -p1 -N -s < "$p"
+            elif patch -p1 -R -s -f --dry-run < "$p" >/dev/null 2>&1; then :
+            else echo "patch does not apply to $KV: $p" >&2; exit 1; fi
+          done
+          make ARCH=arm64 allnoconfig >/dev/null
+          ./scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/upstream/mu300-mainline.config" >/dev/null
+          make ARCH=arm64 olddefconfig >/dev/null
+          # 逐项校验(和我们 CI 同一套):没生效就停
+          bad=
+          while IFS= read -r l; do
+            case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" .config | cut -d= -f2- || true)
+              [ "$v" = n ] && { grep -q "^$k=y" .config && bad="$bad\nNOT DISABLED: $k" || true; continue; }
+              [ "$g" = "$v" ] || grep -qx "$k" "$GITHUB_WORKSPACE/upstream/config-ignored.txt" 2>/dev/null || bad="$bad\nNOT SET: $k want $v got ${g:-unset}";; esac
+          done < "$GITHUB_WORKSPACE/upstream/mu300-mainline.config"
+          [ -z "$bad" ] || { printf "config options not taken:$bad\n" >&2; exit 1; }
+          echo "SPIKE-STAGE: tree configured $(date -u +%FT%TZ)" | tee -a $NUM
+          # 关键:树内构建(.config / include/config/kernel.release / Module.symvers 都要在树里)
+          make ARCH=arm64 -j"$(nproc)" Image modules > /work/kernel/build.log 2>&1 || { tail -40 /work/kernel/build.log; exit 1; }
+          echo "  kernel.release = $(cat include/config/kernel.release)"
+          echo "  tree config md5(LINUX_VERMAGIC 口径)= $(grep '=[ym]' .config | LC_ALL=C sort | md5sum | cut -d' ' -f1)"
+          echo "  官方 armsr 6.18.52 的 md5 = 2e107f3f74eefa4459193e9332551c74(应当【不同】:配置不同)"
+          echo "  我们内核 release = $(cat include/config/kernel.release)  样本模块 vermagic:"
+          for k in drivers/net/ppp/pppoe.ko net/sched/sch_netem.ko drivers/block/nbd.ko; do
+            [ -f "$k" ] && printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)"
+          done
+          T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s, du=$(du -sh /work/kernel | cut -f1)" | tee -a $NUM
+          df -h / | tail -1 | tee -a $NUM
+      - name: "阶段2:shallow clone ImmortalWrt master"
+        run: |
+          set -eo pipefail
+          T0=$(date +%s)
+          git clone --depth 1 --branch master https://github.com/immortalwrt/immortalwrt.git $IW
+          cd $IW
+          echo "  buildroot head = $(git rev-parse --short HEAD)"
+          echo "  target/linux/generic/kernel-6.18: $(grep -o 'LINUX_VERSION-6.18 = .*' target/linux/generic/kernel-6.18 || echo '(读取失败)')"
+          T1=$(date +%s); echo "SPIKE-STAGE: buildroot cloned in $((T1-T0))s du=$(du -sh $IW | cut -f1)" | tee -a $NUM
+      - name: "阶段3:buildroot 配置(armsr/armv8 + external tree + 选包)"
+        run: |
+          set -eo pipefail
+          cd $IW
+          make defconfig >/dev/null
+          {
+            echo 'CONFIG_TARGET_armsr=y'
+            echo 'CONFIG_TARGET_armsr_armv8=y'
+            echo 'CONFIG_TARGET_armsr_armv8_DEVICE_generic=y'
+            echo 'CONFIG_DEVEL=y'
+            echo "CONFIG_EXTERNAL_KERNEL_TREE=\"$KTREE\""
+            if [ "$MODE" = allkmods ]; then echo 'CONFIG_ALL_KMODS=y'; fi
+            for p in kmod-pppoe kmod-pppox kmod-nbd kmod-vhost-net kmod-sch-netem kmod-sch-hhf kmod-sch-sfb \
+                     kmod-sch-drr kmod-sch-qfq kmod-sch-pie kmod-cls-flower kmod-nfnetlink-acct \
+                     kmod-tun kmod-nf-nat kmod-nf-nathelper kmod-sched-cake kmod-wireguard; do
+              echo "CONFIG_PACKAGE_$p=m"
+            done
+          } >> .config
+          make defconfig >/dev/null
+          echo "--- 配置生效情况(external tree / DEVEL / ALL_KMODS)---"
+          grep -E '^(CONFIG_EXTERNAL_KERNEL_TREE|CONFIG_DEVEL|CONFIG_ALL_KMODS|CONFIG_TARGET_armsr)' .config | tee -a $NUM
+          echo "--- 选中的 kmod 包(实际留下的)---"
+          grep -E '^CONFIG_PACKAGE_kmod-' .config | tee /work/selected-kmods.txt | head -40
+          echo "  选中 $(wc -l < /work/selected-kmods.txt) 个 kmod 包"
+          echo "SPIKE-STAGE: config done $(date -u +%FT%TZ)" | tee -a $NUM
+      - name: "阶段4:编内核 + kmod 包 + 生成 feed 索引(计时/磁盘)"
+        run: |
+          set -eo pipefail
+          cd $IW
+          T0=$(date +%s)
+          df -h / | tail -1 | tee -a $NUM
+          # 只编内核与 kmod 包(buildroot 会先把自己的工具链建起来)
+          make -j"$(nproc)" package/kernel/linux/compile V=s > /work/buildroot.log 2>&1 || {
+            echo "=== buildroot 失败,日志尾部 ==="; tail -60 /work/buildroot.log
+            grep -n -E 'Error [0-9]|error:|ERROR|not found|No rule to make target' /work/buildroot.log | head -30 || true
+            echo "SPIKE-FAILED-AT: package/kernel/linux/compile"; exit 1; }
+          T1=$(date +%s)
+          echo "SPIKE-STAGE: kernel+kmods compiled in $((T1-T0))s" | tee -a $NUM
+          make -j"$(nproc)" package/index V=s >> /work/buildroot.log 2>&1 || { tail -30 /work/buildroot.log; echo "SPIKE-FAILED-AT: package/index"; exit 1; }
+          T2=$(date +%s); echo "SPIKE-STAGE: index in $((T2-T1))s" | tee -a $NUM
+          df -h / | tail -1 | tee -a $NUM
+          du -sh $IW/bin $IW/build_dir $IW/staging_dir $IW/dl 2>/dev/null | tee -a $NUM || true
+      - name: "阶段5:收集 feed + 关键验证点"
+        run: |
+          set -e
+          cd $IW
+          echo "=== feed 目录结构 ==="
+          find bin -name '*.apk' | head -20 | tee -a $NUM
+          echo "  .apk 总数: $(find bin -name '*.apk' | wc -l)" | tee -a $NUM
+          find bin -name 'packages.adb' | tee -a $NUM
+          echo "=== 验证 a:kernel 包版本(=6.18.52~<我们 config md5>-r1?)==="
+          ls bin/targets/armsr/armv8/packages/ 2>/dev/null | grep -i '^kernel' | tee -a $NUM || echo "  (没找到 kernel 包)" | tee -a $NUM
+          echo "=== 验证 b:我们树里被 buildroot 编出来的 .ko 的 vermagic 与路径 ==="
+          for k in $(find $KTREE -name 'pppoe.ko' -o -name 'sch_netem.ko' -o -name 'nbd.ko' -o -name 'vhost_net.ko' 2>/dev/null | head -6); do
+            printf '  %-70s %s\n' "$k" "$(strings "$k" | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a $NUM
+          done
+          echo "=== 验证 c:磁盘峰值(工具链/build_dir/staging_dir/dl)==="
+          du -sh build_dir staging_dir dl bin 2>/dev/null | tee -a $NUM || true
+          df -h / | tail -1 | tee -a $NUM
+          echo "SPIKE-STAGE: done $(date -u +%FT%TZ)" | tee -a $NUM
+      - name: 上传 feed 与数字
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-spike-output
+          if-no-files-found: warn
+          path: |
+            /work/NUMBERS.txt
+            /work/selected-kmods.txt
+            /work/buildroot.log
+            /work/kernel/build.log
+            /work/immortalwrt/bin/targets/armsr/armv8/packages/*.apk
+            /work/immortalwrt/bin/targets/armsr/armv8/packages/packages.adb
+            /work/immortalwrt/bin/packages/*/*/*.apk
+            /work/immortalwrt/bin/packages/*/*/packages.adb
+      - name: 失败时给出日志尾部
+        if: failure()
+        run: |
+          echo "=== NUMBERS.txt ==="; cat /work/NUMBERS.txt || true
+          echo "=== buildroot.log 尾部 ==="; tail -50 /work/buildroot.log || true
+          echo "=== kernel build.log 尾部 ==="; tail -30 /work/kernel/build.log || true
