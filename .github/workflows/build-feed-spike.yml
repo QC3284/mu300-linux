@@ -21,7 +21,9 @@ on:
 jobs:
   spike:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 300
+    timeout-minutes: 300          # 硬上限:不会无限挂死(GitHub 到点会取消 job)
+    permissions:
+      contents: write             # 完成信标要往 qc/spike-status 分支 push
     env:
       KV: 6.18.52
       MODE_FILE: .github/feed-spike-mode
@@ -49,6 +51,7 @@ jobs:
             time patch perl cpio curl ca-certificates bc flex bison libssl-dev device-tree-compiler
           echo "SPIKE-STAGE: deps done $(date -u +%FT%TZ)" | tee -a "$NUM"
       - name: "阶段1:准备我们的内核树(树内构建,供 external tree 使用)"
+        id: stage1
         run: |
           set -eo pipefail
           T0=$(date +%s); mkdir -p "$WORK/kernel"; cd "$WORK/kernel"
@@ -86,6 +89,7 @@ jobs:
           T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)" | tee -a "$NUM"
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段2:shallow clone ImmortalWrt master"
+        id: stage2
         run: |
           set -eo pipefail
           T0=$(date +%s)
@@ -95,6 +99,7 @@ jobs:
           grep -o 'LINUX_VERSION-6.18 = .*' target/linux/generic/kernel-6.18 | tee -a "$NUM" || true
           T1=$(date +%s); echo "SPIKE-STAGE: buildroot cloned in $((T1-T0))s du=$(du -sh "$IW" | cut -f1)" | tee -a "$NUM"
       - name: "阶段3:buildroot 配置(armsr/armv8 + DEVEL + external tree + 选包)"
+        id: stage3
         run: |
           set -eo pipefail
           cd "$IW"
@@ -120,6 +125,7 @@ jobs:
           echo "  选中 $(wc -l < "$WORK/selected-kmods.txt") 个"
           echo "SPIKE-STAGE: config done $(date -u +%FT%TZ)" | tee -a "$NUM"
       - name: "阶段4:编内核 + kmod 包 + feed 索引(计时/磁盘)"
+        id: stage4
         run: |
           set -eo pipefail
           cd "$IW"
@@ -128,17 +134,18 @@ jobs:
           # 上一轮教训:buildroot 生成签名密钥要用它自己的 host openssl(package/Makefile:78),
           # 而 host 工具默认不编 ⇒ 必须先把 tools 装上(Error 127 / private-key.pem)。
           make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
-            echo "SPIKE-FAILED-AT: tools/install"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
+            echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
           Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
           make -j"$(nproc)" package/kernel/linux/compile V=s > "$WORK/buildroot.log" 2>&1 || {
-            echo "SPIKE-FAILED-AT: package/kernel/linux/compile"; tail -60 "$WORK/buildroot.log"
+            echo "SPIKE-FAILED-AT: package/kernel/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"
             grep -n -E 'Error [0-9]|error:|ERROR|No rule to make target' "$WORK/buildroot.log" | head -30 || true; exit 1; }
           T1=$(date +%s); echo "SPIKE-STAGE: kernel+kmods compiled in $((T1-T0))s" | tee -a "$NUM"
-          make -j"$(nproc)" package/index V=s >> "$WORK/buildroot.log" 2>&1 || { echo "SPIKE-FAILED-AT: package/index"; tail -30 "$WORK/buildroot.log"; exit 1; }
+          make -j"$(nproc)" package/index V=s >> "$WORK/buildroot.log" 2>&1 || { echo "SPIKE-FAILED-AT: package/index" | tee -a "$NUM"; tail -30 "$WORK/buildroot.log"; exit 1; }
           T2=$(date +%s); echo "SPIKE-STAGE: index in $((T2-T1))s" | tee -a "$NUM"
           du -sh bin build_dir staging_dir dl 2>/dev/null | tee -a "$NUM" || true
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段5:收集 feed + 关键验证点"
+        id: stage5
         run: |
           set -e
           cd "$IW"
@@ -173,3 +180,50 @@ jobs:
         run: |
           echo "=== NUMBERS.txt ==="; cat "$NUM" || true
           echo "=== buildroot.log 尾部 ==="; tail -50 "$WORK/buildroot.log" || true
+      - name: 完成信标(always:把结果推到 qc/spike-status)
+        # 目的:Actions 没人盯 —— run 结束后,主机侧直接读
+        #   https://raw.githubusercontent.com/<repo>/qc/spike-status/feed-spike/LAST-RUN.txt
+        # 就知道结论与阶段数字,不依赖 API(免限流)。
+        if: always()
+        env:
+          STATUS_BRANCH: qc/spike-status
+        run: |
+          OUT="$GITHUB_WORKSPACE/LAST-RUN.txt"
+          {
+            echo "# feed-spike 最近一次 run 的结果"
+            echo "repo:      $GITHUB_REPOSITORY"
+            echo "run:       $GITHUB_RUN_ID"
+            echo "run_url:   $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "branch:    $GITHUB_REF_NAME"
+            echo "commit:    $GITHUB_SHA"
+            echo "mode:      $MODE"
+            echo "kv:        $KV"
+            echo "status:    ${{ job.status }}"
+            echo "finished:  $(date -u +%FT%TZ)"
+            echo "steps:     stage1=${{ steps.stage1.outcome }} stage2=${{ steps.stage2.outcome }} stage3=${{ steps.stage3.outcome }} stage4=${{ steps.stage4.outcome }} stage5=${{ steps.stage5.outcome }}"
+            echo
+            echo "## 阶段打点(SPIKE-STAGE / SPIKE-FAILED-AT)"
+            grep -hE 'SPIKE-STAGE|SPIKE-FAILED-AT' "$NUM" 2>/dev/null || echo "(无打点:可能阶段1之前就失败)"
+            echo
+            echo "## 关键验证线索"
+            grep -hE 'kernel-[0-9.]+~[0-9a-f]+-r[0-9]+\.apk|vermagic|config md5|apk 总数|generating empty package|EXTRA_DEPENDS' "$NUM" 2>/dev/null || true
+            if [ -f "$WORK/buildroot.log" ]; then
+              echo
+              echo "## buildroot.log 尾 20 行"
+              tail -20 "$WORK/buildroot.log"
+            fi
+          } > "$OUT" 2>&1 || true
+          echo "=== LAST-RUN.txt ==="; cat "$OUT" || true
+          D=$(mktemp -d); cd "$D"
+          git init -q -b "$STATUS_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p feed-spike && cp "$OUT" feed-spike/LAST-RUN.txt
+          git add feed-spike/LAST-RUN.txt
+          git commit -q -m "feed-spike status: run $GITHUB_RUN_ID (${{ job.status }})"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git"
+          if git push -q -f origin "HEAD:$STATUS_BRANCH"; then
+            echo "信标已推送:$STATUS_BRANCH/feed-spike/LAST-RUN.txt"
+          else
+            echo "★ 信标推送失败(不影响本 job 的结论)"
+          fi
