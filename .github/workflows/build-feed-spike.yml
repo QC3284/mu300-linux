@@ -130,7 +130,7 @@ jobs:
           #   (run 36457544020 实测:drivers/net/phy/Kconfig:113 引用了不存在于我们树里的
           #    drivers/net/phy/b53/Kconfig ⇒ make allnoconfig 直接 Error 1)。
           #   其余补丁只做 dry-run 统计(报告用,便于产品化时决定要带哪些),不实际应用。
-          HACK_WHITELIST="911-kobject_add_broadcast_uevent.patch"
+          HACK_WHITELIST="910-kobject_uevent.patch 911-kobject_add_broadcast_uevent.patch"
           hp_ok=0; hp_no=0; hp_dry=0; ok_list=; no_list=; dry_list=
           for hp in "$IW"/target/linux/generic/hack-6.18/*.patch; do
             [ -f "$hp" ] || continue
