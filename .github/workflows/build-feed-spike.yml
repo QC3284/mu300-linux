@@ -207,7 +207,8 @@ jobs:
           bad=''
           for s in $flip; do grep -qE "^$s=m$" .config || bad="$bad $s"; done
           echo "SPIKE-FLIP-AFTER: 翻后不是 =m 的 $(printf '%s' "$bad" | wc -w) 个:$bad" | tee -a "$NUM"
-          grep -E '^CONFIG_(CRYPTO_ARC4|CRYPTO_LIB_ARC4)=' .config | tee -a "$NUM" 
+          # 注意:set -eo pipefail 下,grep 找不到就返回 1 ⇒ 必须 || true(上一轮就是卡在这行)
+          grep -E '^(# )?CONFIG_(CRYPTO_ARC4|CRYPTO_LIB_ARC4)(=| is not set)' .config | tee -a "$NUM" || true
           bad=
           while IFS= read -r l; do
             case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" .config | cut -d= -f2- || true)
