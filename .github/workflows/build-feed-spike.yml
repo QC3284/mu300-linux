@@ -151,6 +151,15 @@ jobs:
           else
             echo "  ⚠ 验证:kobject.h 里仍没有 broadcast_uevent(911 补丁没打上)" | tee -a "$NUM"
           fi
+          # ★ 兜底(确定性):CRYPTO_LIB_ARC4 是【无 prompt 的 tristate】,Kconfig 层面无法可靠置 =m
+          #   (连续两轮:写 .config 都被 olddefconfig 丢弃),而 OpenWrt 的 kmod 包按 .ko 文件做依赖检查
+          #   ⇒ spike 里直接把树里的编译行强制成模块(产品化应改为带 OpenWrt 内核补丁集,或让 buildroot 注入)。
+          if [ -f lib/crypto/Makefile ] && grep -q '^obj-$(CONFIG_CRYPTO_LIB_ARC4)' lib/crypto/Makefile; then
+            sed -i 's/^obj-$(CONFIG_CRYPTO_LIB_ARC4)/obj-m/' lib/crypto/Makefile
+            echo '  [arc4] 已把 lib/crypto/Makefile 的 arc4 强制为 obj-m(产出 libarc4.ko)' | tee -a "$NUM"
+          else
+            echo '  [arc4] ⚠ 没找到 lib/crypto/Makefile 的 obj-$(CONFIG_CRYPTO_LIB_ARC4) 行,兜底未生效' | tee -a "$NUM"
+          fi
           make ARCH=arm64 allnoconfig >/dev/null
           ./scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/upstream/mu300-mainline.config" >/dev/null
           # ★ 实测修正(2026-09-29):buildroot 的 generic/armsr config-6.18 里 =m 行数为 0
@@ -242,6 +251,8 @@ jobs:
             [ -f "$k" ] && printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a "$NUM"
           done
           T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)" | tee -a "$NUM"
+          arc4_ko=$(ls lib/crypto/libarc4.ko lib/libarc4.ko 2>/dev/null | head -1)
+          if [ -n "$arc4_ko" ]; then echo "  [arc4] ✓ 模块已产出: $arc4_ko" | tee -a "$NUM"; else echo '  [arc4] ✗ 树编完仍没有 libarc4.ko' | tee -a "$NUM"; fi
           sh "$WORK/beacon.sh" "stage1-done tree-built elapsed=$((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)"
           df -h "$WORK" | tail -1 | tee -a "$NUM"
       - name: "阶段3:buildroot 配置(armsr/armv8 + DEVEL + external tree + 选包)"
