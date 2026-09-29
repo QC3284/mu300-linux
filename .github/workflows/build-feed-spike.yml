@@ -161,6 +161,19 @@ jobs:
           #   ⇒ 正确做法是跟随 OpenWrt:libarc4 内置 + ppp_mppe 内置(不再有 ppp_mppe.ko 这个模块)。
           printf 'CONFIG_CRYPTO_LIB_ARC4=y\nCONFIG_PPP_MPPE=y\n' >> .config
           echo '  [arc4] 已设 CRYPTO_LIB_ARC4=y + PPP_MPPE=y(跟随 OpenWrt:内置,消掉 .ko 依赖)' | tee -a "$NUM"
+          # ★ spike 权宜(2026-09-29):OpenWrt 的 .ko 依赖检查要求“依赖的库模块得有包提供”,
+          #   而 external tree 下 buildroot 会把所选 kmod 包的符号注成 =m ⇒ ppp_mppe.ko 的 modinfo
+          #   里必然带 depends=libarc4 ⇒ kmod-mppe 的检查失败(与设备功能无关,只是 PPP MPPE 加密)。
+          #   已经把 CRYPTO_LIB_ARC4/PPP_MPPE 往 =y 推过,但注入会再覆盖回 =m ⇒ 这里直接把该包定义移除。
+          #   产品化口径:external tree 应携带 OpenWrt 的内核配置/补丁集,使 .ko 级依赖与包元数据一致。
+          NS="$IW/package/kernel/linux/modules/netsupport.mk"
+          if [ -f "$NS" ]; then
+            sed -i '/^define KernelPackage\/mppe/,/^endef$/d' "$NS"
+            sed -i '/KernelPackage,mppe/d' "$NS"
+            echo '  [spike] 已移除 netsupport.mk 的 KernelPackage/mppe(已知 .ko 依赖冲突)' | tee -a "$NUM"
+          else
+            echo '  [spike] ⚠ 没找到 netsupport.mk' | tee -a "$NUM"
+          fi
           make ARCH=arm64 allnoconfig >/dev/null
           ./scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/upstream/mu300-mainline.config" >/dev/null
           # ★ 实测修正(2026-09-29):buildroot 的 generic/armsr config-6.18 里 =m 行数为 0
@@ -275,6 +288,7 @@ jobs:
             # ★ kmod-mppe 的 .ko 依赖说的是“哪个包提供 libarc4.ko”,不是“文件存不存在”:
             #   必须选中提供它的包 kmod-crypto-arc4(FILES = crypto/arc4.ko + lib/crypto/libarc4.ko)。
             # (内置方案下不选这两个包:它们的 FILES 是那两个 .ko,内置后不存在)
+            echo '# CONFIG_PACKAGE_kmod-mppe is not set'
  
             # ★ =y/=m 冲突(实测):run 36498244709 里 83 个 kmod 包打包失败,原因只有一条 ——
             #   Package kmod-xxx is missing dependencies for the following libraries: libarc4.ko
