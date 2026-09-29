@@ -154,18 +154,13 @@ jobs:
           # ★ 兜底(确定性):CRYPTO_LIB_ARC4 是【无 prompt 的 tristate】,Kconfig 层面无法可靠置 =m
           #   (连续两轮:写 .config 都被 olddefconfig 丢弃),而 OpenWrt 的 kmod 包按 .ko 文件做依赖检查
           #   ⇒ spike 里直接把树里的编译行强制成模块(产品化应改为带 OpenWrt 内核补丁集,或让 buildroot 注入)。
-          #   OpenWrt 的 kmod-crypto-arc4 包 FILES 里要两个文件:lib/crypto/libarc4.ko 与 crypto/arc4.ko
-          #   ⇒ 两个 Makefile 的编译行都要强制成模块,否则打包时报“module is missing”。
-          for mk in lib/crypto/Makefile crypto/Makefile; do
-            if [ -f "$mk" ]; then
-              if grep -q '^obj-$(CONFIG_CRYPTO_LIB_ARC4)' "$mk" || grep -q '^obj-$(CONFIG_CRYPTO_ARC4)' "$mk"; then
-                sed -i 's/^obj-$(CONFIG_CRYPTO_LIB_ARC4)/obj-m/; s/^obj-$(CONFIG_CRYPTO_ARC4)/obj-m/' "$mk"
-                echo "  [arc4] ✓ 已强制模块化: $mk" | tee -a "$NUM"
-              else
-                echo "  [arc4] ⚠ $mk 里没有 arc4 的 obj-$(...) 行" | tee -a "$NUM"
-              fi
-            fi
-          done
+          # ★ 关键修正(2026-09-29,查 OpenWrt 自己的 generic/config-6.18):
+          #   OpenWrt 那边 **CONFIG_CRYPTO_LIB_ARC4=y(内置)**,所以 ppp_mppe.ko 的 modinfo 里
+          #   根本不会出现 depends=libarc4 ⇒ 那条 .ko 依赖检查自然通过。
+          #   我们之前把 libarc4 强行编成模块 ⇒ 反而制造出 depends=libarc4 ⇒ 触发检查。
+          #   ⇒ 正确做法是跟随 OpenWrt:libarc4 内置 + ppp_mppe 内置(不再有 ppp_mppe.ko 这个模块)。
+          printf 'CONFIG_CRYPTO_LIB_ARC4=y\nCONFIG_PPP_MPPE=y\n' >> .config
+          echo '  [arc4] 已设 CRYPTO_LIB_ARC4=y + PPP_MPPE=y(跟随 OpenWrt:内置,消掉 .ko 依赖)' | tee -a "$NUM"
           make ARCH=arm64 allnoconfig >/dev/null
           ./scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/upstream/mu300-mainline.config" >/dev/null
           # ★ 实测修正(2026-09-29):buildroot 的 generic/armsr config-6.18 里 =m 行数为 0
@@ -279,8 +274,8 @@ jobs:
             [ "$MODE" = "allkmods" ] && echo 'CONFIG_ALL_KMODS=y'
             # ★ kmod-mppe 的 .ko 依赖说的是“哪个包提供 libarc4.ko”,不是“文件存不存在”:
             #   必须选中提供它的包 kmod-crypto-arc4(FILES = crypto/arc4.ko + lib/crypto/libarc4.ko)。
-            echo 'CONFIG_PACKAGE_kmod-crypto-arc4=y'
-            echo 'CONFIG_PACKAGE_kmod-crypto-user=y' 
+            # (内置方案下不选这两个包:它们的 FILES 是那两个 .ko,内置后不存在)
+ 
             # ★ =y/=m 冲突(实测):run 36498244709 里 83 个 kmod 包打包失败,原因只有一条 ——
             #   Package kmod-xxx is missing dependencies for the following libraries: libarc4.ko
             #   即 libarc4 被编进内核(=y)而 OpenWrt 的 kmod 包期望它是模块(=m)。
