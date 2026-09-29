@@ -75,7 +75,7 @@ jobs:
           echo 'echo "$*" > "$WORK/STAGE"' >> "$WORK/beacon.sh"
           echo 'R="$WORK/status-repo"' >> "$WORK/beacon.sh"
           echo 'mkdir -p "$R/feed-spike"' >> "$WORK/beacon.sh"
-          echo 'for f in LAST-START.txt LAST-RUN.txt LAST-PROGRESS.txt; do [ -f "$WORK/$f" ] && cp "$WORK/$f" "$R/feed-spike/$f"; done' >> "$WORK/beacon.sh"
+          echo 'for f in LAST-START.txt LAST-PROGRESS.txt; do [ -f "$WORK/$f" ] && cp "$WORK/$f" "$R/feed-spike/$f"; done' >> "$WORK/beacon.sh"
           echo 'cd "$R" || exit 0' >> "$WORK/beacon.sh"
           echo 'if [ ! -d .git ]; then git init -q -b "$STATUS_BRANCH"; git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"; git remote add origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"; fi' >> "$WORK/beacon.sh"
           echo 'git add -A >/dev/null 2>&1' >> "$WORK/beacon.sh"
@@ -153,7 +153,29 @@ jobs:
           fi
           make ARCH=arm64 allnoconfig >/dev/null
           ./scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/upstream/mu300-mainline.config" >/dev/null
+          # ★ =y→=m 自动化(证据驱动):buildroot 的 generic/armsr config-6.18 里标 =m 的符号,
+          #   就是“OpenWrt 期望它是模块”的集合;我们 config 里同为 =y 的一律转 =m。
+          #   根因实测:run 36498244709 里 83 个 kmod 包打包失败,原因只有一条 ——
+          #   Package kmod-xxx is missing dependencies for the following libraries: libarc4.ko
+          #   (libarc4 被编进内核 =y,而 OpenWrt 的 kmod 包期望它是模块)。
+          flip_src="$WORK/want-m.txt"
+          for f in "$IW"/target/linux/generic/config-6.18 "$IW"/target/linux/armsr/config-6.18; do
+            [ -f "$f" ] && grep -oE '^CONFIG_[A-Z0-9_]+=m' "$f"
+          done | sort -u > "$flip_src" || true
+          flipped=0; flip_list=''
+          while IFS= read -r want; do
+            sym=$(printf '%s' "$want" | sed 's/=m$//')
+            if grep -qE "^$sym=y$" .config; then printf '%s=m\n' "$sym" >> .config; flipped=$((flipped+1)); flip_list="$flip_list $sym"; fi
+          done < "$flip_src"
+          echo "SPIKE-FLIP: buildroot 期望 =m 的符号 $(wc -l < "$flip_src") 个;我们原为 =y 被翻成 =m 的 $flipped 个" | tee -a "$NUM"
+          if [ -n "$flip_list" ]; then echo "SPIKE-FLIP-LIST:$flip_list" | tee -a "$NUM"; fi
           make ARCH=arm64 olddefconfig >/dev/null
+          still_y=0
+          while IFS= read -r want; do
+            sym=$(printf '%s' "$want" | sed 's/=m$//')
+            if grep -qE "^$sym=y$" .config; then still_y=$((still_y+1)); fi
+          done < "$flip_src"
+          echo "SPIKE-FLIP: olddefconfig 之后仍为 =y 的 $still_y 个(被 select 强制/符号不存在)" | tee -a "$NUM"
           bad=
           while IFS= read -r l; do
             case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" .config | cut -d= -f2- || true)
@@ -189,6 +211,11 @@ jobs:
             echo 'CONFIG_DEVEL=y'
             echo "CONFIG_EXTERNAL_KERNEL_TREE=\"$KTREE\""
             [ "$MODE" = "allkmods" ] && echo 'CONFIG_ALL_KMODS=y'
+            # ★ =y/=m 冲突(实测):run 36498244709 里 83 个 kmod 包打包失败,原因只有一条 ——
+            #   Package kmod-xxx is missing dependencies for the following libraries: libarc4.ko
+            #   即 libarc4 被编进内核(=y)而 OpenWrt 的 kmod 包期望它是模块(=m)。
+            #   这里按证据把该符号转 =m;后续同类缺失也照此「缺谁转谁」处理(=y→=m 是 feed 完整性的前提)。
+            echo 'CONFIG_LIB_ARC4=m' 
             # 不再需要"关掉 gpio-button-hotplug":根因是缺 OpenWrt 的 generic hack 补丁,
             # 阶段1 现在会把 hack-6.18/*.patch 叠到我们的树上一并解决(见 stage1)。
             for p in kmod-pppoe kmod-pppox kmod-nbd kmod-vhost-net kmod-sch-netem kmod-sch-hhf kmod-sch-sfb \
@@ -344,7 +371,7 @@ jobs:
             echo "steps:     stage1=${{ steps.stage1.outcome }} stage2=${{ steps.stage2.outcome }} stage3=${{ steps.stage3.outcome }} stage4=${{ steps.stage4.outcome }} stage5=${{ steps.stage5.outcome }}"
             echo
             echo "## 阶段打点(SPIKE-STAGE / SPIKE-FAILED-AT)"
-            grep -hE 'SPIKE-STAGE|SPIKE-FAILED-AT|SPIKE-CACHE' "$NUM" 2>/dev/null || echo "(无打点:可能阶段1之前就失败)"
+            grep -hE 'SPIKE-STAGE|SPIKE-FAILED-AT|SPIKE-CACHE|SPIKE-FLIP' "$NUM" 2>/dev/null || echo "(无打点:可能阶段1之前就失败)"
             echo
             echo "## 关键验证线索"
             grep -hE 'kernel-[0-9.]+~[0-9a-f]+-r[0-9]+\.apk|vermagic|config md5|apk 总数|generating empty package|EXTRA_DEPENDS' "$NUM" 2>/dev/null || true
