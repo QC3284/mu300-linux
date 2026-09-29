@@ -187,6 +187,10 @@ jobs:
           if [ -n "$keep2" ]; then echo "SPIKE-FLIP-OURCFG:$keep2" | tee -a "$NUM"; fi
           # libarc4:kmod-mppe 等 83 个包要 libarc4.ko,而 CRYPTO_LIB_ARC4 是无 prompt 的 tristate(只能被 select),
           # 所以必须打开能 select 它的 CRYPTO_ARC4(它依赖 CRYPTO_USER_API_ENABLE_OBSOLETE)。
+          # libarc4:CRYPTO_LIB_ARC4 是无 prompt 的 tristate(只能被 select)⇒ 必须打开 select 链:
+          #   CRYPTO_ARC4(m) depends on CRYPTO_USER_API_ENABLE_OBSOLETE(y) depends on CRYPTO_USER_API(y)
+          # 上一轮只写了前两个,漏了 CRYPTO_USER_API ⇒ 依赖不满足 ⇒ CRYPTO_ARC4 变 n ⇒ libarc4.ko 仍不产出。
+          echo 'CONFIG_CRYPTO_USER_API=y' >> .config
           echo 'CONFIG_CRYPTO_USER_API_ENABLE_OBSOLETE=y' >> .config
           echo 'CONFIG_CRYPTO_ARC4=m' >> .config
           # ★ =y→=m 自动化(证据驱动):buildroot 的 generic/armsr config-6.18 里标 =m 的符号,
@@ -216,7 +220,9 @@ jobs:
           for s in $flip; do grep -qE "^$s=m$" .config || bad="$bad $s"; done
           echo "SPIKE-FLIP-AFTER: 翻后不是 =m 的 $(printf '%s' "$bad" | wc -w) 个:$bad" | tee -a "$NUM"
           # 注意:set -eo pipefail 下,grep 找不到就返回 1 ⇒ 必须 || true(上一轮就是卡在这行)
-          grep -E '^(# )?CONFIG_(CRYPTO_ARC4|CRYPTO_LIB_ARC4)(=| is not set)' .config | tee -a "$NUM" || true
+          grep -E '^(# )?CONFIG_(CRYPTO_USER_API|CRYPTO_USER_API_ENABLE_OBSOLETE|CRYPTO_ARC4|CRYPTO_LIB_ARC4)(=| is not set)' .config | tee -a "$NUM" || true
+          for f in lib/crypto/*arc4*.ko lib/*arc4*.ko; do [ -f "$f" ] && echo "  [arc4] 模块已产出: $f" | tee -a "$NUM"; done
+          if [ -f lib/crypto/Makefile ]; then grep -n 'ARC4' lib/crypto/Makefile | tee -a "$NUM" || true; fi
           bad=
           while IFS= read -r l; do
             case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" .config | cut -d= -f2- || true)
