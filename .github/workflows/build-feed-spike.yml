@@ -248,10 +248,12 @@ jobs:
             echo "  官方 armsr 6.18.52 的 md5 = 2e107f3f74eefa4459193e9332551c74(预期【不同】:配置不同)"
           } | tee -a "$NUM"
           for k in drivers/net/ppp/pppoe.ko net/sched/sch_netem.ko drivers/block/nbd.ko drivers/vhost/vhost_net.ko; do
-            [ -f "$k" ] && printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a "$NUM"
+            if [ -f "$k" ]; then printf '    %-34s %s\n' "$k" "$(strings $k | sed -n 's/^vermagic=\(.*\)/\1/p' | head -1)" | tee -a "$NUM"; fi || true
           done
           T1=$(date +%s); echo "SPIKE-STAGE: tree built in $((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)" | tee -a "$NUM"
-          arc4_ko=$(ls lib/crypto/libarc4.ko lib/libarc4.ko 2>/dev/null | head -1)
+          # 注意:set -eo pipefail 下 `ls 多个路径` 只要有一个不存在就返回 2 ⇒ 用 -f 逐个判(上一轮就死在这)
+          arc4_ko=''
+          for cand in lib/crypto/libarc4.ko lib/libarc4.ko; do if [ -f "$cand" ]; then arc4_ko="$cand"; break; fi; done
           if [ -n "$arc4_ko" ]; then echo "  [arc4] ✓ 模块已产出: $arc4_ko" | tee -a "$NUM"; else echo '  [arc4] ✗ 树编完仍没有 libarc4.ko' | tee -a "$NUM"; fi
           sh "$WORK/beacon.sh" "stage1-done tree-built elapsed=$((T1-T0))s du=$(du -sh "$WORK/kernel" | cut -f1)"
           df -h "$WORK" | tail -1 | tee -a "$NUM"
