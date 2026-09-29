@@ -94,7 +94,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq build-essential gawk gettext libncurses-dev zlib1g-dev \
             file wget unzip rsync python3 python3-pip git subversion mercurial bzip2 gzip tar \
-            time patch perl cpio curl ca-certificates bc flex bison libssl-dev device-tree-compiler
+            time patch perl cpio curl ca-certificates bc flex bison libssl-dev device-tree-compiler zstd
           echo "SPIKE-STAGE: deps done $(date -u +%FT%TZ)" | tee -a "$NUM"
           sh "$WORK/beacon.sh" "deps-done"
       - name: "阶段2:shallow clone ImmortalWrt master"
@@ -212,20 +212,61 @@ jobs:
           cd "$IW"
           T0=$(date +%s)
           df -h "$WORK" | tail -1 | tee -a "$NUM"
-          # 上一轮教训:buildroot 生成签名密钥要用它自己的 host openssl(package/Makefile:78),
-          # 而 host 工具默认不编 ⇒ 必须先把 tools 装上(Error 127 / private-key.pem)。
-          sh "$WORK/beacon.sh" "stage4-start tools/install"
-          make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
-            echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
-          Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
-          sh "$WORK/beacon.sh" "stage4-done tools/install elapsed=$((Tt-T0))s"
-          # 上一轮(run 36420475944)教训:直接 package/kernel/linux/compile 时,package/libs/toolchain 打包
-          # libgcc1-*.apk 会因为 staging_dir/toolchain-*/lib/libgcc_s.so.* 不存在而失败 ⇒ 必须先把【完整工具链】
-          # 建出来(make toolchain/install),再编内核与 kmod。
-          sh "$WORK/beacon.sh" "stage4-start toolchain/install"
-          make -j"$(nproc)" toolchain/install V=s > "$WORK/buildroot-toolchain.log" 2>&1 || {
-            echo "SPIKE-FAILED-AT: toolchain/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-toolchain.log"; exit 1; }
-          Tc=$(date +%s); echo "SPIKE-STAGE: toolchain in $((Tc-Tt))s" | tee -a "$NUM"
+          # ── 预编译工具链缓存:Release 资产,命中可省掉 tools+toolchain 约 86 分钟 ──────────
+          # 命中:gh release download 分片 → cat 起来喂 tar(资产是一整条 zstd 流被 split 切开)→ 解到 $IW,
+          #       资产内含 staging_dir/{host,toolchain-*,target-*} 与它们的 stamp ⇒ 还原后 build 系统自己就跳过重建,
+          #       所以 tools/toolchain 两段直接跳过(省时效果与 EXTERNAL_TOOLCHAIN 相同)。
+          # 为什么不用 CONFIG_EXTERNAL_TOOLCHAIN:该符号要求外部工具链自带 sysroot 布局,而 OpenWrt 自己的
+          #   staging_dir/toolchain-* 不含 target sysroot(它在 staging_dir/target-*),硬指会失败;还原 staging_dir 更稳。
+          # 未命中:照常编,编完立刻打包上传(放在内核编译之前 ⇒ 即使后续阶段失败,资产也已经存在)。
+          TC_TAG="tc-$KV"
+          TC_PREFIX="mu300-staging-armv8-gcc14.4.0-musl"
+          mkdir -p "$WORK/tc-cache"
+          cache_hit=0
+          if gh release view "$TC_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            sh "$WORK/beacon.sh" "toolchain-cache: 下载 $TC_TAG"
+            if gh release download "$TC_TAG" --repo "$GITHUB_REPOSITORY" -p "${TC_PREFIX}.part-*" -D "$WORK/tc-cache" 2>/dev/null && [ -n "$(ls -A "$WORK/tc-cache" 2>/dev/null)" ]; then
+              if cat "$WORK/tc-cache"/${TC_PREFIX}.part-* | tar -I 'zstd -T0' -xf - -C "$IW"; then cache_hit=1; fi
+            fi
+          fi
+          T0=$(date +%s)
+          if [ "$cache_hit" = 1 ]; then
+            echo "SPIKE-CACHE: hit(staging_dir 已还原,跳过 tools+toolchain)" | tee -a "$NUM"
+            du -sh staging_dir | tee -a "$NUM"
+            sh "$WORK/beacon.sh" "toolchain-cache-hit(跳过 tools+toolchain)"
+            Tt=$(date +%s); Tc=$Tt
+          else
+            echo "SPIKE-CACHE: miss(本轮编 tools+toolchain,编完打包上传)" | tee -a "$NUM"
+            sh "$WORK/beacon.sh" "toolchain-cache-miss(要编约 86 分钟)"
+            # 上一轮教训:buildroot 生成签名密钥要用它自己的 host openssl(package/Makefile:78),
+            # 而 host 工具默认不编 ⇒ 必须先把 tools 装上(Error 127 / private-key.pem)。
+            sh "$WORK/beacon.sh" "stage4-start tools/install"
+            make -j"$(nproc)" tools/install V=s > "$WORK/buildroot-tools.log" 2>&1 || {
+              echo "SPIKE-FAILED-AT: tools/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-tools.log"; exit 1; }
+            Tt=$(date +%s); echo "SPIKE-STAGE: host tools in $((Tt-T0))s" | tee -a "$NUM"
+            sh "$WORK/beacon.sh" "stage4-done tools/install elapsed=$((Tt-T0))s"
+            # 上一轮(run 36420475944)教训:直接 package/kernel/linux/compile 时,package/libs/toolchain 打包
+            # libgcc1-*.apk 会因为 staging_dir/toolchain-*/lib/libgcc_s.so.* 不存在而失败 ⇒ 必须先建完整工具链。
+            sh "$WORK/beacon.sh" "stage4-start toolchain/install"
+            make -j"$(nproc)" toolchain/install V=s > "$WORK/buildroot-toolchain.log" 2>&1 || {
+              echo "SPIKE-FAILED-AT: toolchain/install" | tee -a "$NUM"; tail -40 "$WORK/buildroot-toolchain.log"; exit 1; }
+            Tc=$(date +%s); echo "SPIKE-STAGE: toolchain in $((Tc-Tt))s" | tee -a "$NUM"
+            # 打包上传(zstd 分片;放在内核编译前)
+            mkdir -p "$WORK/tc-pack"
+            sh "$WORK/beacon.sh" "toolchain-cache: 打包中(zstd -T0)"
+            if tar -I 'zstd -T0 -6' -cf - staging_dir/host staging_dir/toolchain-* staging_dir/target-* 2>/dev/null | split -b 1500M - "$WORK/tc-pack/${TC_PREFIX}.part-"; then
+              gh release create "$TC_TAG" --repo "$GITHUB_REPOSITORY" --title "feed-spike 工具链缓存 $KV" --notes "由 build-feed-spike.yml 自动生成;含 staging_dir/{host,toolchain-*,target-*};分片 ${TC_PREFIX}.part-*" >/dev/null 2>&1 || true
+              if gh release upload "$TC_TAG" "$WORK/tc-pack"/${TC_PREFIX}.part-* --repo "$GITHUB_REPOSITORY" --clobber >/dev/null 2>&1; then
+                TC_SZ=$(du -sh "$WORK/tc-pack" | cut -f1)
+                echo "SPIKE-CACHE: 打包上传完成 $TC_SZ" | tee -a "$NUM"
+                sh "$WORK/beacon.sh" "toolchain-cache-upload-done $TC_SZ"
+              else
+                echo "SPIKE-CACHE: 上传失败(不影响本轮)" | tee -a "$NUM"
+              fi
+            else
+              echo "SPIKE-CACHE: 打包失败(不影响本轮)" | tee -a "$NUM"
+            fi
+          fi
           sh "$WORK/beacon.sh" "stage4-start target/linux/compile"
           make -j"$(nproc)" target/linux/compile V=s >> "$WORK/buildroot.log" 2>&1 || {
             echo "SPIKE-FAILED-AT: target/linux/compile" | tee -a "$NUM"; tail -60 "$WORK/buildroot.log"; exit 1; }
@@ -303,7 +344,7 @@ jobs:
             echo "steps:     stage1=${{ steps.stage1.outcome }} stage2=${{ steps.stage2.outcome }} stage3=${{ steps.stage3.outcome }} stage4=${{ steps.stage4.outcome }} stage5=${{ steps.stage5.outcome }}"
             echo
             echo "## 阶段打点(SPIKE-STAGE / SPIKE-FAILED-AT)"
-            grep -hE 'SPIKE-STAGE|SPIKE-FAILED-AT' "$NUM" 2>/dev/null || echo "(无打点:可能阶段1之前就失败)"
+            grep -hE 'SPIKE-STAGE|SPIKE-FAILED-AT|SPIKE-CACHE' "$NUM" 2>/dev/null || echo "(无打点:可能阶段1之前就失败)"
             echo
             echo "## 关键验证线索"
             grep -hE 'kernel-[0-9.]+~[0-9a-f]+-r[0-9]+\.apk|vermagic|config md5|apk 总数|generating empty package|EXTRA_DEPENDS' "$NUM" 2>/dev/null || true
