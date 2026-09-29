@@ -158,7 +158,7 @@ jobs:
           #   package/kernel/linux/modules/*.mk 里的 KCONFIG:= 行。这里先做两件事:
           #   ① 把已知阻塞符号点对点转 =m(83 个 kmod 包因缺 libarc4.ko 打包失败);
           #   ② 把 KCONFIG 集合与我们仍 =y 的交集打印出来(下一轮的精确翻转清单)。
-          echo 'CONFIG_CRYPTO_LIB_ARC4=m' >> .config
+          # (CRYPTO_LIB_ARC4 无 prompt、只能被 select ⇒ 单写 =m 会被 olddefconfig 忽略,见下方 CRYPTO_ARC4)
           kc_src="$WORK/kmod-kconfig.txt"
           grep -rhoE 'KCONFIG:=.*' "$IW"/package/kernel/linux/modules/*.mk 2>/dev/null | sed 's/KCONFIG:=//' | tr ' ' '\n' | grep -E '^CONFIG_[A-Z0-9_]+$' | sort -u > "$kc_src" || true
           kc_y=''
@@ -167,6 +167,20 @@ jobs:
           done < "$kc_src"
           echo "SPIKE-KCONFIG: modules/*.mk 声明的 KCONFIG 符号 $(wc -l < "$kc_src") 个;其中我们仍为 =y 的 $(printf '%s' "$kc_y" | wc -w) 个" | tee -a "$NUM"
           if [ -n "$kc_y" ]; then echo "SPIKE-KCONFIG-Y:$kc_y" | tee -a "$NUM"; fi
+          # ★ 一次翻掉(有界、可解释):KCONFIG 集合 ∩ 我们 =y,再排除 .github/must-stay-y.txt(启动关键 163 项)
+          keep="$GITHUB_WORKSPACE/.github/must-stay-y.txt"
+          flip=''; hold=''
+          while IFS= read -r sym; do
+            grep -qE "^$sym=y$" .config || continue
+            if [ -f "$keep" ] && grep -qx "$sym" "$keep"; then hold="$hold $sym"; else echo "$sym=m" >> .config; flip="$flip $sym"; fi
+          done < "$kc_src"
+          echo "SPIKE-FLIP: 翻 =m $(printf '%s' "$flip" | wc -w) 个;因在 must-stay-y 清单里保留 =y $(printf '%s' "$hold" | wc -w) 个" | tee -a "$NUM"
+          if [ -n "$flip" ]; then echo "SPIKE-FLIP-M:$flip" | tee -a "$NUM"; fi
+          if [ -n "$hold" ]; then echo "SPIKE-FLIP-HOLD:$hold" | tee -a "$NUM"; fi
+          # libarc4:kmod-mppe 等 83 个包要 libarc4.ko,而 CRYPTO_LIB_ARC4 是无 prompt 的 tristate(只能被 select),
+          # 所以必须打开能 select 它的 CRYPTO_ARC4(它依赖 CRYPTO_USER_API_ENABLE_OBSOLETE)。
+          echo 'CONFIG_CRYPTO_USER_API_ENABLE_OBSOLETE=y' >> .config
+          echo 'CONFIG_CRYPTO_ARC4=m' >> .config
           # ★ =y→=m 自动化(证据驱动):buildroot 的 generic/armsr config-6.18 里标 =m 的符号,
           #   就是“OpenWrt 期望它是模块”的集合;我们 config 里同为 =y 的一律转 =m。
           #   根因实测:run 36498244709 里 83 个 kmod 包打包失败,原因只有一条 ——
@@ -190,6 +204,10 @@ jobs:
             if grep -qE "^$sym=y$" .config; then still_y=$((still_y+1)); fi
           done < "$flip_src"
           echo "SPIKE-FLIP: olddefconfig 之后仍为 =y 的 $still_y 个(被 select 强制/符号不存在)" | tee -a "$NUM"
+          bad=''
+          for s in $flip; do grep -qE "^$s=m$" .config || bad="$bad $s"; done
+          echo "SPIKE-FLIP-AFTER: 翻后不是 =m 的 $(printf '%s' "$bad" | wc -w) 个:$bad" | tee -a "$NUM"
+          grep -E '^CONFIG_(CRYPTO_ARC4|CRYPTO_LIB_ARC4)=' .config | tee -a "$NUM" 
           bad=
           while IFS= read -r l; do
             case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" .config | cut -d= -f2- || true)
