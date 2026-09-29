@@ -169,14 +169,22 @@ jobs:
           if [ -n "$kc_y" ]; then echo "SPIKE-KCONFIG-Y:$kc_y" | tee -a "$NUM"; fi
           # ★ 一次翻掉(有界、可解释):KCONFIG 集合 ∩ 我们 =y,再排除 .github/must-stay-y.txt(启动关键 163 项)
           keep="$GITHUB_WORKSPACE/.github/must-stay-y.txt"
-          flip=''; hold=''
+          ourcfg="$GITHUB_WORKSPACE/upstream/mu300-mainline.config"
+          flip=''; hold=''; keep2=''
           while IFS= read -r sym; do
             grep -qE "^$sym=y$" .config || continue
-            if [ -f "$keep" ] && grep -qx "$sym" "$keep"; then hold="$hold $sym"; else echo "$sym=m" >> .config; flip="$flip $sym"; fi
+            if [ -f "$keep" ] && grep -qx "$sym" "$keep"; then
+              hold="$hold $sym"
+            elif [ -f "$ourcfg" ] && grep -qx "$sym=y" "$ourcfg"; then
+              keep2="$keep2 $sym"          # ★ 我们自己的 config 明确要 =y ⇒ 不许翻(否则逐项校验会失败)
+            else
+              echo "$sym=m" >> .config; flip="$flip $sym"
+            fi
           done < "$kc_src"
           echo "SPIKE-FLIP: 翻 =m $(printf '%s' "$flip" | wc -w) 个;因在 must-stay-y 清单里保留 =y $(printf '%s' "$hold" | wc -w) 个" | tee -a "$NUM"
           if [ -n "$flip" ]; then echo "SPIKE-FLIP-M:$flip" | tee -a "$NUM"; fi
           if [ -n "$hold" ]; then echo "SPIKE-FLIP-HOLD:$hold" | tee -a "$NUM"; fi
+          if [ -n "$keep2" ]; then echo "SPIKE-FLIP-OURCFG:$keep2" | tee -a "$NUM"; fi
           # libarc4:kmod-mppe 等 83 个包要 libarc4.ko,而 CRYPTO_LIB_ARC4 是无 prompt 的 tristate(只能被 select),
           # 所以必须打开能 select 它的 CRYPTO_ARC4(它依赖 CRYPTO_USER_API_ENABLE_OBSOLETE)。
           echo 'CONFIG_CRYPTO_USER_API_ENABLE_OBSOLETE=y' >> .config
