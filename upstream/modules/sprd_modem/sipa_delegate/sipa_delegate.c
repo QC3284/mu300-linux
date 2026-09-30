@@ -45,8 +45,13 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 						IORESOURCE_MEM,
 						"mem-base");
 	if (!resource) {
-		dev_err(&pdev->dev, "get resource failed for remote-base!\n");
-		return -ENODEV;
+		/* v8c5: mem-base/reg-base 是 **remote**(CP 侧)资源,CP 没起来时它们还不在。
+		 * 这里返回 -ENODEV 等于“永久放弃”,只能靠用户态再 insmod 一次,而那次 insmod
+		 * 会在驱动里等很久(实测 86 s 的 get resource failed 就是这条路径的 N 次重试)。
+		 * 改成 EPROBE_DEFER:probe 立刻返回、模块保持 loaded,由下面的 delayed work 在资源
+		 * 就绪后完成会合。 */
+		dev_info(&pdev->dev, "mem-base not ready, deferring\n");
+		return -EPROBE_DEFER;
 	}
 
 	cfg->mem_base = resource->start;
@@ -57,8 +62,8 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 						IORESOURCE_MEM,
 						"reg-base");
 	if (!resource) {
-		dev_err(&pdev->dev, "get resource failed for mapped-base!\n");
-		return -ENODEV;
+		dev_info(&pdev->dev, "reg-base not ready, deferring\n");
+		return -EPROBE_DEFER;
 	}
 
 	cfg->reg_base = resource->start;
@@ -69,8 +74,8 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 				   "sprd,ul-fifo-depth",
 				   &cfg->ul_fifo_depth);
 	if (ret) {
-		dev_err(&pdev->dev, "get resource failed for ul_fifo_depth\n");
-		return ret;
+		dev_info(&pdev->dev, "ul-fifo-depth not ready, deferring\n");
+		return -EPROBE_DEFER;
 	}
 
 	/* get dl fifo depth */
@@ -78,28 +83,53 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 				   "sprd,dl-fifo-depth",
 				   &cfg->dl_fifo_depth);
 	if (ret) {
-		dev_err(&pdev->dev, "get resource failed for dl_fifo_depth\n");
-		return ret;
+		dev_info(&pdev->dev, "dl-fifo-depth not ready, deferring\n");
+		return -EPROBE_DEFER;
 	}
 
 	return 0;
 }
 
-static int sipa_dele_plat_drv_probe(struct platform_device *pdev_p)
+/*
+ * v8c5: the delegate must not spend the boot waiting for CP-side resources.
+ *
+ * Before: probe returned -ENODEV when mem-base/reg-base were not there yet, which is permanent -
+ *         the module stayed loaded but unbound, and the only retry was another insmod from user
+ *         space, each of which blocked the caller for a long time (86 s observed in the initramfs
+ *         extra-modules loop).
+ * After:  probe returns -EPROBE_DEFER immediately (no waiting at all) and a delayed work retries
+ *         the rendezvous every 5 s for up to 180 s; the module stays loaded throughout, so the
+ *         early load in the initramfs is preserved without burning the boot budget.
+ * The user space path (/opt/mu300/bin/sipa-dele-start) remains the final fallback.
+ */
+#define SIPA_DELE_RETRY_SECS 5
+#define SIPA_DELE_RETRY_MAX  36   /* 36 * 5 s = 180 s */
+
+static struct delayed_work s_dele_retry;
+static struct platform_device *s_dele_pdev;
+static int s_dele_retry_left;
+static bool s_dele_ready;
+static DEFINE_MUTEX(s_dele_lock);
+
+static int sipa_dele_setup(struct platform_device *pdev_p)
 {
 	int ret;
 	struct device *dev = &pdev_p->dev;
 	struct sipa_delegate_plat_drv_cfg *cfg = &s_sipa_dele_cfg;
 	struct sipa_delegator_create_params create_params;
 
-	if (!sipa_rm_is_initialized())
+	if (!sipa_rm_is_initialized()) {
+		dev_info(dev, "sipa rm not ready, deferring\n");
 		return -EPROBE_DEFER;
+	}
 
 	memset(cfg, 0, sizeof(*cfg));
 
 	ret = sipa_dele_parse_dts_cfg(pdev_p, cfg);
-	if (ret)
-		dev_err(dev, "dts parsing failed\n");
+	if (ret) {
+		dev_info(dev, "dts not ready yet: %d\n", ret);
+		return ret;
+	}
 
 	create_params.pdev = dev;
 	create_params.cfg = cfg;
@@ -117,6 +147,68 @@ static int sipa_dele_plat_drv_probe(struct platform_device *pdev_p)
 	}
 	pr_debug("cp_delegator_init!\n");
 
+	return 0;
+}
+
+static void sipa_dele_retry_work(struct work_struct *work)
+{
+	struct platform_device *pdev = s_dele_pdev;
+	int ret;
+
+	if (!pdev)
+		return;
+
+	mutex_lock(&s_dele_lock);
+	if (s_dele_ready) {
+		mutex_unlock(&s_dele_lock);
+		return;
+	}
+	if (s_dele_retry_left <= 0) {
+		mutex_unlock(&s_dele_lock);
+		dev_info(&pdev->dev, "delegate still not ready after %d s, giving up (user space retries)\n",
+			 SIPA_DELE_RETRY_SECS * SIPA_DELE_RETRY_MAX);
+		return;
+	}
+	s_dele_retry_left--;
+	ret = sipa_dele_setup(pdev);
+	if (!ret) {
+		s_dele_ready = true;
+		mutex_unlock(&s_dele_lock);
+		dev_info(&pdev->dev, "delegate ready after retries\n");
+		return;
+	}
+	mutex_unlock(&s_dele_lock);
+
+	if (ret == -EPROBE_DEFER)
+		schedule_delayed_work(&s_dele_retry,
+				      msecs_to_jiffies(SIPA_DELE_RETRY_SECS * 1000));
+}
+
+static int sipa_dele_plat_drv_probe(struct platform_device *pdev_p)
+{
+	int ret;
+
+	mutex_lock(&s_dele_lock);
+	if (s_dele_ready) {           /* the retry work already set it up */
+		mutex_unlock(&s_dele_lock);
+		return 0;
+	}
+	s_dele_pdev = pdev_p;
+	s_dele_retry_left = SIPA_DELE_RETRY_MAX;
+	ret = sipa_dele_setup(pdev_p);
+	if (!ret) {
+		s_dele_ready = true;
+		mutex_unlock(&s_dele_lock);
+		return 0;
+	}
+	mutex_unlock(&s_dele_lock);
+
+	/* Never block the caller here: arm the retry work and defer. */
+	if (ret == -EPROBE_DEFER) {
+		dev_info(&pdev_p->dev, "resources not ready, deferring (module stays loaded)\n");
+		schedule_delayed_work(&s_dele_retry,
+				      msecs_to_jiffies(SIPA_DELE_RETRY_SECS * 1000));
+	}
 	return ret;
 }
 
@@ -171,6 +263,8 @@ static struct platform_driver sipa_dele_plat_drv = {
 
 static int __init sipa_dele_module_init(void)
 {
+	/* v8c5: the retry work must be initialized before any probe can schedule it. */
+	INIT_DELAYED_WORK(&s_dele_retry, sipa_dele_retry_work);
 	/* Register as a platform device driver */
 	return platform_driver_register(&sipa_dele_plat_drv);
 }
