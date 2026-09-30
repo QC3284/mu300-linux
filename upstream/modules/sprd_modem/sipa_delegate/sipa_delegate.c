@@ -22,6 +22,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/sipa.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -34,6 +35,46 @@
 
 static struct sipa_delegate_plat_drv_cfg s_sipa_dele_cfg;
 
+/*
+ * v8c7: this device's DT has no mem-base/reg-base on the sipa-dele node at all.
+ *
+ * Verified on the runtime blobs (f50_kernel/device/base_dtb.bin, fdt.bin and the FDT inside
+ * vendor_boot_a.img): the node carries only the compatible, the two fifo depths and
+ * power-domains - "mem-base" and "reg-base" appear nowhere in those trees. The stock 5.4 DTS is
+ * identical, and no other driver adds the resources (no platform_device_add_resources anywhere
+ * in the sipa tree), so waiting for them can never succeed.
+ *
+ * Nothing in this driver reads cfg->mem_base/reg_base after parse, so fall back to the sibling
+ * IPA node's region (sipa@25220000, reg-names = "ipa-base"); keep the deferral only for the case
+ * where even that is unavailable.
+ */
+static int sipa_dele_fallback_base(struct platform_device *pdev, struct resource *out)
+{
+	struct device_node *parent, *child;
+	int ret = -ENODEV;
+
+	parent = of_get_parent(pdev->dev.of_node);
+	if (!parent)
+		return -ENODEV;
+
+	for_each_child_of_node(parent, child) {
+		if (child == pdev->dev.of_node)
+			continue;
+		if (!of_find_property(child, "reg-names", NULL))
+			continue;
+		ret = of_address_to_resource(child, 0, out);
+		if (!ret) {
+			dev_info(&pdev->dev, "no mem-base/reg-base in DT, using sibling ipa-base 0x%llx\n",
+				 (unsigned long long)out->start);
+			of_node_put(child);
+			break;
+		}
+	}
+
+	of_node_put(parent);
+	return ret;
+}
+
 static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 				   struct sipa_delegate_plat_drv_cfg *cfg)
 {
@@ -42,32 +83,38 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 
 	/* get modem IPA global register base  address */
 	resource = platform_get_resource_byname(pdev,
-						IORESOURCE_MEM,
-						"mem-base");
+					IORESOURCE_MEM,
+					"mem-base");
 	if (!resource) {
-		/* v8c5: mem-base/reg-base 是 **remote**(CP 侧)资源,CP 没起来时它们还不在。
-		 * 这里返回 -ENODEV 等于“永久放弃”,只能靠用户态再 insmod 一次,而那次 insmod
-		 * 会在驱动里等很久(实测 86 s 的 get resource failed 就是这条路径的 N 次重试)。
-		 * 改成 EPROBE_DEFER:probe 立刻返回、模块保持 loaded,由下面的 delayed work 在资源
-		 * 就绪后完成会合。 */
-		dev_info(&pdev->dev, "mem-base not ready, deferring\n");
-		return -EPROBE_DEFER;
+		/* v8c7: not in this DT (see sipa_dele_fallback_base) - fall back instead of waiting. */
+		struct resource fb;
+		if (sipa_dele_fallback_base(pdev, &fb)) {
+			dev_info(&pdev->dev, "mem-base not ready, deferring\n");
+			return -EPROBE_DEFER;
+		}
+		cfg->mem_base = fb.start;
+		cfg->mem_end = fb.end;
+	} else {
+		cfg->mem_base = resource->start;
+		cfg->mem_end = resource->end;
 	}
-
-	cfg->mem_base = resource->start;
-	cfg->mem_end = resource->end;
 
 	/* get mapped modem IPA global register base  address */
 	resource = platform_get_resource_byname(pdev,
-						IORESOURCE_MEM,
-						"reg-base");
+					IORESOURCE_MEM,
+					"reg-base");
 	if (!resource) {
-		dev_info(&pdev->dev, "reg-base not ready, deferring\n");
-		return -EPROBE_DEFER;
+		struct resource fb;
+		if (sipa_dele_fallback_base(pdev, &fb)) {
+			dev_info(&pdev->dev, "reg-base not ready, deferring\n");
+			return -EPROBE_DEFER;
+		}
+		cfg->reg_base = fb.start;
+		cfg->reg_end = fb.end;
+	} else {
+		cfg->reg_base = resource->start;
+		cfg->reg_end = resource->end;
 	}
-
-	cfg->reg_base = resource->start;
-	cfg->reg_end = resource->end;
 
 	/* get ul fifo depth */
 	ret = of_property_read_u32(pdev->dev.of_node,
