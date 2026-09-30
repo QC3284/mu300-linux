@@ -36,16 +36,29 @@ static int conn_thread(void *data)
 	struct smsg mrecv;
 	struct sipa_delegator *delegator = data;
 	int ret;
+	int reopen_tries = 0;
 
-	/* since the channel open may hang, we call it in the thread context */
-	ret = smsg_ch_open(delegator->dst, delegator->chan, -1);
-	if (ret != 0) {
-		pr_err("sipa_delegator failed to open dst %d channel %d\n",
-		       delegator->dst,
-		       delegator->chan);
-		/* assign NULL to thread poniter as failed to open channel */
-		delegator->thread = NULL;
-		return ret;
+	/*
+	 * v8c8: open in bounded slices and keep re-opening until the modem answers.
+	 *
+	 * The CP does not listen during early boot (the stock 5.4 pstore log shows the channel 120
+	 * open only being acked once modem_control has the CP up), and -1 means *unlimited* here,
+	 * so an early load leaves this thread blocked for ever with nothing to retry it: the module
+	 * has no module_exit (it is permanent in /proc/modules), so there is no rmmod/reinsmod to
+	 * recover either. 2 s slices + a retry every 2 s make the handshake happen whenever the
+	 * modem is ready, and keep the thread responsive to kthread_stop().
+	 */
+	for (;;) {
+		ret = smsg_ch_open(delegator->dst, delegator->chan, 2000);
+		if (ret == 0)
+			break;
+		if (kthread_should_stop()) {
+			delegator->thread = NULL;
+			return ret;
+		}
+		pr_info("sipa_dele: no ack opening dst %d chan %d (ret=%d), retrying in 2 s\n",
+			delegator->dst, delegator->chan, ret);
+		msleep(2000);
 	}
 
 	/* set connect status */
@@ -58,10 +71,16 @@ static int conn_thread(void *data)
 		smsg_set(&mrecv, delegator->chan, 0, 0, 0);
 		ret = smsg_recv(delegator->dst, &mrecv, -1);
 		if (ret == -EIO || ret == -ENODEV) {
-			/* channel state is FREE */
+			/* channel state is FREE: after a modem restart the descriptor is stale, so try to
+			 * re-open it every ~1 s instead of just spinning (v8c8). */
 			usleep_range(5000, 10000);
+			if (++reopen_tries >= 200) {
+				reopen_tries = 0;
+			smsg_ch_open(delegator->dst, delegator->chan, 0);
+			}
 			continue;
 		}
+		reopen_tries = 0;
 
 		pr_info("smsg_recv, smsg_cnt=%d, dst=%d, chan=%d, type=%d, flag=0x%x, value=0x%08x\n",
 			delegator->smsg_cnt++,
