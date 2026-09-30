@@ -1,0 +1,62 @@
+# feed-spike 最近一次 run 的结果
+repo:      QC3284/mu300-linux
+run:       36756094885
+run_url:   https://github.com/QC3284/mu300-linux/actions/runs/36756094885
+branch:    qc/feed-ci
+commit:    013e6efdc9a160eb3dd4f5fa47210e1d6c1c2848
+mode:      allkmods
+kv:        6.18.52
+status:    success
+finished:  2026-09-30T18:23:49Z
+steps:     stage1=success stage2=success stage3=success stage4=success stage5=success
+
+## 阶段打点(SPIKE-STAGE / SPIKE-FAILED-AT)
+SPIKE-STAGE: env done 2026-09-30T18:05:45Z
+SPIKE-STAGE: deps done 2026-09-30T18:06:12Z
+SPIKE-STAGE: buildroot cloned in 4s du=112M
+SPIKE-KCONFIG: modules/*.mk 声明的 KCONFIG 符号 762 个;其中我们仍为 =y 的 13 个
+SPIKE-KCONFIG-Y: CONFIG_EXPORTFS CONFIG_INPUT CONFIG_LEDS_TRIGGER_PATTERN CONFIG_NET_SCH_CAKE CONFIG_NF_CT_NETLINK CONFIG_NLS_CODEPAGE_437 CONFIG_NLS_ISO8859_1 CONFIG_PSTORE_RAM CONFIG_REGMAP_MMIO CONFIG_TCP_CONG_BBR CONFIG_USB_COMMON CONFIG_USB_GADGET CONFIG_USB_ROLE_SWITCH
+SPIKE-FLIP: 翻 =m 2 个;因在 must-stay-y 清单里保留 =y 5 个
+SPIKE-FLIP-M: CONFIG_EXPORTFS CONFIG_INPUT
+SPIKE-FLIP-HOLD: CONFIG_NET_SCH_CAKE CONFIG_NF_CT_NETLINK CONFIG_PSTORE_RAM CONFIG_TCP_CONG_BBR CONFIG_USB_GADGET
+SPIKE-FLIP-OURCFG: CONFIG_LEDS_TRIGGER_PATTERN CONFIG_NLS_CODEPAGE_437 CONFIG_NLS_ISO8859_1 CONFIG_REGMAP_MMIO CONFIG_USB_COMMON CONFIG_USB_ROLE_SWITCH
+SPIKE-FLIP: buildroot 期望 =m 的符号 0 个;我们原为 =y 被翻成 =m 的 0 个
+SPIKE-FLIP: olddefconfig 之后仍为 =y 的 0 个(被 select 强制/符号不存在)
+SPIKE-FLIP-AFTER: 翻后不是 =m 的 2 个: CONFIG_EXPORTFS CONFIG_INPUT
+SPIKE-STAGE: tree configured 2026-09-30T18:06:44Z
+SPIKE-STAGE: tree built in 273s du=2.0G
+SPIKE-STAGE: config done 2026-09-30T18:11:18Z
+SPIKE-CACHE: hit(staging_dir 已还原,跳过 tools+toolchain)
+SPIKE-STAGE: kernel(target/linux) in 640s
+SPIKE-STAGE: kernel+kmods compiled in 735s
+SPIKE-STAGE: index in 2s
+SPIKE-STAGE: done 2026-09-30T18:23:47Z
+
+## 关键验证线索
+  tree config md5(LINUX_VERMAGIC 口径)= 46171efc94a135a6e684129dfb8823f8
+=== .apk 总数: 187
+=== 验证 a:kernel 包(版本应为 6.18.52~<我们 config md5>-r1)===
+bin/targets/armsr/armv8/packages/kernel-6.18.52~8d16a6246a4fe3ab4dbaac50f74a2a93-r1.apk
+=== 验证 b:我们树里 buildroot 编出的 .ko 的 vermagic ===
+
+## buildroot.log 尾 20 行
+
+SHELL= flock /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/tmp/.root-copy.flock -c 'cp -fpR /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/build_dir/target-aarch64_generic_musl/linux-armsr_armv8/packages/.pkgdir/kmod-renesas-rzn-pcs/. /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/root-armsr/'
+touch /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/root-armsr/stamp/.kmod-renesas-rzn-pcs_installed
+mkdir -p /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/root-armsr/stamp
+
+SHELL= flock /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/tmp/.root-copy.flock -c 'cp -fpR /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/build_dir/target-aarch64_generic_musl/linux-armsr_armv8/packages/.pkgdir/kmod-wdt-sp805/. /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/root-armsr/'
+touch /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/root-armsr/stamp/.kmod-wdt-sp805_installed
+echo "kmod-wdt-sp805" >> /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/target-aarch64_generic_musl/pkginfo/linux.default.install
+make[2]: Leaving directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/package/kernel/linux'
+time: package/kernel/linux/compile#8.02#7.32#14.26
+make[1]: Leaving directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt'
+make[2]: Entering directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/scripts/config'
+make[2]: 'conf' is up to date.
+make[2]: Leaving directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/scripts/config'
+make[1]: Entering directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt'
+Generating package index...
+Index has 184 packages (of which 184 are new)
+Index has 3 packages (of which 3 are new)
+(cd /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/bin/packages/aarch64_generic; [ -f sha256sums ] && [ -z "$(find .  -not -name 'sha256sums' -newer sha256sums -print -quit)" ] || find .  -type f -not -name 'sha256sums' -printf "%P\n" | sort | xargs -r /home/runner/work/mu300-linux/mu300-linux/work/immortalwrt/staging_dir/host/bin/mkhash -n sha256 | sed -ne 's!^\(.*\) \(.*\)$!\1 *\2!p' > sha256sums)
+make[1]: Leaving directory '/home/runner/work/mu300-linux/mu300-linux/work/immortalwrt'
