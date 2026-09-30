@@ -89,11 +89,14 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 		/* v8c7: not in this DT (see sipa_dele_fallback_base) - fall back instead of waiting. */
 		struct resource fb;
 		if (sipa_dele_fallback_base(pdev, &fb)) {
-			dev_info(&pdev->dev, "mem-base not ready, deferring\n");
-			return -EPROBE_DEFER;
+			/* v8c7 stock semantics: the stock 5.4 driver logs the same failure and still
+			 * lets the initcall return 0 (module stays resident) and the smsg/pd handshake
+			 * proceed. Do not defer and do not fail: warn and continue with zeros. */
+			dev_warn(&pdev->dev, "no mem-base in DT, continuing (stock semantics)\n");
+		} else {
+			cfg->mem_base = fb.start;
+			cfg->mem_end = fb.end;
 		}
-		cfg->mem_base = fb.start;
-		cfg->mem_end = fb.end;
 	} else {
 		cfg->mem_base = resource->start;
 		cfg->mem_end = resource->end;
@@ -106,11 +109,11 @@ static int sipa_dele_parse_dts_cfg(struct platform_device *pdev,
 	if (!resource) {
 		struct resource fb;
 		if (sipa_dele_fallback_base(pdev, &fb)) {
-			dev_info(&pdev->dev, "reg-base not ready, deferring\n");
-			return -EPROBE_DEFER;
+			dev_warn(&pdev->dev, "no reg-base in DT, continuing (stock semantics)\n");
+		} else {
+			cfg->reg_base = fb.start;
+			cfg->reg_end = fb.end;
 		}
-		cfg->reg_base = fb.start;
-		cfg->reg_end = fb.end;
 	} else {
 		cfg->reg_base = resource->start;
 		cfg->reg_end = resource->end;
