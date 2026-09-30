@@ -1,0 +1,26 @@
+#!/bin/sh
+# 等 CP(调制解调器)就绪后再让消费方启动 —— 修 SIPA 竞态。
+# 不用直接开 /dev/stty_nr1 探测:那是 SIPC 通道,只有一个 reader 能拿到数据,
+# 直接打开会把通道从 mu300-atd 手里抢走。所以就绪判据 = 通过 daemon 发一条 AT 拿到 OK。
+# 用法:  . /opt/mu300/bin/wait-cp ; wait_cp [预算秒 180] [间隔 3]
+wait_cp() {
+    _budget=${1:-180}
+    _step=${2:-3}
+    _i=0
+    while [ "$_i" -lt "$_budget" ]; do
+        if [ -c /dev/stty_nr1 ]; then
+            if timeout 5 /opt/mu300/bin/mu300-at "AT" 2>/dev/null | grep -q "OK"; then
+                logger -t mu300-cpwait "CP ready after ${_i}s"
+                return 0
+            fi
+        fi
+        sleep "$_step"
+        _i=$((_i + _step))
+    done
+    logger -t mu300-cpwait "CP not ready within ${_budget}s(继续启动,消费方自行重试)"
+    return 1
+}
+if [ "$(basename "$0")" = "wait-cp" ]; then
+    wait_cp "${1:-180}" "${2:-3}"
+    exit $?
+fi
