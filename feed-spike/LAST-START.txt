@@ -1,0 +1,8 @@
+# feed-spike 最近一次 run 的开始
+run:      36756094885
+run_url:  https://github.com/QC3284/mu300-linux/actions/runs/36756094885
+branch:   qc/feed-ci
+commit:   013e6efdc9a160eb3dd4f5fa47210e1d6c1c2848
+mode:     allkmods
+kv:       6.18.52
+started:  2026-09-30T18:05:45Z
