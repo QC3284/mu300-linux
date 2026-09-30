@@ -18,7 +18,7 @@ on:
         required: false
         default: 'native'
   push:
-    branches: ['qc/mainline-ci', 'qc/v8c1']   # v8c1:最小差异内核对照
+    branches: ['qc/mainline-ci', 'qc/v8c1', 'qc/v8c2a']   # v8c1:最小差异内核对照
 
 permissions:
   contents: read
