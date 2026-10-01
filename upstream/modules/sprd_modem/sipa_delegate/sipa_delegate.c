@@ -159,6 +159,13 @@ static struct delayed_work s_dele_retry;
 static struct platform_device *s_dele_pdev;
 static int s_dele_retry_left;
 static bool s_dele_ready;
+
+/* v8c9: 握手一旦完成就不要再重跑 setup —— 每次重跑都会再开一次通道(CP 未就绪时就是 -62)。 */
+void sipa_dele_retry_stop(void)
+{
+	cancel_delayed_work(&s_dele_retry);
+}
+EXPORT_SYMBOL_GPL(sipa_dele_retry_stop);
 static DEFINE_MUTEX(s_dele_lock);
 
 static int sipa_dele_setup(struct platform_device *pdev_p)

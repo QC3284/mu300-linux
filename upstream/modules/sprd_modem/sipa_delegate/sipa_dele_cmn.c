@@ -1,3 +1,4 @@
+void sipa_dele_retry_stop(void);
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (C) 2019 Spreadtrum Communications Inc.
  *
@@ -63,6 +64,9 @@ static int conn_thread(void *data)
 
 	/* set connect status */
 	delegator->connected = true;
+	/* v8c9: 握手已成,停掉驱动侧的 setup 重试,避免重复 open(-62) */
+	sipa_dele_retry_stop();
+	pr_info("sipa_dele: retry work stopped after channel %d ack\n", delegator->chan);
 	delegator->on_open(delegator, 0, 0);
 
 	/* start listen the smsg events */
