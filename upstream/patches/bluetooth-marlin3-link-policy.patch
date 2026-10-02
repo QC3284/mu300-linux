@@ -1,0 +1,31 @@
+Bluetooth: request only Role Switch and Sniff in the default link policy (6.18 port)
+
+Ported from dikeckaan/mu300-linux@u30air kernel/patches/bluetooth-marlin3-link-policy.patch
+(MU300/U30 Air: Unisoc Marlin3 SC2355).
+
+The Unisoc Marlin3 firmware advertises LMP Hold Mode and Park State in its feature
+mask, but answers HCI_Write_Default_Link_Policy_Settings with "Invalid HCI Command
+Parameters" (0x12) whenever HCI_LP_HOLD or HCI_LP_PARK is set (0x0000/0x0001/0x0004/
+0x0005 accepted, 0x0007 rejected). The failure aborts controller init, so
+"hciconfig hci0 up" / bluetoothd power-on fails with -EINVAL.
+
+Park State was removed from the Core specification in 5.0 and Hold Mode is not used
+by BlueZ, so never request either. Same change as the 5.4 vendor tree; mainline keeps
+the same function and context, so the hunk applies verbatim.
+
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -504,12 +504,8 @@ static void hci_setup_link_policy(struct hci_request *req)
+ 
+ 
+ 	if (lmp_rswitch_capable(hdev))
+ 		link_policy |= HCI_LP_RSWITCH;
+-	if (lmp_hold_capable(hdev))
+-		link_policy |= HCI_LP_HOLD;
+ 	if (lmp_sniff_capable(hdev))
+ 		link_policy |= HCI_LP_SNIFF;
+-	if (lmp_park_capable(hdev))
+-		link_policy |= HCI_LP_PARK;
+ 
+ 	cp.policy = cpu_to_le16(link_policy);
+ 	hci_req_add(req, HCI_OP_WRITE_DEF_LINK_POLICY, sizeof(cp), &cp);
