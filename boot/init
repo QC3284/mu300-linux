@@ -69,6 +69,35 @@ echo /bin/mdev > /proc/sys/kernel/hotplug
 mdev -s
 log "stage=devfs-ready"
 
+# v8c8b:启动期 LED 白闪 —— **后台轮询**(每 0.5s 重试,最多 60s),不再只试一次。
+# 原因:LED 驱动(led-class + leds-sc27xx-bltc)是模块,节点要等模块加载后才出现;
+# 现在已把这两个模块挪到 module-order 最前,同时这里轮询兜底;跑在**后台**不拖慢启动。
+# 颜色用【白】(硬件事实:F50 的 green 通道实际显白,可用色只有红/白/蓝);点白前显式清红蓝。
+led_boot_blink() {
+    _busy=/bin/busybox; [ -x "$_busy" ] || _busy=busybox
+    _i=0
+    while [ "$_i" -lt 120 ]; do
+        if [ -w /sys/class/leds/sc27xx:green/trigger ]; then
+            for c in sc27xx:red sc27xx:blue; do
+                echo none > "/sys/class/leds/$c/trigger" 2>/dev/null
+                echo 0    > "/sys/class/leds/$c/brightness" 2>/dev/null
+            done
+            echo none  > /sys/class/leds/sc27xx:green/trigger 2>/dev/null
+            echo 0     > /sys/class/leds/sc27xx:green/brightness 2>/dev/null
+            echo timer > /sys/class/leds/sc27xx:green/trigger 2>/dev/null
+            echo ${LED_BOOT_MS:-200} > /sys/class/leds/sc27xx:green/delay_on 2>/dev/null
+            echo ${LED_BOOT_MS:-200} > /sys/class/leds/sc27xx:green/delay_off 2>/dev/null
+            log "stage=led-boot-blink hz=2.5 color=white on=${LED_BOOT_MS:-200}ms R=0 B=0 waited=${_i}x0.5s"
+            return 0
+        fi
+        "$_busy" sleep 0.5 2>/dev/null || sleep 1
+        _i=$((_i + 1))
+    done
+    log "stage=led-boot-blink skipped (no sc27xx:green after 60s)"
+    return 1
+}
+led_boot_blink &
+
 # Turn hangs into panics; the vendor kernel reboots after a panic.
 echo 1 > /proc/sys/kernel/softlockup_panic
 echo 1 > /proc/sys/kernel/panic_on_oops
@@ -106,10 +135,94 @@ else
 fi
 log "stage=device $DEVICE order=$MODULE_ORDER"
 
+# ── MU300 v8c2:阶段 2(可选模块,有界加载 + 失败可诊断)────────────────────────
+# etc/module-order 的前 EXTRA_FROM 项(41,v7 核心集)由阶段 1 按原序同步加载,其余在这里。
+# v8c2 相对 v8b 的增强(**全部为可诊断性,不改变加载策略**):
+#   1) 失败时打印**模块名 + rc + 实际使用的文件路径 + insmod 的完整 stderr**(压成一行,便于 grep);
+#   2) 清单里有、ramdisk 里没有的项直接识别为 **not-found(幽灵名)**并单独计数,不再空跑 insmod;
+#   3) 结束行给出 loaded/failed/ghost/skipped + **failed-list(失败模块名+rc)**,一眼能看出该查谁;
+#   4) 阶段 2 的路径解析与阶段 1 完全一致(含 U30 Air 的 /linux-modules/<device>/ 回退)——
+#      v8b 这里硬编码 /linux-modules/$module,在 device!=f50 的机器上会整片 not-found。
+EXTRA_FROM=${EXTRA_FROM:-46}
+EXTRA_BUDGET=${EXTRA_BUDGET:-90}          # 保留:仅作为日志对照,不再是“硬跳过”依据
+EXTRA_BATCH=${EXTRA_BATCH:-8}                # v8c5:每批并行加载数
+EXTRA_BATCH_WAIT=${EXTRA_BATCH_WAIT:-12}    # v8c5:每批等待上限(秒),超时即继续,慢模块留在后台
+EXTRA_RISK="sprd_thermal_r5p0.ko hci_uart.ko virtio.ko virtio_ring.ko virtio_mmio.ko cfg80211.ko bluetooth.ko bnep.ko rfcomm.ko leds-sc27xx-bltc.ko spi-sprd-adi.ko"
+extra_file() {   # extra_file MODULE -> 打印实际文件路径(与阶段 1 同规则)
+    _f="/linux-modules/$1"
+    if [ -n "${DEVICE_MODULES:-}" ] && [ -f "/linux-modules/${DEVICE:-f50}/$1" ]; then
+        _f="/linux-modules/${DEVICE:-f50}/$1"
+    fi
+    echo "$_f"
+}
+load_extra_modules() {
+    [ -f "$MODULE_ORDER" ] || return 0
+    t0=$(date +%s); loaded=0; failed=0; ghost=0; skipped=0; v8b_n=0; failed_list=""; slow_list=""
+    : > /run/insmod-extra.done
+    batch=""; bn=0
+    run_batch() {
+        [ -n "$1" ] || return 0
+        : > /run/insmod-extra.done
+        n=0
+        for m in $1; do
+            f=$(extra_file "$m")
+            to=5; for r in $EXTRA_RISK; do [ "$r" = "$m" ] && to=2; done
+            ( t=$(date +%s)
+              timeout "$to" insmod "$f" 2>/run/insmod-extra.err; rc=$?
+              d=$(( $(date +%s) - t ))
+              echo "$rc $d $m" >> /run/insmod-extra.done ) &
+            n=$((n + 1))
+        done
+        # 等这一批:最久 EXTRA_BATCH_WAIT 秒。timeout 杀不掉内核里 D 状态的 probe,
+        # 所以到点就继续,把慢模块留在后台 —— 关键是不再让它们挡住启动。
+        w=0
+        while [ "$w" -lt "$EXTRA_BATCH_WAIT" ]; do
+            [ "$(grep -c . /run/insmod-extra.done 2>/dev/null)" -ge "$n" ] && break
+            sleep 1; w=$((w + 1))
+        done
+        while read rc d m; do
+            [ "$rc" = 0 ] && loaded=$((loaded + 1)) || { failed=$((failed + 1)); failed_list="$failed_list $m(rc=$rc)"; }
+            if [ "$d" -ge 3 ]; then slow_list="$slow_list $m:${d}s"; log "insmod-extra-slow module=$m rc=$rc secs=$d"; fi
+        done < /run/insmod-extra.done
+        got=$(grep -c . /run/insmod-extra.done 2>/dev/null)
+        if [ "$got" -lt "$n" ]; then
+            log "insmod-extra-batch-timeout batch=$1 pending=$((n - got)) (慢模块留在后台,继续)"
+            loaded=$((loaded + got))
+        fi
+    }
+    while read module; do
+        case "$module" in ''|'#'*) continue ;; esac
+        v8b_n=$((v8b_n + 1))
+        [ "$v8b_n" -le "$EXTRA_FROM" ] && continue
+        file=$(extra_file "$module")
+        if [ ! -f "$file" ]; then
+            ghost=$((ghost + 1))
+            log "insmod-extra-skip module=$module reason=not-found file=$file"
+            continue
+        fi
+        batch="$batch $module"; bn=$((bn + 1))
+        if [ "$bn" -ge "$EXTRA_BATCH" ]; then run_batch "$batch"; batch=""; bn=0; fi
+    done < "$MODULE_ORDER"
+    [ -n "$batch" ] && run_batch "$batch"
+    log "stage=extra-modules done loaded=$loaded failed=$failed ghost=$ghost skipped=$skipped batch=$EXTRA_BATCH budget=${EXTRA_BUDGET}s from=${EXTRA_FROM} slow=${slow_list:-none} failed-list=${failed_list:-none}"
+}
+
 load_vendor_modules() {
+    v8b_n=0   # v8b:阶段 1 计数器
+    if [ -z "$EXTRA_FROM" ]; then EXTRA_FROM=46; fi
     loaded=0
     failed=0
+    failed_list=""
     while read module; do
+        # t15: a blank line or a "#" comment is not a module name. The order file we generate has neither,
+        # but a comment line used to be insmod'ed verbatim - which showed up as "insmod-fail # ..." and made
+        # the stage read "loaded=44 failed=1" (a false alarm: nothing branches on the counter, but it lies).
+        # read strips leading/trailing IFS whitespace, so an indented comment arrives as "#...".
+        v8b_n=$((v8b_n + 1))
+        [ "$v8b_n" -gt "$EXTRA_FROM" ] && break   # v8b:之后属于阶段 2
+        case "$module" in
+            ''|'#'*) continue ;;
+        esac
         # vendor_boot's /lib/modules were built for the stock kernel; only our rebuilt copies match
         file="/linux-modules/$module"
         [ -z "${DEVICE_MODULES:-}" ] && [ -f "/linux-modules/$DEVICE/$module" ] && file="/linux-modules/$DEVICE/$module"
@@ -117,11 +230,13 @@ load_vendor_modules() {
             loaded=$((loaded + 1))
         else
             failed=$((failed + 1))
-            log "insmod-fail $module $(cat /run/insmod.err)"
+            failed_list="$failed_list $module"
+            err=$(tr '\n' '|' < /run/insmod.err 2>/dev/null | cut -c1-200)
+            log "insmod-fail module=$module file=$file err=$err"
         fi
     done < $MODULE_ORDER
     mdev -s
-    log "stage=modules-done loaded=$loaded failed=$failed"
+    log "stage=modules-done loaded=$loaded failed=$failed failed-list=${failed_list:-none}"
 }
 
 # misc and boot_b: where they are is known only once the eMMC is there, and its driver (sdhci-sprd) is one of
@@ -272,6 +387,20 @@ setup_usb_gadget() {
 load_vendor_modules
 find_partitions
 setup_usb_gadget
+
+# ── MU300 v8b:阶段 2(可选模块)。放在这里 = 救援通道/网络已经起来之后。
+load_extra_modules
+
+# --- MU300/F50 v8c4: the IPA delegate is NOT loaded here anymore -------------------------
+# t29 profiling: the ramdisk used to insmod sipa-dele.ko and wait up to 150 s for the delegate
+# thread (observed: 86.35 s, "get resource failed for remote-base! / dts parsing failed", plus the
+# extra-modules loop burning its whole 90 s budget). That is wrong twice over: the resource simply
+# is not there at 2.4-6.7 s (the modem only starts talking once modem_control has the CP up, ~60 s),
+# and a *successful* early insmod is worse because sipa_dele is [permanent] - a delegate thread that
+# missed channel 120 stays dead for the whole boot with no way to reload it.
+# The delegate is therefore loaded by userspace, after the modem: /opt/mu300/bin/sipa-dele-start
+# (driven from /opt/mu300/bin/extra-modules) waits for the modem and insmods it in the background.
+# sipa-dele.ko is also no longer listed in etc/module-order.
 ROOT_OFFSET=27762098176   # linux-boot/rootfs-region.env; outside every GPT partition
 # The region is not at the same place on every device (eMMC size, partition layout), and a number in this file is
 # not enough: the installer writes the device's offset in here, but the generic ramdisk segment that updates put
@@ -295,11 +424,57 @@ find_root_offset() {
     done
     return 1
 }
-if found=$(find_root_offset); then
-    [ "$found" = "$ROOT_OFFSET" ] || log "stage=root-offset found=$found (default $ROOT_OFFSET)"
-    ROOT_OFFSET=$found
+# --- B4:SD 旁路(TF 卡上的 Linux 根)--------------------------------------------------------
+# 优先级:插着合格的 TF(ext4 + label mu300sd)⇒ 从 TF 起;否则【原样走下面既有逻辑】
+# (fulldumpdb 分区 → 上游 ROOT_OFFSET 探测)。防变砖五条:① TF 是可选不是优先,探测/挂载失败
+# 一律回既有路径;② 只读探测,不写任何分区/misc;③ 复用既有 .mu300/boot-attempts 回退语义;
+# ④ 保留 /run/stay 与定时器保险;⑤ 全过程写 stage= 日志。
+is_mu300sd() {  # is_mu300sd BLOCKDEV
+    [ -b "$1" ] || return 1
+    [ "$(dd if="$1" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')" = 53ef ] || return 1
+    [ "$(dd if="$1" bs=1 skip=1144 count=8 2>/dev/null)" = mu300sd ] || return 1
+    return 0
+}
+tfroot=
+for d in /dev/mmcblk[1-9]p1 /dev/mmcblk[1-9] /dev/mmcblk[1-9]p*; do
+    [ -b "$d" ] || continue
+    if is_mu300sd "$d"; then tfroot=$d; break; fi
+done
+if [ -n "$tfroot" ]; then
+    log "stage=tf-scan dev=$tfroot label=mu300sd result=hit"
 else
-    log "stage=root-offset not-found (trying the default $ROOT_OFFSET)"
+    log "stage=tf-scan dev=none label=mu300sd result=miss fallback=emmc"
+fi
+
+# --- MU300/F50 local change (v3 / t13) ------------------------------------------------------
+# This unit's GPT covers the whole eMMC (no free tail region): the Linux root filesystem lives
+# in the repurposed "fulldumpdb" GPT partition (2 GiB crash-dump target, unused in normal
+# operation), not in the upstream "linux region" behind the last partition. Locate it by
+# PARTNAME, exactly like misc/boot_b above (boot/rescue/init-rescue does the same).
+# find_root_offset() is what t11's trial image died in: it reads the raw eMMC at the eMMC tail
+# and logged nothing at all, so the whole offset probe is skipped when that partition exists.
+# Devices without it keep the upstream path, unchanged.
+rootpart=
+for u in /sys/class/block/mmcblk*p*/uevent; do
+    grep -qx PARTNAME=fulldumpdb "$u" 2>/dev/null && rootpart=/dev/$(basename "$(dirname "$u")")
+done
+# B4:TF 优先 —— 探测到的 TF 直接走下面既有的「直接 mount 块设备」分支(rootpart),
+# 不引入任何新挂载代码。tfroot 为空(没插卡/卡不合格/只读探测失败)⇒ 此处什么都不做,
+# 后续逻辑与接线前完全一致(fulldumpdb → 上游 ROOT_OFFSET 探测)。
+if [ -n "$tfroot" ]; then
+    rootpart=$tfroot
+    log "stage=tf-root dev=$tfroot (direct-block-device mount path)"
+fi
+if [ -n "$rootpart" ]; then
+    log "stage=rootpart dev=$rootpart (PARTNAME=fulldumpdb; upstream ROOT_OFFSET probe skipped)"
+    ROOT_OFFSET=0
+else
+    if found=$(find_root_offset); then
+        [ "$found" = "$ROOT_OFFSET" ] || log "stage=root-offset found=$found (default $ROOT_OFFSET)"
+        ROOT_OFFSET=$found
+    else
+        log "stage=root-offset not-found (trying the default $ROOT_OFFSET)"
+    fi
 fi
 mkdir -p /newroot
 # busybox mount only sets up a loop for regular files; for a block device the loop options would
@@ -317,11 +492,89 @@ pick_root() {
 }
 mkdir -p /disk
 rootloop=$(losetup -f 2>/run/rootmount.err)
-if [ -n "$rootloop" ] && losetup -o $ROOT_OFFSET "$rootloop" /dev/mmcblk0 2>>/run/rootmount.err \
+# --- MU300/F50 local change (v3 / t13): mount the fulldumpdb partition itself; the upstream
+# loop-device-with-offset path below stays as the fallback for devices that use the linux region.
+rootok=0
+if [ -n "$rootpart" ] && [ -b "$rootpart" ]; then
+    rootloop=$rootpart
+    if [ "$(dd if="$rootpart" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' ')" = 53ef ]; then
+        if mount -t ext4 -o noatime "$rootpart" /disk 2>>/run/rootmount.err; then
+            rootok=1
+        elif [ -x /usr/sbin/fsck.ext4 ]; then
+            # Same as the 5.4 init: a rootfs left dirty by an unclean shutdown refuses to mount --
+            # repair it once and retry. (t11's trial rebooted every 5 minutes, so this is likely.)
+            log "stage=rootfs-mount-failed (running e2fsck)"
+            umount /disk 2>/dev/null
+            sync
+            /usr/sbin/fsck.ext4 -fy "$rootpart" >> /run/fsck.log 2>&1
+            log "stage=fsck-done (log /run/fsck.log)"
+            sync
+            mount -t ext4 -o noatime "$rootpart" /disk 2>>/run/rootmount.err \
+                && rootok=1 && log "stage=rootfs-mounted-after-fsck"
+        else
+            log "stage=rootfs-mount-failed (no fsck.ext4 in this ramdisk)"
+        fi
+    else
+        log "stage=rootpart-not-ext4 magic=$(dd if="$rootpart" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' ')"
+    fi
+elif [ -n "$rootloop" ] && losetup -o $ROOT_OFFSET "$rootloop" /dev/mmcblk0 2>>/run/rootmount.err \
    && [ "$(cat /sys/block/${rootloop#/dev/}/loop/offset)" = "$ROOT_OFFSET" ] \
    && [ "$(dd if="$rootloop" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' ')" = 53ef ] \
-   && mount -t ext4 -o noatime "$rootloop" /disk 2>>/run/rootmount.err \
-   && rootdir=$(pick_root) && [ -n "$rootdir" ]; then
+   && mount -t ext4 -o noatime "$rootloop" /disk 2>>/run/rootmount.err; then
+    rootok=1
+fi
+
+# === v8c8e:恢复 v7 工作版的关键一段 —— switch_root 之前的 sipa_dele 等待/重试/ACK 确认 ===
+# v7(工作期)的 init 在这里做:等 rescue 通道起来 -> 每隔 10s 重试 insmod sipa-dele.ko ->
+# 成功后(有界 60s)等 delegate 线程的 channel 5-120 ack 出现,并明确区分 ack / 打开失败 / 未确认。
+# 我们 v8c5 重写时删掉了这段(改成早载 + 驱动侧重试);diff 显示这是 v7 与 v8c8d 在 modem_control 之前最大的差异。
+# v7 原文注释:早载 insmod 会 probe 失败;而“成功但过早”更糟 —— sipa_dele 是 [permanent],
+# 线程一旦在 channel 120 上打开失败就整个启动期都不会恢复。
+SIPA_DELE_WAIT=${SIPA_DELE_WAIT:-150}
+SIPA_DELE_ACK_WAIT=${SIPA_DELE_ACK_WAIT:-60}
+sipa_dele_load() {
+    [ -f /linux-modules/sipa-dele.ko ] || { log "stage=sipa-dele-not-bundled"; return 1; }
+    grep -q '^sipa_dele ' /proc/modules && { log "stage=sipa-dele-already-loaded"; return 0; }
+    # ack patterns: 6.18 prints "sipa_dele: <func>: channel 5-120!" and "sipa_dele: smsg_recv, smsg_cnt=...";
+    # 5.4 printed "channel 5-120 send open msg" (kept so the same test builds against either tree).
+    ack_pat='channel 5-120!|smsg_recv, smsg_cnt=|channel 5-120 send open msg'
+    fail_pat='failed to open dst 5 channel 120'
+    n=0
+    while [ "$n" -lt "$SIPA_DELE_WAIT" ]; do
+        if insmod /linux-modules/sipa-dele.ko 2>/run/sipa-dele.err; then
+            # probe took. Now wait (bounded) for the delegate's channel 5-120 to come up - and say exactly
+            # which of the three things happened. "no ack yet" is NOT "no delegate": the thread may still be
+            # waiting, and sipa_dele is [permanent] so a wrong story here would mislead the next debugging.
+            w=0
+            while [ "$w" -lt "$SIPA_DELE_ACK_WAIT" ]; do
+                if dmesg | grep -qE "$ack_pat"; then
+                    log "stage=sipa-dele-loaded-ack after ${n}s (+$w s ack wait, channel 5-120 open ack: downlink path in place)"
+                    return 0
+                fi
+                if dmesg | grep -q "$fail_pat"; then
+                    log "stage=sipa-dele-loaded-delegate-failed after ${n}s (sipa_delegator failed to open dst 5 channel 120; permanent, cannot reload)"
+                    return 1
+                fi
+                w=$((w + 5))
+                sleep 5
+            done
+            log "stage=sipa-dele-loaded-delegate-unconfirmed after ${n}s (insmod ok, +${SIPA_DELE_ACK_WAIT}s with neither ack nor failure - unknown, not proven absent)"
+            return 1
+        fi
+        [ "$n" = 0 ] && log "stage=sipa-dele-wait (first insmod failed, retrying every 10s up to ${SIPA_DELE_WAIT}s)"
+        n=$((n + 10))
+        sleep 10
+        persist
+    done
+    log "stage=sipa-dele-failed after ${SIPA_DELE_WAIT}s ($(tail -1 /run/sipa-dele.err 2>/dev/null)) - continuing"
+    return 1
+}
+# v8c10: 短路这一段 —— 时序实测:sipa_dele 11.17s 加载 vs CP 32.41s 起,
+# 阶段机本身仍是“早载”,retry-stop 救不了早载失败。改由 rootfs 的
+# /opt/mu300/bin/sipa-dele-start 在 CP 就绪(AT+CGATT?==1)后再加载;模块文件仍留在 ramdisk。
+# sipa_dele_load                    # ← v8c10 起不跑(函数定义保留,便于回退/对照)
+
+if [ "$rootok" = 1 ] && rootdir=$(pick_root) && [ -n "$rootdir" ]; then
     # A way back to Android with no computer and no keyboard: cut the power during boot N times in a row (N is
     # .mu300/boot-attempts, 5 without it). Every boot counts up here and mu300-next-boot --rearm clears the count
     # once the system is really up, so only boots that never got that far add up. LK does the same with the
@@ -373,6 +626,21 @@ if [ -n "$rootloop" ] && losetup -o $ROOT_OFFSET "$rootloop" /dev/mmcblk0 2>>/ru
     for p in /proc/[0-9]*; do [ "${p#/proc/}" = 1 ] || kill -9 "${p#/proc/}" 2>/dev/null; done
     umount /config 2>/dev/null
     mkdir -p /newroot/dev /newroot/proc /newroot/sys /newroot/run
+    # v8c8d: 让切换后的用户态一开始就拥有【完整】的 Android 属性区。
+    # ramdisk 里的 /android/dev/__properties__ 只有 19 个文件(缺 vendor_radio_prop / vendor_modem_prop),
+    # 而 modem_control 查 ro.vendor.radio.modemtype 是直接 mmap 上下文文件 ⇒ 会报 not_find。
+    # rootfs 里那份是完整 334 个文件(与健康期备份逐字节相同),这里先 bind 到 /dev/__properties__,
+    # 随后那句 mount --move /dev 会把子挂载一起带走,用户态/android-vendor-start 无需再管。
+    if [ -s /newroot/opt/mu300/android/dev-properties/property_info ]; then
+        mkdir -p /dev/__properties__
+        if mount --bind /newroot/opt/mu300/android/dev-properties /dev/__properties__ 2>/dev/null; then
+            log "stage=props-full-bind ok files=$(ls /dev/__properties__ 2>/dev/null | wc -l)"
+        else
+            log "stage=props-full-bind FAILED (falling back to ramdisk set)"
+        fi
+    else
+        log "stage=props-full-bind skipped (no rootfs dev-properties)"
+    fi
     mount --move /dev /newroot/dev
     mount --move /proc /newroot/proc
     mount --move /sys /newroot/sys
