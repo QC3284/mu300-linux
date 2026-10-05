@@ -45,9 +45,20 @@ jobs:
           echo "arch=$(uname -m) cpus=$(nproc)"; df -h /; free -m | head -2
       - name: 构建镜像(上游 Dockerfile,原样)
         run: docker build -t mu300-mainline-build upstream/
+      - name: 取内核源码到构建卷(★t54:仓库从来自带/下载源码,必须显式取;否则 build.sh 的 cd /src/linux-$KV 必 fail)
+        run: |
+          set -eu
+          # 官方 mainline tarball + 签名清单;校验不过就停(不用国内镜像:GitHub runner 在境外)
+          curl -fL --retry 3 -o "linux-$KV.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KV.tar.xz"
+          curl -fsSL --retry 3 -o sha256sums.asc "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha256sums.asc"
+          grep " linux-$KV.tar.xz\$" sha256sums.asc | sha256sum -c -
+          docker volume create mu300-mainline
+          # 用刚构建的镜像解包(ubuntu:26.04 + xz-utils;alpine 的 busybox tar 不保证有 -J)
+          docker run --rm -v mu300-mainline:/src -v "$PWD":/in mu300-mainline-build \
+            bash -eu -c "mkdir -p /src && tar -xJf /in/linux-$KV.tar.xz -C /src && ls /src/linux-$KV | head -5"
+          df -h /
       - name: 内核:port + patches + config + Image
         run: |
-          docker volume create mu300-mainline
           docker run --rm -e KV="$KV" -v mu300-mainline:/src -v "$PWD/upstream":/work \
             mu300-mainline-build bash /work/build.sh
           df -h /
@@ -131,6 +142,16 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev lz4 cpio kmod \
             python3 curl device-tree-compiler xz-utils ca-certificates
+          df -h /
+      - name: 取内核源码到 /src(★t54:仓库不自带源码,必须显式取)
+        run: |
+          set -eu
+          sudo mkdir -p /src && sudo chown "$USER" /src
+          curl -fL --retry 3 -o "linux-$KV.tar.xz" "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KV.tar.xz"
+          curl -fsSL --retry 3 -o sha256sums.asc "https://cdn.kernel.org/pub/linux/kernel/v6.x/sha256sums.asc"
+          grep " linux-$KV.tar.xz\$" sha256sums.asc | sha256sum -c -
+          tar -xJf "linux-$KV.tar.xz" -C /src
+          ls /src/linux-$KV | head -5
           df -h /
       - name: 内核:port + patches + config + Image(交叉)
         run: |
