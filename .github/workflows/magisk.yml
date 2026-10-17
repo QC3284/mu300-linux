@@ -37,7 +37,7 @@ jobs:
           case "$TAG" in v[0-9]*) ;; *) tag_ok= ;; esac
           case "$TAG" in *[!0-9A-Za-z._-]*|*..*) tag_ok= ;; esac
           [ -n "$tag_ok" ] || { echo "not a release tag: $TAG"; exit 1; }
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.TAG }}
       - name: Tools

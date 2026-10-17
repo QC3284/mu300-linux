@@ -51,7 +51,7 @@ jobs:
       matrix:
         kv: ${{ fromJSON(needs.versions.outputs.list) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build environment
         run: docker build -t mu300-mainline-build upstream/
       - name: Kernel ${{ matrix.kv }}
