@@ -10,6 +10,7 @@ tar -xzf "$TAR" -C "$R"
 echo "postbuild: unpacked $(find "$R" -type f | wc -l) files"
 
 # --- DNS for apk inside the chroot, then the OpenWrt convention
+rm -f "$R/etc/resolv.conf"
 cp /etc/resolv.conf "$R/etc/resolv.conf"
 mount -t proc proc "$R/proc" 2>/dev/null || true
 mount --bind /dev "$R/dev" 2>/dev/null || true
