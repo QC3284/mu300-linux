@@ -1,28 +1,29 @@
 name: ImmortalWrt image
 
-# Draft: build the ImmortalWrt rootfs from this repo and repack it into the
-# Magisk installer. Two artefacts are not in the repo, so they are inputs:
-# the 7.2.8 kernel modules (out/modules/*.ko) and the base installer package.
+# Repacks our ImmortalWrt rootfs into the Magisk installer. The BASE is our own released
+# rootfs: it already carries the reference port layer (mu300-api, the panel views, the
+# newer services). Rebuilding from the stock build-rootfs.sh would produce the author line
+# without that layer, which is what the previous runs did.
 
 on:
   workflow_dispatch:
     inputs:
-      modules_url:
-        description: 'URL of the 7.2.8 kernel modules tarball (out/modules/*.ko)'
+      base_rootfs_url:
+        description: 'ImmortalWrt rootfs tarball to repack (our release asset)'
         required: false
-        default: 'https://github.com/QC3284/mu300-linux/releases/download/ci-inputs/immortalwrt-7.2.8-modules.tar.gz'
+        default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-immortalwrt-25.12.2-rootfs.tar.gz'
+      base_rootfs_sha256:
+        description: 'Expected sha256 of that tarball'
+        required: false
+        default: 'fc28516902671c442ba6fc3c70e0f49a0f1e93903ed8614b681578f8241a4bb6'
       base_zip_url:
         description: 'Release package that carries the installer payload'
         required: false
         default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip'
-      wrt_ver:
-        description: 'ImmortalWrt release'
-        required: false
-        default: '25.12.2'
       version:
         description: 'Image version string'
         required: false
-        default: 'v2026.10.17.5'
+        default: 'ci'
   push:
     branches: ['local/immortalwrt-ci']
     paths: ['.github/workflows/immortalwrt.yml', 'tools/ci-repack-module.py', 'tools/ci-postbuild.sh']
@@ -32,40 +33,32 @@ permissions:
 
 jobs:
   image:
-    runs-on: ubuntu-24.04-arm    # native arm64: the rootfs build runs in an arm64 container, emulation segfaults
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Docker present (the rootfs build runs in an arm64 container)
+      - name: Docker present
         run: docker info >/dev/null
-      - name: Fetch the 7.2.8 kernel modules
-        run: |
-          set -eu
-          mkdir -p out/modules
-          curl -fsSL '${{ inputs.modules_url || 'https://github.com/QC3284/mu300-linux/releases/download/ci-inputs/immortalwrt-7.2.8-modules.tar.gz' }}' -o /tmp/modules.tar.gz
-          tar -xzf /tmp/modules.tar.gz -C out/modules --strip-components=1
-          test "$(ls out/modules/*.ko | wc -l)" -eq 201
-      - name: Build the ImmortalWrt rootfs
+      - name: Fetch the base rootfs (our build, with the reference feature layer)
         env:
-          MU300_FLAVOUR: immortalwrt
-          MU300_WRT_VER: ${{ inputs.wrt_ver || '25.12.2' }}
-          MU300_VERSION: ${{ inputs.version || 'ci' }}
+          URL: ${{ inputs.base_rootfs_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-immortalwrt-25.12.2-rootfs.tar.gz' }}
+          SHA: ${{ inputs.base_rootfs_sha256 || 'fc28516902671c442ba6fc3c70e0f49a0f1e93903ed8614b681578f8241a4bb6' }}
         run: |
           set -eu
-          chmod +x openwrt/build-rootfs.sh
-          # the script pins the vendor 5.4 kernel release; our line is the 7.2.8 kernel
-          sed -i 's/^KREL=.*/KREL=7.2.8/' openwrt/build-rootfs.sh
-          openwrt/build-rootfs.sh "$PWD/mu300-immortalwrt-$MU300_WRT_VER-rootfs.tar.gz"
-          sha256sum openwrt/mu300-immortalwrt-*.tar.gz
-          echo "modules in tar: $(tar tzf openwrt/mu300-immortalwrt-*.tar.gz | grep -c 'lib/modules/7.2.8/.*\.ko$')"
+          mkdir -p openwrt
+          curl -fsSL "$URL" -o openwrt/mu300-immortalwrt-base.tar.gz
+          echo "$SHA  openwrt/mu300-immortalwrt-base.tar.gz" | sha256sum -c -
+          echo "  mu300-api files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'opt/mu300/bin/mu300-api$')"
+          echo "  panel views: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'view/mu300/.*\.js$')"
+          echo "  mu300 services: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'etc/init.d/mu300-')"
       - name: Post-build pass (SSH, password, dropbear off, ownership)
         run: |
           set -eu
           chmod +x tools/ci-postbuild.sh
-          sudo tools/ci-postbuild.sh "$(ls openwrt/mu300-immortalwrt-*.tar.gz | head -1)"
-          sha256sum openwrt/mu300-immortalwrt-*.tar.gz
+          sudo tools/ci-postbuild.sh openwrt/mu300-immortalwrt-base.tar.gz
+          sha256sum openwrt/mu300-immortalwrt-base.tar.gz
       - name: Repack the Magisk installer with our rootfs
         env:
           BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
@@ -75,7 +68,7 @@ jobs:
           rm -rf build
           mkdir -p build/base build/out
           unzip -q /tmp/base.zip -d build/base
-          cp openwrt/mu300-immortalwrt-*.tar.gz build/base/payload/mu300-openwrt.tar.gz
+          cp openwrt/mu300-immortalwrt-base.tar.gz build/base/payload/mu300-openwrt.tar.gz
           python3 tools/ci-repack-module.py build/base/payload
           cd build/base
           zip -q -r ../out/mu300-linux-immortalwrt-tf-7.2.zip .
