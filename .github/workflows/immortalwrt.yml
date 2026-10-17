@@ -25,7 +25,7 @@ on:
         default: 'v2026.10.17.5'
   push:
     branches: ['local/immortalwrt-ci']
-    paths: ['.github/workflows/immortalwrt.yml', 'tools/ci-repack-module.py']
+    paths: ['.github/workflows/immortalwrt.yml', 'tools/ci-repack-module.py', 'tools/ci-postbuild.sh']
 
 permissions:
   contents: read
