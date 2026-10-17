@@ -60,6 +60,12 @@ jobs:
           openwrt/build-rootfs.sh "$PWD/mu300-immortalwrt-$MU300_WRT_VER-rootfs.tar.gz"
           sha256sum openwrt/mu300-immortalwrt-*.tar.gz
           echo "modules in tar: $(tar tzf openwrt/mu300-immortalwrt-*.tar.gz | grep -c 'lib/modules/7.2.8/.*\.ko$')"
+      - name: Post-build pass (SSH, password, dropbear off, ownership)
+        run: |
+          set -eu
+          chmod +x tools/ci-postbuild.sh
+          sudo tools/ci-postbuild.sh "$(ls openwrt/mu300-immortalwrt-*.tar.gz | head -1)"
+          sha256sum openwrt/mu300-immortalwrt-*.tar.gz
       - name: Repack the Magisk installer with our rootfs
         env:
           BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
