@@ -434,8 +434,11 @@ installed_systems() {
 }
 
 latest_release() {
-    fetch_stdout "${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases/latest" \
-        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+    _tag=$(fetch_stdout "${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases/latest" \
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+    # only a product tag (vYYYY.MM.DD or vYYYY.MM.DD.N) is a release: a toolchain tag or a branch name is no answer
+    tag_ok "$_tag" || return 1
+    printf '%s\n' "$_tag"
 }
 
 mounted_disk() {
@@ -465,7 +468,7 @@ notice() {
     mkdir -p "${NOTICE%/*}"
     # (newer: the release tags, docs/FINDINGS.md 125) a test release newer than the newest is no reason to note; a
     # system that is no release (unknown, a build of one's own) hears of every one
-    if newer "$latest" "$inst" || { tag_ok "$latest" && ! tag_ok "$inst"; }; then
+    if tag_ok "$latest" && { newer "$latest" "$inst" || ! tag_ok "$inst"; }; then
         printf 'mu300-linux %s is out (this is %s): sudo mu300-update apply\n' "$latest" "$inst" > "$NOTICE"
     else
         rm -f "$NOTICE"
