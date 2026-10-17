@@ -9,11 +9,12 @@ on:
     inputs:
       modules_url:
         description: 'URL of the 7.2.8 kernel modules tarball (out/modules/*.ko)'
-        required: true
+        required: false
+        default: 'https://github.com/QC3284/mu300-linux/releases/download/ci-inputs/immortalwrt-7.2.8-modules.tar.gz'
       base_zip_url:
         description: 'Release package that carries the installer payload'
-        required: true
-        default: 'https://github.com/dikeckaan/mu300-linux/releases/latest/download/mu300-openwrt-7.2.8-windows-macos.zip'
+        required: false
+        default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip'
       wrt_ver:
         description: 'ImmortalWrt release'
         required: false
@@ -21,7 +22,10 @@ on:
       version:
         description: 'Image version string'
         required: false
-        default: 'dev'
+        default: 'v2026.10.17.5'
+  push:
+    branches: ['local/immortalwrt-ci']
+    paths: ['.github/workflows/immortalwrt.yml', 'tools/ci-repack-module.py']
 
 permissions:
   contents: read
@@ -40,7 +44,7 @@ jobs:
         run: |
           set -eu
           mkdir -p out/modules
-          curl -fsSL '${{ inputs.modules_url }}' -o /tmp/modules.tar.gz
+          curl -fsSL '${{ inputs.modules_url || 'https://github.com/QC3284/mu300-linux/releases/download/ci-inputs/immortalwrt-7.2.8-modules.tar.gz' }}' -o /tmp/modules.tar.gz
           tar -xzf /tmp/modules.tar.gz -C out/modules --strip-components=1
           test "$(ls out/modules/*.ko | wc -l)" -eq 201
       - name: Build the ImmortalWrt rootfs
@@ -55,7 +59,7 @@ jobs:
           sha256sum mu300-immortalwrt-*.tar.gz
       - name: Repack the Magisk installer with our rootfs
         env:
-          BASE_ZIP: ${{ inputs.base_zip_url }}
+          BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
         run: |
           set -eu
           curl -fsSL "$BASE_ZIP" -o /tmp/base.zip
