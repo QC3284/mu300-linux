@@ -1,0 +1,76 @@
+name: ImmortalWrt image
+
+# Draft: build the ImmortalWrt rootfs from this repo and repack it into the
+# Magisk installer. Two artefacts are not in the repo, so they are inputs:
+# the 7.2.8 kernel modules (out/modules/*.ko) and the base installer package.
+
+on:
+  workflow_dispatch:
+    inputs:
+      modules_url:
+        description: 'URL of the 7.2.8 kernel modules tarball (out/modules/*.ko)'
+        required: true
+      base_zip_url:
+        description: 'Release package that carries the installer payload'
+        required: true
+        default: 'https://github.com/dikeckaan/mu300-linux/releases/latest/download/mu300-openwrt-7.2.8-windows-macos.zip'
+      wrt_ver:
+        description: 'ImmortalWrt release'
+        required: false
+        default: '25.12.2'
+      version:
+        description: 'Image version string'
+        required: false
+        default: 'dev'
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: arm64 emulation for the rootfs build container
+        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Fetch the 7.2.8 kernel modules
+        run: |
+          set -eu
+          mkdir -p out/modules
+          curl -fsSL '${{ inputs.modules_url }}' -o /tmp/modules.tar.gz
+          tar -xzf /tmp/modules.tar.gz -C out/modules --strip-components=1
+          test "$(ls out/modules/*.ko | wc -l)" -eq 201
+      - name: Build the ImmortalWrt rootfs
+        env:
+          MU300_FLAVOUR: immortalwrt
+          MU300_WRT_VER: ${{ inputs.wrt_ver }}
+          MU300_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          chmod +x openwrt/build-rootfs.sh
+          openwrt/build-rootfs.sh "$PWD/mu300-immortalwrt-$MU300_WRT_VER-rootfs.tar.gz"
+          sha256sum mu300-immortalwrt-*.tar.gz
+      - name: Repack the Magisk installer with our rootfs
+        env:
+          BASE_ZIP: ${{ inputs.base_zip_url }}
+        run: |
+          set -eu
+          curl -fsSL "$BASE_ZIP" -o /tmp/base.zip
+          rm -rf build
+          mkdir -p build/base build/out
+          unzip -q /tmp/base.zip -d build/base
+          cp mu300-immortalwrt-*.tar.gz build/base/payload/mu300-openwrt.tar.gz
+          python3 tools/ci-repack-module.py build/base/payload
+          cd build/base
+          zip -q -r ../out/mu300-linux-immortalwrt-tf-7.2.zip .
+          cd ../out
+          sha256sum *.zip | tee SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mu300-immortalwrt-image
+          path: |
+            build/out/*.zip
+            build/out/SHA256SUMS
