@@ -50,13 +50,13 @@ jobs:
       - name: Build the ImmortalWrt rootfs
         env:
           MU300_FLAVOUR: immortalwrt
-          MU300_WRT_VER: ${{ inputs.wrt_ver }}
-          MU300_VERSION: ${{ inputs.version }}
+          MU300_WRT_VER: ${{ inputs.wrt_ver || '25.12.2' }}
+          MU300_VERSION: ${{ inputs.version || 'ci' }}
         run: |
           set -eu
           chmod +x openwrt/build-rootfs.sh
           openwrt/build-rootfs.sh "$PWD/mu300-immortalwrt-$MU300_WRT_VER-rootfs.tar.gz"
-          sha256sum mu300-immortalwrt-*.tar.gz
+          sha256sum openwrt/mu300-immortalwrt-*.tar.gz
       - name: Repack the Magisk installer with our rootfs
         env:
           BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
@@ -66,7 +66,7 @@ jobs:
           rm -rf build
           mkdir -p build/base build/out
           unzip -q /tmp/base.zip -d build/base
-          cp mu300-immortalwrt-*.tar.gz build/base/payload/mu300-openwrt.tar.gz
+          cp openwrt/mu300-immortalwrt-*.tar.gz build/base/payload/mu300-openwrt.tar.gz
           python3 tools/ci-repack-module.py build/base/payload
           cd build/base
           zip -q -r ../out/mu300-linux-immortalwrt-tf-7.2.zip .
