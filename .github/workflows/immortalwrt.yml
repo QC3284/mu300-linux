@@ -55,8 +55,11 @@ jobs:
         run: |
           set -eu
           chmod +x openwrt/build-rootfs.sh
+          # the script pins the vendor 5.4 kernel release; our line is the 7.2.8 kernel
+          sed -i 's/^KREL=.*/KREL=7.2.8/' openwrt/build-rootfs.sh
           openwrt/build-rootfs.sh "$PWD/mu300-immortalwrt-$MU300_WRT_VER-rootfs.tar.gz"
           sha256sum openwrt/mu300-immortalwrt-*.tar.gz
+          echo "modules in tar: $(tar tzf openwrt/mu300-immortalwrt-*.tar.gz | grep -c 'lib/modules/7.2.8/.*\.ko$')"
       - name: Repack the Magisk installer with our rootfs
         env:
           BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
