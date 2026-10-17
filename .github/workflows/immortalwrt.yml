@@ -32,14 +32,14 @@ permissions:
 
 jobs:
   image:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm    # native arm64: the rootfs build runs in an arm64 container, emulation segfaults
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: arm64 emulation for the rootfs build container
-        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Docker present (the rootfs build runs in an arm64 container)
+        run: docker info >/dev/null
       - name: Fetch the 7.2.8 kernel modules
         run: |
           set -eu
