@@ -39,7 +39,7 @@
 # boot_update). An mu300-update from before that installs the new system, which brings the new mu300-update: after
 # a reboot (the running system is still the old one until then), "mu300-update apply" updates the boot image too.
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin:/usr/sbin:/sbin"
-REPO=${MU300_REPO:-dikeckaan/mu300-linux}
+REPO=${MU300_REPO:-QC3284/mu300-linux}
 DISK=${MU300_DISK:-/mnt/mu300-disk}
 CONF=/etc/mu300
 VERSION_FILE=$CONF/image-version

@@ -10,7 +10,7 @@
 
 # Where "which release is newest" is asked. The usual GitHub file proxies do NOT serve GitHub's API - a request
 # through them for api.github.com comes back 403 - so this is normally left out and GitHub itself is asked.
-#MU300_API_URL=https://api.github.com/repos/dikeckaan/mu300-linux
+#MU300_API_URL=https://api.github.com/repos/QC3284/mu300-linux
 
 # A release is checked against the checksums the project signed (SHA256SUMS.sig, with the release key in
 # /opt/mu300/lib/release.pub - see wiki/Updating.md) wherever it came from. A system that has no such key - every
