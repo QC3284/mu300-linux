@@ -108,6 +108,9 @@ LOCK_GET_WAIT=${MU300_DASH_LOCK_GET_WAIT:-12}
 BB=${MU300_BUSYBOX:-/opt/mu300/bin/busybox}
 # nap SECONDS: a fraction where the static busybox is there (OpenWrt's /bin/sleep
 # takes whole seconds only)
+MU300DASH_MAX=${MU300DASH_MAX:-25}   # rpcd is single threaded and LuCI gives up at 30 s
+( sleep "$MU300DASH_MAX"; kill -TERM $$ 2>/dev/null; sleep 1; kill -KILL $$ 2>/dev/null ) </dev/null >/dev/null 2>&1 &
+
 nap() { "$BB" sleep "$1" 2>/dev/null || sleep "$1" 2>/dev/null || sleep 1; }
 
 # ------------------------------------------------------------- input, JSON
@@ -189,10 +192,10 @@ m_status() {
     # A full round also refreshes sig.json. Prefer it when both tiers are stale;
     # starting full and fast together doubles the AT burst for no benefit.
     if { [ "$cage" -lt 0 ] || [ "$cage" -gt "$TTL" ]; } && [ "$busy" = 0 ]; then
-        setsid "$DASH/cell" >/dev/null 2>&1 &
+        ( setsid "$DASH/cell" </dev/null >/dev/null 2>&1 & )
         busy=1; fbusy=1
     elif { [ "$sage" -lt 0 ] || [ "$sage" -gt "$TTL_FAST" ]; } && [ "$fbusy" = 0 ]; then
-        setsid "$DASH/cell" fast >/dev/null 2>&1 &
+        ( setsid "$DASH/cell" fast </dev/null >/dev/null 2>&1 & )
         fbusy=1
     fi
     printf '{"info":%s,"cell":%s,"sig":%s,"cell_age":%d,"sig_age":%d,"refreshing":%d}\n' \
@@ -252,7 +255,7 @@ m_act() {
     case $op in
         # the SFUN dance can run half a minute: never inside the request
         radio|modem-reset|reboot|vpn)
-            setsid "$DASH/action" "$op" "$arg" >/dev/null 2>&1 &
+            ( setsid "$DASH/action" "$op" "$arg" </dev/null >/dev/null 2>&1 & )
             printf '{"ok":1,"started":1,"op":%s}\n' "$(json_str "$op${arg:+ $arg}")"
             ;;
         # os runs inline: arming takes milliseconds and a failure (misc write
@@ -402,7 +405,7 @@ m_at() {
         (umask 077; mkdir -p "$AT_JOB") 2>/dev/null
         printf '%s\n' "$cmd" > "$AT_JOB/cmd"
         now > "$AT_JOB/start"
-        setsid "$0" at-job >/dev/null 2>&1 &
+        ( setsid "$0" at-job </dev/null >/dev/null 2>&1 & )
         printf '%s %s\n' "$(date '+%m-%d %H:%M:%S')" "$cmd" >> "$HIST"
         tail -n 40 "$HIST" > "$HIST.t" 2>/dev/null && mv "$HIST.t" "$HIST"
         printf '{"ok":1,"started":1,"job":1,"cmd":%s,"limit":%d}\n' "$(json_str "$cmd")" "$AT_JOB_T"
@@ -449,7 +452,7 @@ m_lock_get() {
     # starts a reading in the background and waits up to LOCK_GET_WAIT for it.
     if [ "$fresh" = 1 ] || [ ! -s "$LOCKF" ]; then
         before=$(date -r "$LOCKF" +%s 2>/dev/null || echo 0)
-        setsid "$DASH/lock" refresh >/dev/null 2>&1 &
+        ( setsid "$DASH/lock" refresh </dev/null >/dev/null 2>&1 & )
         end=$(( $(now) + LOCK_GET_WAIT ))
         nap 0.3
         while [ "$(now)" -lt "$end" ] && lock_reading; do
@@ -495,9 +498,9 @@ m_lock_set() {
     # the new one waits for the modem and the page can say so
     { [ -d /run/unisoc-modem-lock-apply ] || [ -e /run/mu300/sim-switching ] || [ -e /run/mu300/sim-active-unknown ]; } && q=1
     if [ "$kind" = reset ]; then
-        setsid "$DASH/lock" reset >/dev/null 2>&1 &
+        ( setsid "$DASH/lock" reset </dev/null >/dev/null 2>&1 & )
     else
-        setsid "$DASH/lock" apply "$kind" "$val" >/dev/null 2>&1 &
+        ( setsid "$DASH/lock" apply "$kind" "$val" </dev/null >/dev/null 2>&1 & )
     fi
     printf '{"ok":1,"started":1,"queued":%d,"op":%s}\n' "$q" "$(json_str "lock $kind=$val")"
 }
@@ -667,7 +670,7 @@ m_sms_send() {
     printf '%s\n' "$num" > "$SMS_JOB/num"
     printf '%s' "$text" > "$SMS_JOB/text"
     now > "$SMS_JOB/start"
-    setsid "$0" sms-job >/dev/null 2>&1 &
+    ( setsid "$0" sms-job </dev/null >/dev/null 2>&1 & )
     printf '{"ok":1,"started":1,"job":1,"limit":%d}\n' "$SMS_JOB_T"
 }
 
@@ -691,7 +694,7 @@ m_sms_delete() {
 }
 
 m_sms_sync() {
-    setsid "$SMS" sync >/dev/null 2>&1 &
+    ( setsid "$SMS" sync </dev/null >/dev/null 2>&1 & )
     printf '{"ok":1,"started":1}\n'
 }
 
@@ -809,7 +812,7 @@ m_ttl_set() {
 # --------------------------------------------------------------- data usage
 # The Data usage page: mu300-traffic through the adapter, which checks every value again. Sizes are whole bytes.
 TRAFA=${MU300_TRAFFIC_ADAPTER:-$DASH/traffic}
-m_traffic_get() { reply_obj "$("$TRAFA" get 2>/dev/null)" 'The data usage adapter gave no valid reply'; }
+m_traffic_get() { reply_obj "$(sh "$TRAFA" get 2>/dev/null)" 'The data usage adapter gave no valid reply'; }
 m_traffic_set() {
     local op value
     inp '@.op'; op=$V
@@ -822,7 +825,7 @@ m_traffic_set() {
         clear)     allowed "$value" 'yes' ;;
         *)         refuse 'Unknown data usage setting'; return ;;
     esac || { refuse 'Invalid value for this setting'; return; }
-    reply_obj "$("$TRAFA" set "$op" "$value" 2>/dev/null)" 'The data usage adapter gave no valid reply'
+    reply_obj "$(sh "$TRAFA" set "$op" "$value" 2>/dev/null)" 'The data usage adapter gave no valid reply'
 }
 
 # ---------------------------------------------------------- SMS forwarding
@@ -1011,7 +1014,7 @@ m_sim_set() {
             [ "$(printf '%s' "$state" | jsonfilter -e '@.busy')" = 0 ] || {
                 refuse 'Enable hot switching; reboot if channels are unavailable or wait until idle'; return;
             }
-        setsid "$SIMCTL" switch "$value" </dev/null >/dev/null 2>&1 &
+        ( setsid "$SIMCTL" switch "$value" </dev/null >/dev/null 2>&1 & )
         printf '{"ok":1,"started":1}\n'
     else
         reply_obj "$("$SIMCTL" "$op" "$value" 2>/dev/null)" 'SIM control failed'
