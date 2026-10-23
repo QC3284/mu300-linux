@@ -1,0 +1,7 @@
+#!/bin/sh
+# rpcd is single threaded: one plugin call that never returns queues every later ubus request, and LuCI with it.
+# The daemon takes the per-call deadline from rpcd.@rpcd[0].timeout; /etc/init.d/rpcd passes it as rpcd -t.
+uci -q get rpcd.@rpcd[0] >/dev/null 2>&1 || uci -q add rpcd rpcd
+uci -q set rpcd.@rpcd[0].timeout='25'
+uci -q commit rpcd
+exit 0
