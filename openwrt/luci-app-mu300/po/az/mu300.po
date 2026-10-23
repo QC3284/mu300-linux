@@ -13,6 +13,9 @@ msgstr "Mobil şəbəkə"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "SIM ayarları"
+
 msgid "Network locks"
 msgstr "Şəbəkə kilidləri"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Vurğulanan nüvələr onlayndır. Söndürülmüş nüvə yenidən açılana qədər, yenidən başladıqdan sonra da oflayn qalır. CPU0 həmişə onlayn qalır."
+
+msgid "Low latency: on"
+msgstr "Aşağı gecikmə: açıq"
+
+msgid "Low latency: off"
+msgstr "Aşağı gecikmə: bağlı"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Aşağı gecikmə, ZTE-nin U30 Air proqram təminatında olduğu kimi, CPU0-ı boşda qalma vəziyyətlərindən kənarda saxlayır: Wi-Fi gecikmələri xeyli qısalır, cihaz isə daha çox enerji sərf edir. Standart olaraq bağlıdır."
+
 msgid "Thermal"
 msgstr "İstilik"
 
@@ -763,6 +778,12 @@ msgstr "Saxlanmış dəyəri sil"
 msgid "Presets"
 msgstr "Hazır seçimlər"
 
+msgid "Form (URL-encoded)"
+msgstr "Forma (URL kodlu)"
+
+msgid "Plain text"
+msgstr "Sadə mətn"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Alınan mesajlar SMS hovuzuna çatan kimi yönləndirilir. Uğursuz göndəriş 30 san sonra, sonra hər dəfə iki dəfə uzun müddətdən sonra (ən çox bir saat) təkrarlanır, cəmi on dəfə."
 
@@ -801,12 +822,6 @@ msgstr "Ünvan (http:// və ya https://)"
 
 msgid "Body"
 msgstr "Gövdə"
-
-msgid "Form (URL-encoded)"
-msgstr "Forma (URL kodlu)"
-
-msgid "Plain text"
-msgstr "Sadə mətn"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Sahələr: sender, time, text, device, message (doldurulmuş şablon)"
@@ -924,6 +939,9 @@ msgstr "Hələ çatdırılma yoxdur"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Test saxlanmış ayarlarla başladı; nəticə çatdırılma jurnalında görünəcək."
+
+msgid "Automatic without 2G (152)"
+msgstr "Avtomatik, 2G olmadan (152)"
 
 msgid "4G only"
 msgstr "Yalnız 4G"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi giriş nöqtəsi"
 msgid "Restart modem"
 msgstr "Modemi yenidən başlat"
 
-msgid "Restart device"
-msgstr "Cihazı yenidən başlat"
+msgid "Power off or restart"
+msgstr "Söndür və ya yenidən başlat"
 
 msgid "Switch to Android"
 msgstr "Android-ə keç"
@@ -1123,14 +1141,14 @@ msgstr "Məlumat bağlantısı qurulur…"
 msgid "Turn off cellular radio"
 msgstr "Mobil radionu söndür"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Mobil bağlantı kəsiləcək."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Bu SIM-də zəng, SMS və ya data olmayacaq; radiosu yenidən başladıqdan sonra da siz yenidən açana qədər sönülü qalır."
 
 msgid "Turn on cellular radio"
 msgstr "Mobil radionu yandır"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "SFUN yandırma ardıcıllığı icra olunacaq (təxminən 1 dəqiqəyədək)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "İstifadədəki SIM-in radiosu açılır və yenidən başladıqdan sonra da açıq qalır (təxminən 1 dəqiqəyə qədər)."
 
 msgid "Turn data roaming off"
 msgstr "Məlumat rouminqini söndür"
@@ -1147,11 +1165,14 @@ msgstr "Mobil məlumat rouminq şəbəkələrində də istifadə olunur, bu əla
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Mobil bağlantı 1–2 dəqiqəlik dayana bilər."
 
-msgid "Restart the entire device"
-msgstr "Bütün cihazı yenidən başlat"
-
 msgid "All connections will be interrupted."
 msgstr "Bütün bağlantılar kəsiləcək."
+
+msgid "Power off"
+msgstr "Söndür"
+
+msgid "Restart"
+msgstr "Yenidən başlat"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Növbəti açılış Android-ə keçəcək və cihaz indi yenidən başlayacaq. Bu idarəetmə səhifəsi və mobil şəbəkə paylaşımı kəsiləcək."
@@ -1477,6 +1498,21 @@ msgstr "Cari xidmət edən hüceyrəni kilidlə"
 msgid "Unlock cell"
 msgstr "Hüceyrə kilidini aç"
 
+msgid "Enter a cell"
+msgstr "Hüceyrəni daxil et"
+
+msgid "Type"
+msgstr "Növ"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Kanal nömrəsi (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Bu hüceyrəni kilidlə"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. MHz ilə tezlik deyil, kanal nömrəsi; hüceyrənin qonşu siyahısında olması lazım deyil."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Tətbiq etmək radio stekini (SFUN) yenidən başladır və mobil xidməti qısa müddətə kəsir. Parametrlər saxlanılır və “Açılışda tətbiq et” aktiv olduqda AT hazır olandan sonra plagin tərəfindən təkrar tətbiq edilir. Platformanın radiodan əvvəlki hook-u yenidən başlatmadan tətbiq edə bilər. Avtomatik rejimə qayıtmaq üçün heç bir diapazon seçmədən tətbiq edin."
 
@@ -1563,6 +1599,9 @@ msgstr "%s arxa planda kilidlənir…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s arxa planda kilidləndi (SFUN yenidən başlatması, təxminən 30 saniyə); status geri oxunur…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Aşağıdakı aralıqlarda kanal nömrəsi və PCI daxil edin"
 
 msgid "No serving-network data"
 msgstr "Xidmət edən şəbəkə məlumatı yoxdur"
@@ -1798,6 +1837,15 @@ msgstr "0 % batareyanı heç vaxt doldurmur (cihaz şarj cihazından işləyir),
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % daim şəbəkədə qalan cihazda batareyanı daha sağlam saxlayır."
 
+msgid "When the charger switches the device on"
+msgstr "Şarj cihazı cihazı işə saldıqda"
+
+msgid "Charge only, until a key starts it"
+msgstr "Yalnız şarj, düymə işə salana qədər"
+
+msgid "Start normally"
+msgstr "Normal başlat"
+
 msgid "Keep as is"
 msgstr "Olduğu kimi saxla"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Daxili SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Daxili SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Daxili SIM 3"
+
+msgid "External SIM"
+msgstr "Xarici SIM"
+
+msgid "SIM card"
+msgstr "SIM kart"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "Daxili SIM 3 SIM2 ilə, xarici SIM isə SIM1 ilə paylaşılır. Burada seçilən kart növbəti açılışda modem işə düşməzdən əvvəl qoşulur; seçim olmadıqda kartlar yükləyicinin qurduğu kimi qalır."
+
+msgid "As the bootloader sets them"
+msgstr "Yükləyicinin qurduğu kimi"
+
+msgid "Applying the radio setting…"
+msgstr "Radio ayarı tətbiq olunur…"
+
+msgid "SIM settings are not available"
+msgstr "SIM ayarları mövcud deyil"
+
+msgid "Modem default"
+msgstr "Modemin öz ayarı"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "istifadədə"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "SIM%d radiosunu söndür"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Bu SIM-in radiosu növbəti dəfə başlayanda ona göndərilir."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "Hər SIM üçün VoLTE və VoNR: yenidən başladıqdan sonra saxlanılır və həmin SIM hər başlayanda yenidən göndərilir. VoLTE söndürülməyibsə açıqdır; VoNR təyin olunana qədər modemdəki kimi qalır."
+
+msgid "All radios off (airplane mode)"
+msgstr "Bütün radiolar sönülü (təyyarə rejimi)"
+
+msgid "All radios on"
+msgstr "Bütün radiolar açıq"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Heç bir SIM-də zəng, SMS və ya data olmayacaq, yenidən başladıqdan sonra da, radio burada və ya paneldəki radio düyməsi ilə yenidən açılana qədər."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Hər SIM-in radiosu yenidən başladıqdan sonra burada təyin edildiyi kimi qalır. Radiosu sönülü SIM-də zəng, SMS və data olmur və cihaz ona keçmir."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Ayar saxlanıldı, lakin radio hələ ona uyğunlaşmadı."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Alıcı: nömrə, məs. 10086 və ya +86..."
@@ -2299,9 +2419,6 @@ msgstr "Cihaz indi yenidən başlayır. Standart açılış Android-dir, ona gö
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Cihaz indi yenidən başlayır və təxminən bir dəqiqə əlçatmaz olacaq. Yeni sistem başlamasa, uğursuz cəhdlərdən sonra cihaz özü Android-ə qayıdır."
-
-msgid "Restart"
-msgstr "Yenidən başlat"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Yenidən başlayır… təxminən bir dəqiqədən sonra bu səhifəni yenidən aç."
@@ -2957,9 +3074,6 @@ msgstr "Aşkar et"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL token ehtiva edə bilər: cihaza ayrıca göndərilir, heç vaxt əmr sətrinə və ya jurnala düşmür."
 
-msgid "Type"
-msgstr "Növ"
-
 msgid "Share link"
 msgstr "Paylaşım keçidi"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Yanlış CPU nüvəsi"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Naməlum CPU gərginlik əməliyyatı"
 
@@ -3433,17 +3553,32 @@ msgstr "Yanlış yeniləmə sorğusu"
 msgid "The backup tool gave no valid reply"
 msgstr "Ehtiyat nüsxə aləti etibarlı cavab vermədi"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Mobil məlumat inteqrasiyası bu platformada təmin edilmir"
+
+msgid "The SIM settings could not be read"
+msgstr "SIM ayarları oxuna bilmədi"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Bu platforma radio idarəsini təmin etmir"
+
+msgid "A SIM radio change is already running"
+msgstr "SIM radio dəyişikliyi artıq gedir"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modem ayarı qəbul etmədi; heç nə saxlanılmadı"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Sorğu çox böyükdür"
@@ -3598,15 +3733,15 @@ msgstr "Sətir sayı 1-dən 1000-ə qədərdir"
 msgid "The log could not be read"
 msgstr "Jurnal oxuna bilmədi"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Bu SIM-in radiosu ayarlarında söndürülüb"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Radio işə düşmədi"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Mobil məlumat inteqrasiyası bu platformada təmin edilmir"
+msgid "The radio did not follow its setting"
+msgstr "Radio ayarına uyğunlaşmadı"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Məlumat rouminqi ayarı yadda saxlanıla bilmədi"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "CPU nüvəsini dəyişmək mümkün olmadı"
+
+msgid "Invalid low latency setting"
+msgstr "Yanlış aşağı gecikmə ayarı"
+
+msgid "The low latency setting could not be applied"
+msgstr "Aşağı gecikmə ayarını tətbiq etmək mümkün olmadı"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "CPU gərginlik ofseti oxuna bilmədi"
 
@@ -3643,9 +3787,6 @@ msgstr "CPU gərginlik ofseti söndürülə bilmədi"
 
 msgid "The stress test could not be started"
 msgstr "Stress testi başladıla bilmədi"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "USB rol adapteri icra oluna bilmir"

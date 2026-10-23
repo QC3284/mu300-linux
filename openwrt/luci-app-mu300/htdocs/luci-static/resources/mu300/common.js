@@ -44,6 +44,8 @@ var callPowerGet = rpc.declare({ object: 'mu300dash', method: 'power_get', expec
 var callPowerSet = rpc.declare({ object: 'mu300dash', method: 'power_set', params: [ 'op', 'key', 'value' ], expect: { '': {} }, nobatch: true });
 var callSimGet = rpc.declare({ object: 'mu300dash', method: 'sim_get', expect: { '': {} }, nobatch: true });
 var callSimSet = rpc.declare({ object: 'mu300dash', method: 'sim_set', params: [ 'op', 'value' ], expect: { '': {} }, nobatch: true });
+var callSimcardGet = rpc.declare({ object: 'mu300dash', method: 'simcard_get', expect: { '': {} }, nobatch: true });
+var callSimcardSet = rpc.declare({ object: 'mu300dash', method: 'simcard_set', params: [ 'kind', 'slot', 'state' ], expect: { '': {} }, nobatch: true });
 var callTtlGet = rpc.declare({ object: 'mu300dash', method: 'ttl_get', expect: { '': {} }, nobatch: true });
 var callTtlSet = rpc.declare({ object: 'mu300dash', method: 'ttl_set', params: [ 'value' ], expect: { '': {} }, nobatch: true });
 var callFwdGet = rpc.declare({ object: 'mu300dash', method: 'forward_get', expect: { '': {} }, nobatch: true });
@@ -55,6 +57,8 @@ var callFwdTest = rpc.declare({ object: 'mu300dash', method: 'forward_test', exp
 var callFwdLogClear = rpc.declare({ object: 'mu300dash', method: 'forward_log_clear', expect: { '': {} }, nobatch: true });
 var callCpuGet = rpc.declare({ object: 'mu300dash', method: 'cpu_get', expect: { '': {} }, nobatch: true });
 var callCpuSet = rpc.declare({ object: 'mu300dash', method: 'cpu_set', params: [ 'profile' ], expect: { '': {} }, nobatch: true });
+/* a core online/offline (op core, cpu 1-63) or CPU0's low latency (op lowlatency), state on|off; saved */
+var callCpuTune = rpc.declare({ object: 'mu300dash', method: 'cpu_tune', params: [ 'op', 'cpu', 'state' ], expect: { '': {} }, nobatch: true });
 /* the CPU voltage offset, EXPERIMENTAL (op set|off|stress; the backend checks every field again) */
 var callCpuVoltageGet = rpc.declare({ object: 'mu300dash', method: 'cpu_voltage_get', expect: { '': {} }, nobatch: true });
 var callCpuVoltageSet = rpc.declare({ object: 'mu300dash', method: 'cpu_voltage_set',
@@ -288,6 +292,14 @@ html.mud-bootstrap-theme{--surface:var(--background-color-high);--surface-sunken
 .mud-meter i{display:block;height:100%;border-radius:3px}
 .mud-freq{display:flex;align-items:center;font-size:.76rem;font-variant-numeric:tabular-nums;padding:1px 0}
 .mud-freq .mud-k{flex:0 0 2.4em}
+.mud-manual-cell{margin:12px 0;max-width:720px;min-width:0}
+.mud-manual-cell summary{cursor:pointer;padding:8px 0;font-size:.85rem;font-weight:600}
+.mud-manual-cell form{margin:4px 0 12px}
+.mud-manual-cell-fields{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+.mud-manual-cell-fields label{display:flex;flex:1 1 140px;flex-direction:column;gap:6px;margin:0;min-width:0;font-size:.82rem}
+.mud-manual-cell-fields input,.mud-manual-cell-fields select{box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:38px;margin:0;padding:8px 10px;border:1px solid var(--hairline,var(--border,#ccc));border-radius:var(--radius-base,.5rem);background:var(--surface,var(--background,#fff));color:var(--text,#222);font:inherit}
+.mud-manual-cell-fields button{min-height:38px;margin:0;white-space:normal}
+.mud-manual-cell-fields input:focus,.mud-manual-cell-fields select:focus{outline:2px solid var(--brand,var(--primary,#37a));outline-offset:1px}
 .mud-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 12px;border:1px solid var(--hairline,var(--border,#ccc));border-radius:var(--radius-base,.5rem);background:var(--surface,var(--background,#fff));color:var(--text,#222);font-size:.82rem;cursor:pointer;user-select:none}
 .mud-btn:active{transform:scale(.97)}
 .mud-btn.on{background:var(--brand,var(--primary,#2f7bf6));border-color:var(--brand,var(--primary,#2f7bf6));color:var(--on-brand,#fff)}
@@ -728,10 +740,10 @@ return baseclass.extend({
 	callUsbNetList: callUsbNetList, callUsbNetAdd: callUsbNetAdd,
 	callLangGet: callLangGet, callLangSet: callLangSet,
 	callPowerGet: callPowerGet, callPowerSet: callPowerSet,
-	callSimGet: callSimGet, callSimSet: callSimSet,
+	callSimGet: callSimGet, callSimSet: callSimSet, callSimcardGet: callSimcardGet, callSimcardSet: callSimcardSet,
 	callTtlGet: callTtlGet, callTtlSet: callTtlSet,
 	callFwdGet: callFwdGet, callFwdSet: callFwdSet, callFwdTest: callFwdTest, callFwdLogClear: callFwdLogClear,
-	callCpuGet: callCpuGet, callCpuSet: callCpuSet, callCpuVoltageGet: callCpuVoltageGet, callCpuVoltageSet: callCpuVoltageSet,
+	callCpuGet: callCpuGet, callCpuSet: callCpuSet, callCpuTune: callCpuTune, callCpuVoltageGet: callCpuVoltageGet, callCpuVoltageSet: callCpuVoltageSet,
 	callPackagesGet: callPackagesGet, callPackagesAct: callPackagesAct,
 	callUpdateGet: callUpdateGet, callUpdateJob: callUpdateJob, callUpdateAct: callUpdateAct,
 	callBackupExport: callBackupExport, callBackupImport: callBackupImport, callBackupJob: callBackupJob,

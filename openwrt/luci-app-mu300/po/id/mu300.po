@@ -13,6 +13,9 @@ msgstr "Seluler"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Pengaturan SIM"
+
 msgid "Network locks"
 msgstr "Kunci jaringan"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Inti yang disorot sedang online. Inti yang dimatikan tetap offline, juga setelah mulai ulang, sampai dinyalakan kembali. CPU0 selalu tetap online."
+
+msgid "Low latency: on"
+msgstr "Latensi rendah: aktif"
+
+msgid "Low latency: off"
+msgstr "Latensi rendah: nonaktif"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Latensi rendah menjaga CPU0 tidak masuk ke status diamnya, seperti firmware U30 Air dari ZTE: jeda Wi-Fi jauh lebih singkat, dan perangkat memakai lebih banyak daya. Nonaktif secara bawaan."
+
 msgid "Thermal"
 msgstr "Termal"
 
@@ -763,6 +778,12 @@ msgstr "Hapus nilai yang tersimpan"
 msgid "Presets"
 msgstr "Prasetel"
 
+msgid "Form (URL-encoded)"
+msgstr "Formulir (dienkode URL)"
+
+msgid "Plain text"
+msgstr "Teks biasa"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Pesan yang diterima diteruskan begitu sampai di pool SMS. Pengiriman yang gagal dicoba lagi setelah 30 dtk, lalu setiap kali setelah waktu dua kali lebih lama (paling lama satu jam), sepuluh kali seluruhnya."
 
@@ -801,12 +822,6 @@ msgstr "Alamat (http:// atau https://)"
 
 msgid "Body"
 msgstr "Isi"
-
-msgid "Form (URL-encoded)"
-msgstr "Formulir (dienkode URL)"
-
-msgid "Plain text"
-msgstr "Teks biasa"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Kolom: sender, time, text, device, message (templat yang sudah diisi)"
@@ -924,6 +939,9 @@ msgstr "Belum ada pengiriman"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Uji dimulai dengan pengaturan tersimpan; hasilnya muncul di log pengiriman."
+
+msgid "Automatic without 2G (152)"
+msgstr "Otomatis tanpa 2G (152)"
 
 msgid "4G only"
 msgstr "Hanya 4G"
@@ -1087,8 +1105,8 @@ msgstr "Hotspot Wi-Fi"
 msgid "Restart modem"
 msgstr "Mulai ulang modem"
 
-msgid "Restart device"
-msgstr "Mulai ulang perangkat"
+msgid "Power off or restart"
+msgstr "Matikan atau mulai ulang"
 
 msgid "Switch to Android"
 msgstr "Beralih ke Android"
@@ -1123,14 +1141,14 @@ msgstr "Menyambungkan data…"
 msgid "Turn off cellular radio"
 msgstr "Matikan radio seluler"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Konektivitas seluler akan terputus."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "SIM ini tidak akan bisa menelepon, SMS, atau data, dan radionya tetap mati setelah reboot sampai Anda menyalakannya lagi."
 
 msgid "Turn on cellular radio"
 msgstr "Nyalakan radio seluler"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Urutan penyalaan SFUN akan dijalankan (hingga sekitar 1 menit)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Radio SIM yang digunakan menyala dan tetap menyala setelah reboot (hingga sekitar 1 menit)."
 
 msgid "Turn data roaming off"
 msgstr "Matikan roaming data"
@@ -1147,11 +1165,14 @@ msgstr "Data seluler juga digunakan di jaringan roaming, yang bisa menambah biay
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Konektivitas seluler mungkin berhenti selama 1–2 menit."
 
-msgid "Restart the entire device"
-msgstr "Mulai ulang seluruh perangkat"
-
 msgid "All connections will be interrupted."
 msgstr "Semua koneksi akan terputus."
+
+msgid "Power off"
+msgstr "Matikan"
+
+msgid "Restart"
+msgstr "Mulai ulang"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Boot berikutnya akan masuk ke Android dan perangkat dimulai ulang sekarang. Halaman manajemen ini dan berbagi seluler akan terputus."
@@ -1477,6 +1498,21 @@ msgstr "Kunci sel layanan saat ini"
 msgid "Unlock cell"
 msgstr "Buka kunci sel"
 
+msgid "Enter a cell"
+msgstr "Masukkan sel"
+
+msgid "Type"
+msgstr "Jenis"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Nomor kanal (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Kunci sel ini"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Nomor kanal, bukan frekuensi dalam MHz; sel tidak harus ada di daftar sel tetangga."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Menerapkan akan memulai ulang stack radio (SFUN) dan memutus layanan seluler sebentar. Pengaturan disimpan dan diterapkan ulang oleh plugin setelah AT siap jika Terapkan saat startup diaktifkan. Hook pra-radio platform dapat menerapkan ulang tanpa memulai ulang. Terapkan tanpa band terpilih untuk mengembalikan mode otomatis."
 
@@ -1563,6 +1599,9 @@ msgstr "Mengunci %s di latar belakang…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s dikunci di latar belakang (mulai ulang SFUN, sekitar 30 detik); membaca kembali status…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Masukkan nomor kanal dan PCI dalam rentang di bawah"
 
 msgid "No serving-network data"
 msgstr "Tidak ada data jaringan layanan"
@@ -1798,6 +1837,15 @@ msgstr "0 % tidak pernah mengisi baterai (perangkat berjalan dari pengisi daya),
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % menjaga baterai tetap sehat pada perangkat yang terus tercolok."
 
+msgid "When the charger switches the device on"
+msgstr "Saat pengisi daya menyalakan perangkat"
+
+msgid "Charge only, until a key starts it"
+msgstr "Hanya mengisi daya, sampai tombol menyalakannya"
+
+msgid "Start normally"
+msgstr "Mulai secara normal"
+
 msgid "Keep as is"
 msgstr "Biarkan apa adanya"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "SIM bawaan 1"
+
+msgid "Built-in SIM 2"
+msgstr "SIM bawaan 2"
+
+msgid "Built-in SIM 3"
+msgstr "SIM bawaan 3"
+
+msgid "External SIM"
+msgstr "SIM eksternal"
+
+msgid "SIM card"
+msgstr "Kartu SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "SIM bawaan 3 berbagi SIM2, SIM eksternal berbagi SIM1. Kartu yang dipilih di sini dialihkan sebelum modem menyala, pada boot berikutnya; tanpa pilihan, kartu tetap seperti yang diatur bootloader."
+
+msgid "As the bootloader sets them"
+msgstr "Seperti yang diatur bootloader"
+
+msgid "Applying the radio setting…"
+msgstr "Menerapkan pengaturan radio…"
+
+msgid "SIM settings are not available"
+msgstr "Pengaturan SIM tidak tersedia"
+
+msgid "Modem default"
+msgstr "Bawaan modem"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "digunakan"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Matikan radio SIM%d"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Dikirim ke SIM ini saat radionya mulai lagi."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE dan VoNR untuk tiap SIM, tetap setelah reboot dan dikirim ulang setiap kali SIM itu mulai. VoLTE aktif kecuali dimatikan; VoNR tetap seperti di modem sampai diatur."
+
+msgid "All radios off (airplane mode)"
+msgstr "Semua radio mati (mode pesawat)"
+
+msgid "All radios on"
+msgstr "Semua radio menyala"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Tidak ada SIM yang bisa menelepon, SMS, atau data, juga setelah reboot, sampai radio dinyalakan lagi di sini atau dengan tombol radio di dasbor."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Radio tiap SIM tetap seperti diatur di sini setelah reboot. SIM yang radionya mati tidak bisa menelepon, SMS, atau data, dan perangkat tidak beralih ke SIM itu."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Pengaturan tersimpan, tetapi radio belum mengikutinya."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Penerima: nomor, mis. 10086 atau +86..."
@@ -2299,9 +2419,6 @@ msgstr "Perangkat dimulai ulang sekarang. Boot bawaan adalah Android, jadi Andro
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Perangkat dimulai ulang sekarang dan tidak dapat diakses selama sekitar satu menit. Jika sistem baru tidak mau menyala, perangkat kembali ke Android dengan sendirinya setelah beberapa percobaan gagal."
-
-msgid "Restart"
-msgstr "Mulai ulang"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Memulai ulang… buka lagi halaman ini sekitar satu menit lagi."
@@ -2957,9 +3074,6 @@ msgstr "Deteksi"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL dapat memuat token: dikirim ke perangkat tersendiri, tidak pernah masuk ke baris perintah atau log."
 
-msgid "Type"
-msgstr "Jenis"
-
 msgid "Share link"
 msgstr "Tautan bagikan"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Inti CPU tidak valid"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Operasi tegangan CPU tidak dikenal"
 
@@ -3433,17 +3553,32 @@ msgstr "Permintaan pembaruan tidak valid"
 msgid "The backup tool gave no valid reply"
 msgstr "Alat cadangan tidak memberi jawaban yang valid"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Integrasi data seluler tidak disediakan oleh platform ini"
+
+msgid "The SIM settings could not be read"
+msgstr "Pengaturan SIM tidak dapat dibaca"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Platform ini tidak menyediakan kontrol radio"
+
+msgid "A SIM radio change is already running"
+msgstr "Perubahan radio SIM sedang berjalan"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modem tidak menerima pengaturan; tidak ada yang disimpan"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Permintaan terlalu besar"
@@ -3598,15 +3733,15 @@ msgstr "Jumlah baris adalah 1 sampai 1000"
 msgid "The log could not be read"
 msgstr "Log tidak dapat dibaca"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Radio SIM ini dimatikan di pengaturannya"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Radio tidak menyala"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Integrasi data seluler tidak disediakan oleh platform ini"
+msgid "The radio did not follow its setting"
+msgstr "Radio tidak mengikuti pengaturannya"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Pengaturan roaming data tidak dapat disimpan"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Inti CPU tidak dapat dialihkan"
+
+msgid "Invalid low latency setting"
+msgstr "Pengaturan latensi rendah tidak valid"
+
+msgid "The low latency setting could not be applied"
+msgstr "Pengaturan latensi rendah tidak dapat diterapkan"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Offset tegangan CPU tidak dapat dibaca"
 
@@ -3643,9 +3787,6 @@ msgstr "Offset tegangan CPU tidak dapat dimatikan"
 
 msgid "The stress test could not be started"
 msgstr "Uji stres tidak dapat dimulai"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Adaptor peran USB tidak dapat dieksekusi"

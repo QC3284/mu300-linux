@@ -13,6 +13,9 @@ msgstr "Mobilhálózat"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "SIM-beállítások"
+
 msgid "Network locks"
 msgstr "Hálózati zárolások"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "A kiemelt magok online állapotban vannak. A kikapcsolt mag offline marad, újraindítás után is, amíg vissza nem kapcsolják. A CPU0 mindig online marad."
+
+msgid "Low latency: on"
+msgstr "Alacsony késleltetés: be"
+
+msgid "Low latency: off"
+msgstr "Alacsony késleltetés: ki"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Az alacsony késleltetés kívül tartja a CPU0-t az üresjárati állapotokon, ahogy a ZTE U30 Air firmware-e is: a Wi-Fi késleltetése jóval kisebb, az eszköz pedig több energiát fogyaszt. Alapértelmezés szerint ki."
+
 msgid "Thermal"
 msgstr "Hőmérséklet"
 
@@ -763,6 +778,12 @@ msgstr "A mentett érték törlése"
 msgid "Presets"
 msgstr "Előbeállítások"
 
+msgid "Form (URL-encoded)"
+msgstr "Űrlap (URL-kódolt)"
+
+msgid "Plain text"
+msgstr "Egyszerű szöveg"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "A fogadott üzenetek továbbítása azonnal megtörténik, amint az SMS-tárba érnek. A sikertelen kézbesítést 30 mp után, majd minden alkalommal kétszer annyi idő után (legfeljebb egy óra) újra megpróbálja, összesen tízszer."
 
@@ -801,12 +822,6 @@ msgstr "Cím (http:// vagy https://)"
 
 msgid "Body"
 msgstr "Törzs"
-
-msgid "Form (URL-encoded)"
-msgstr "Űrlap (URL-kódolt)"
-
-msgid "Plain text"
-msgstr "Egyszerű szöveg"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Mezők: sender, time, text, device, message (a kitöltött sablon)"
@@ -924,6 +939,9 @@ msgstr "Még nincs kézbesítés"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "A teszt elindult a mentett beállításokkal; az eredmény a kézbesítési naplóban jelenik meg."
+
+msgid "Automatic without 2G (152)"
+msgstr "Automatikus 2G nélkül (152)"
 
 msgid "4G only"
 msgstr "Csak 4G"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi hotspot"
 msgid "Restart modem"
 msgstr "Modem újraindítása"
 
-msgid "Restart device"
-msgstr "Eszköz újraindítása"
+msgid "Power off or restart"
+msgstr "Kikapcsolás vagy újraindítás"
 
 msgid "Switch to Android"
 msgstr "Váltás Androidra"
@@ -1123,14 +1141,14 @@ msgstr "Adatkapcsolat létrehozása…"
 msgid "Turn off cellular radio"
 msgstr "Mobilrádió kikapcsolása"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "A mobilkapcsolat megszakad."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Ezen a SIM-en nem lesz hívás, SMS és adat, és a rádiója újraindítás után is kikapcsolva marad, amíg újra be nem kapcsolja."
 
 msgid "Turn on cellular radio"
 msgstr "Mobilrádió bekapcsolása"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Lefut az SFUN bekapcsolási sorozat (legfeljebb kb. 1 perc)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "A használt SIM rádiója bekapcsol, és újraindítás után is bekapcsolva marad (legfeljebb kb. 1 perc)."
 
 msgid "Turn data roaming off"
 msgstr "Adatroaming kikapcsolása"
@@ -1147,11 +1165,14 @@ msgstr "A mobiladat roaminghálózatokon is használatban van, ami többletkölt
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "A mobilkapcsolat 1–2 percre leállhat."
 
-msgid "Restart the entire device"
-msgstr "A teljes eszköz újraindítása"
-
 msgid "All connections will be interrupted."
 msgstr "Minden kapcsolat megszakad."
+
+msgid "Power off"
+msgstr "Kikapcsolás"
+
+msgid "Restart"
+msgstr "Újraindítás"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "A következő indítás Androidba történik, és az eszköz most újraindul. Ez a felügyeleti oldal és a mobilhálózat-megosztás megszakad."
@@ -1477,6 +1498,21 @@ msgstr "Jelenlegi kiszolgáló cella zárolása"
 msgid "Unlock cell"
 msgstr "Cellazárolás feloldása"
 
+msgid "Enter a cell"
+msgstr "Cella megadása"
+
+msgid "Type"
+msgstr "Típus"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Csatornaszám (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Ennek a cellának a zárolása"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Csatornaszám, nem MHz-ben megadott frekvencia; a cellának nem kell szerepelnie a szomszédos cellák listájában."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Az alkalmazás újraindítja a rádióvermet (SFUN), és rövid időre megszakítja a mobilszolgáltatást. A beállítások mentésre kerülnek, és ha az Alkalmazás indításkor engedélyezve van, a bővítmény újraalkalmazza őket, amint az AT készen áll. Egy rádió előtti platformhook újraindítás nélkül is újraalkalmazhatja őket. Az automatikus mód visszaállításához alkalmazza kiválasztott sávok nélkül."
 
@@ -1563,6 +1599,9 @@ msgstr "%s zárolása a háttérben…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s zárolva a háttérben (SFUN-újraindítás, kb. 30 másodperc); az állapot visszaolvasása…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Adjon meg egy csatornaszámot és egy PCI-t az alábbi tartományokon belül"
 
 msgid "No serving-network data"
 msgstr "Nincsenek kiszolgálóhálózat-adatok"
@@ -1798,6 +1837,15 @@ msgstr "A 0 % soha nem tölti az akkumulátort (az eszköz a töltőről működ
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "A 80 % kíméli az akkumulátort egy folyamatosan hálózaton lévő eszközben."
 
+msgid "When the charger switches the device on"
+msgstr "Amikor a töltő bekapcsolja az eszközt"
+
+msgid "Charge only, until a key starts it"
+msgstr "Csak töltés, amíg egy gomb el nem indítja"
+
+msgid "Start normally"
+msgstr "Normál indítás"
+
 msgid "Keep as is"
 msgstr "Változatlanul hagyás"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Beépített SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Beépített SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Beépített SIM 3"
+
+msgid "External SIM"
+msgstr "Külső SIM"
+
+msgid "SIM card"
+msgstr "SIM-kártya"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "A beépített SIM 3 a SIM2-n, a külső SIM a SIM1-en osztozik. Az itt választott kártyát a következő indításkor, a modem indulása előtt kapcsolja be; választás nélkül a kártyák úgy maradnak, ahogy a rendszerbetöltő beállítja őket."
+
+msgid "As the bootloader sets them"
+msgstr "Ahogy a rendszerbetöltő beállítja"
+
+msgid "Applying the radio setting…"
+msgstr "Rádióbeállítás alkalmazása…"
+
+msgid "SIM settings are not available"
+msgstr "A SIM-beállítások nem érhetők el"
+
+msgid "Modem default"
+msgstr "A modem alapértéke"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "használatban"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "SIM%d rádiójának kikapcsolása"
+
+msgid "Radio"
+msgstr "Rádió"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Ennek a SIM-nek a rádiója következő indulásakor lesz elküldve."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE és VoNR SIM-enként; újraindítás után is megmaradnak, és a SIM minden indulásakor újra elküldésre kerülnek. A VoLTE be van kapcsolva, amíg ki nem kapcsolja; a VoNR a modem szerinti marad, amíg be nem állítja."
+
+msgid "All radios off (airplane mode)"
+msgstr "Minden rádió ki (repülő üzemmód)"
+
+msgid "All radios on"
+msgstr "Minden rádió be"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Egyik SIM-en sem lesz hívás, SMS és adat, újraindítás után sem, amíg egy rádiót újra be nem kapcsolnak itt vagy az irányítópult rádiógombjával."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Minden SIM rádiója újraindítás után is az itt beállított marad. A kikapcsolt rádiójú SIM-en nincs hívás, SMS és adat, és az eszköz nem vált rá."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "A beállítás mentve, de a rádió még nem követte."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Címzett: szám, pl. 10086 vagy +86..."
@@ -2299,9 +2419,6 @@ msgstr "Az eszköz most újraindul. Az alapértelmezett indítás az Android, ez
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Az eszköz most újraindul, és körülbelül egy percig nem érhető el. Ha az új rendszer nem indul el, az eszköz a sikertelen kísérletek után magától visszatér az Androidra."
-
-msgid "Restart"
-msgstr "Újraindítás"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Újraindítás… nyissa meg újra ezt az oldalt körülbelül egy perc múlva."
@@ -2957,9 +3074,6 @@ msgstr "Felismerés"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "Az URL tokent tartalmazhat: külön jut el az eszközhöz, soha nem kerül parancssorba vagy naplóba."
 
-msgid "Type"
-msgstr "Típus"
-
 msgid "Share link"
 msgstr "Megosztási hivatkozás"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Érvénytelen CPU-mag"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Ismeretlen CPU-feszültségművelet"
 
@@ -3433,17 +3553,32 @@ msgstr "Érvénytelen frissítési kérés"
 msgid "The backup tool gave no valid reply"
 msgstr "A mentőeszköz nem adott érvényes választ"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "A mobiladat-integráció ezen a platformon nem érhető el"
+
+msgid "The SIM settings could not be read"
+msgstr "A SIM-beállítások nem olvashatók"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Ez a platform nem biztosít rádióvezérlést"
+
+msgid "A SIM radio change is already running"
+msgstr "Már folyamatban van egy SIM-rádió módosítás"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "A modem nem fogadta el a beállítást; semmi sem lett mentve"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "A kérés túl nagy"
@@ -3598,15 +3733,15 @@ msgstr "A sorok száma 1 és 1000 közötti"
 msgid "The log could not be read"
 msgstr "A napló nem olvasható"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Ennek a SIM-nek a rádiója ki van kapcsolva a beállításaiban"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "A rádió nem kapcsolt be"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "A mobiladat-integráció ezen a platformon nem érhető el"
+msgid "The radio did not follow its setting"
+msgstr "A rádió nem követte a beállítását"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Az adatroaming beállítását nem sikerült menteni"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "A CPU-magot nem sikerült átkapcsolni"
+
+msgid "Invalid low latency setting"
+msgstr "Érvénytelen alacsony késleltetési beállítás"
+
+msgid "The low latency setting could not be applied"
+msgstr "Az alacsony késleltetési beállítást nem sikerült alkalmazni"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "A CPU-feszültségeltolás nem olvasható be"
 
@@ -3643,9 +3787,6 @@ msgstr "A CPU-feszültségeltolás nem kapcsolható ki"
 
 msgid "The stress test could not be started"
 msgstr "A terheléses teszt nem indítható el"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Az USB-szerep adapter nem futtatható"

@@ -13,6 +13,9 @@ msgstr "셀룰러"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "SIM 설정"
+
 msgid "Network locks"
 msgstr "네트워크 잠금"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "강조 표시된 코어는 온라인입니다. 끈 코어는 다시 켤 때까지 재부팅 후에도 오프라인으로 유지됩니다. CPU0은 항상 온라인입니다."
+
+msgid "Low latency: on"
+msgstr "저지연: 켜짐"
+
+msgid "Low latency: off"
+msgstr "저지연: 꺼짐"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "저지연 모드는 ZTE U30 Air 펌웨어처럼 CPU0이 유휴 상태에 들어가지 않게 합니다. Wi-Fi 지연이 크게 줄고 기기의 전력 소모가 늘어납니다. 기본값은 꺼짐입니다."
+
 msgid "Thermal"
 msgstr "열 관리"
 
@@ -763,6 +778,12 @@ msgstr "저장된 값 삭제"
 msgid "Presets"
 msgstr "사전 설정"
 
+msgid "Form (URL-encoded)"
+msgstr "양식(URL 인코딩)"
+
+msgid "Plain text"
+msgstr "일반 텍스트"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "받은 메시지는 SMS 풀에 도착하는 즉시 전달됩니다. 전송에 실패하면 30초 후 다시 시도하고, 이후 매번 두 배 간격(최대 1시간)으로 모두 열 번 시도합니다."
 
@@ -801,12 +822,6 @@ msgstr "주소(http:// 또는 https://)"
 
 msgid "Body"
 msgstr "본문"
-
-msgid "Form (URL-encoded)"
-msgstr "양식(URL 인코딩)"
-
-msgid "Plain text"
-msgstr "일반 텍스트"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "필드: sender, time, text, device, message(채워진 템플릿)"
@@ -924,6 +939,9 @@ msgstr "아직 전달 내역이 없습니다"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "저장된 설정으로 테스트를 시작했습니다. 결과는 전달 기록에 표시됩니다."
+
+msgid "Automatic without 2G (152)"
+msgstr "자동, 2G 제외 (152)"
 
 msgid "4G only"
 msgstr "4G만"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi 핫스팟"
 msgid "Restart modem"
 msgstr "모뎀 재시작"
 
-msgid "Restart device"
-msgstr "장치 재시작"
+msgid "Power off or restart"
+msgstr "전원 끄기 또는 다시 시작"
 
 msgid "Switch to Android"
 msgstr "Android로 전환"
@@ -1123,14 +1141,14 @@ msgstr "데이터 연결 중…"
 msgid "Turn off cellular radio"
 msgstr "셀룰러 무선 끄기"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "셀룰러 연결이 중단됩니다."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "이 SIM은 통화, SMS, 데이터를 쓸 수 없으며, 다시 켤 때까지 재부팅 후에도 무선이 꺼진 상태로 유지됩니다."
 
 msgid "Turn on cellular radio"
 msgstr "셀룰러 무선 켜기"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "SFUN 전원 켜기 절차가 실행됩니다 (최대 약 1분)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "사용 중인 SIM의 무선이 켜지고 재부팅 후에도 켜진 상태로 유지됩니다(최대 약 1분)."
 
 msgid "Turn data roaming off"
 msgstr "데이터 로밍 끄기"
@@ -1147,11 +1165,14 @@ msgstr "로밍 네트워크에서도 모바일 데이터가 사용되며 추가 
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "셀룰러 연결이 1–2분 동안 중단될 수 있습니다."
 
-msgid "Restart the entire device"
-msgstr "장치 전체 재시작"
-
 msgid "All connections will be interrupted."
 msgstr "모든 연결이 중단됩니다."
+
+msgid "Power off"
+msgstr "전원 끄기"
+
+msgid "Restart"
+msgstr "다시 시작"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "다음 부팅 시 Android로 진입하도록 설정하고 지금 재부팅합니다. 이 관리 페이지와 셀룰러 공유가 끊어집니다."
@@ -1477,6 +1498,21 @@ msgstr "현재 서빙 셀 잠금"
 msgid "Unlock cell"
 msgstr "셀 잠금 해제"
 
+msgid "Enter a cell"
+msgstr "셀 입력"
+
+msgid "Type"
+msgstr "유형"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "채널 번호(EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "이 셀 잠금"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. MHz 단위 주파수가 아니라 채널 번호입니다. 셀이 인접 셀 목록에 없어도 됩니다."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "적용하면 무선 스택이 재시작되어 (SFUN) 셀룰러 서비스가 잠시 중단됩니다. 설정은 저장되며, '시작 시 적용'이 켜져 있으면 AT가 준비된 후 플러그인이 다시 적용합니다. 플랫폼의 무선 시작 전 훅이 있으면 재시작 없이 다시 적용할 수 있습니다. 밴드를 하나도 선택하지 않고 적용하면 자동 모드로 돌아갑니다."
 
@@ -1563,6 +1599,9 @@ msgstr "백그라운드에서 %s 잠금 중…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "백그라운드에서 %s 잠금 완료 (SFUN 재시작, 약 30초). 상태를 다시 읽는 중…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "아래 범위 안에서 채널 번호와 PCI를 입력하세요"
 
 msgid "No serving-network data"
 msgstr "서빙 네트워크 데이터 없음"
@@ -1798,6 +1837,15 @@ msgstr "0 %는 배터리를 충전하지 않고(기기는 충전기 전원으로
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 %는 계속 전원에 연결해 두는 장치에서 배터리를 더 건강하게 유지합니다."
 
+msgid "When the charger switches the device on"
+msgstr "충전기가 기기를 켤 때"
+
+msgid "Charge only, until a key starts it"
+msgstr "충전만 (키로 시작할 때까지)"
+
+msgid "Start normally"
+msgstr "정상적으로 시작"
+
 msgid "Keep as is"
 msgstr "그대로 유지"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "내장 SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "내장 SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "내장 SIM 3"
+
+msgid "External SIM"
+msgstr "외부 SIM"
+
+msgid "SIM card"
+msgstr "SIM 카드"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "내장 SIM 3은 SIM2를, 외부 SIM은 SIM1을 공유합니다. 여기서 선택한 카드는 다음 부팅 때 모뎀이 시작되기 전에 전환됩니다. 선택하지 않으면 카드는 부트로더가 설정한 그대로 유지됩니다."
+
+msgid "As the bootloader sets them"
+msgstr "부트로더가 설정한 그대로"
+
+msgid "Applying the radio setting…"
+msgstr "무선 설정 적용 중…"
+
+msgid "SIM settings are not available"
+msgstr "SIM 설정을 사용할 수 없습니다"
+
+msgid "Modem default"
+msgstr "모뎀 기본값"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "사용 중"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "SIM%d 무선 끄기"
+
+msgid "Radio"
+msgstr "무선"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "모뎀: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "이 SIM의 무선이 다음에 시작될 때 전송됩니다."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "SIM별 VoLTE와 VoNR. 재부팅 후에도 유지되며 해당 SIM이 시작될 때마다 다시 전송됩니다. VoLTE는 끄지 않는 한 켜져 있고, VoNR은 설정할 때까지 모뎀 상태 그대로입니다."
+
+msgid "All radios off (airplane mode)"
+msgstr "모든 무선 끄기(비행기 모드)"
+
+msgid "All radios on"
+msgstr "모든 무선 켜기"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "여기 또는 대시보드의 무선 버튼으로 무선을 다시 켤 때까지, 재부팅 후에도 어떤 SIM도 통화, SMS, 데이터를 쓸 수 없습니다."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "각 SIM의 무선은 재부팅 후에도 여기서 설정한 대로 유지됩니다. 무선이 꺼진 SIM은 통화, SMS, 데이터를 쓸 수 없으며 기기가 해당 SIM으로 전환하지 않습니다."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "설정은 저장되었지만 무선이 아직 반영하지 않았습니다."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "수신자: 번호 (예: 10086 또는 +86...)"
@@ -2299,9 +2419,6 @@ msgstr "장치가 지금 재시작됩니다. 기본 부팅이 Android이므로 A
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "장치가 지금 재시작되며 약 1분 동안 연결되지 않습니다. 새 시스템이 시작되지 않으면 몇 번의 실패 후 장치가 자동으로 Android로 돌아갑니다."
-
-msgid "Restart"
-msgstr "다시 시작"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "재시작 중… 약 1분 후에 이 페이지를 다시 여세요."
@@ -2957,9 +3074,6 @@ msgstr "감지"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL에 토큰이 포함될 수 있습니다. 토큰은 기기로 별도 전달되며 명령줄이나 로그에는 절대 남지 않습니다."
 
-msgid "Type"
-msgstr "유형"
-
 msgid "Share link"
 msgstr "공유 링크"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "잘못된 CPU 코어"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "알 수 없는 CPU 전압 작업"
 
@@ -3433,17 +3553,32 @@ msgstr "잘못된 업데이트 요청입니다"
 msgid "The backup tool gave no valid reply"
 msgstr "백업 도구가 올바른 응답을 주지 않았습니다"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "이 플랫폼에서는 모바일 데이터 통합을 제공하지 않습니다"
+
+msgid "The SIM settings could not be read"
+msgstr "SIM 설정을 읽을 수 없습니다"
+
+msgid "Radio control is not provided by this platform"
+msgstr "이 플랫폼은 무선 제어를 제공하지 않습니다"
+
+msgid "A SIM radio change is already running"
+msgstr "SIM 무선 변경이 이미 진행 중입니다"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "모뎀이 설정을 받아들이지 않았습니다. 아무것도 저장되지 않았습니다"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "요청이 너무 큽니다"
@@ -3598,15 +3733,15 @@ msgstr "줄 수는 1에서 1000 사이여야 합니다"
 msgid "The log could not be read"
 msgstr "로그를 읽을 수 없습니다"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "이 SIM의 무선이 설정에서 꺼져 있습니다"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "무선을 켜지 못했습니다"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "이 플랫폼에서는 모바일 데이터 통합을 제공하지 않습니다"
+msgid "The radio did not follow its setting"
+msgstr "무선이 설정을 따르지 않았습니다"
 
 msgid "The data roaming setting could not be saved"
 msgstr "데이터 로밍 설정을 저장할 수 없습니다"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "CPU 코어를 전환할 수 없습니다"
+
+msgid "Invalid low latency setting"
+msgstr "잘못된 저지연 설정"
+
+msgid "The low latency setting could not be applied"
+msgstr "저지연 설정을 적용할 수 없습니다"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "CPU 전압 오프셋을 읽을 수 없습니다"
 
@@ -3643,9 +3787,6 @@ msgstr "CPU 전압 오프셋을 끌 수 없습니다"
 
 msgid "The stress test could not be started"
 msgstr "스트레스 테스트를 시작할 수 없습니다"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "USB 역할 어댑터를 실행할 수 없습니다"

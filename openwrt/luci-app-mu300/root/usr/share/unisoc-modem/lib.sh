@@ -35,6 +35,26 @@ json_num() {
     esac
 }
 
+# jfilter [-i FILE] -e EXPR: jsonfilter where there is one (OpenWrt); elsewhere (Ubuntu, which runs the lock and
+# forwarding adapters too) the few expressions the adapters use, through jq: @.a.b (a string as it is, anything else
+# as compact JSON, nothing for null or a missing key) and @.a[*] (each element on its own line). Any other expression
+# matches nothing. The input is stdin unless -i names a file.
+jfilter() {
+    if command -v jsonfilter >/dev/null 2>&1; then jsonfilter "$@"; return; fi
+    _jf_i= _jf_e=
+    while [ $# -gt 0 ]; do
+        case $1 in -i) _jf_i=${2:-}; shift 2 ;; -e) _jf_e=${2:-}; shift 2 ;; *) shift ;; esac
+    done
+    case $_jf_e in @.?*) ;; *) return 1 ;; esac
+    _jf_q=${_jf_e#@}
+    case $_jf_q in *'[*]') _jf_q="${_jf_q%'[*]'}[]" ;; esac
+    # names of letters, digits and _ only: nothing else of an expression reaches jq
+    case $_jf_q in *[!A-Za-z0-9_.\[\]]*|*..*) return 1 ;; esac
+    command -v jq >/dev/null 2>&1 || return 1
+    if [ -n "$_jf_i" ]; then jq -rc "$_jf_q | select(. != null)" "$_jf_i" 2>/dev/null
+    else jq -rc "$_jf_q | select(. != null)" 2>/dev/null; fi
+}
+
 # ---------------------------------------------------------- uci allow-lists
 # uci_get OPTION: unisoc_modem.main.OPTION ('' when unset)
 uci_get() { uci -q get "unisoc_modem.main.$1" 2>/dev/null || true; }
@@ -46,6 +66,17 @@ safe_iface() {
     case $1 in
         ''|[!A-Za-z0-9]*|*[!A-Za-z0-9_.-]*) printf '%s\n' "$2" ;;
         *) if [ ${#1} -le 15 ]; then printf '%s\n' "$1"; else printf '%s\n' "$2"; fi ;;
+    esac
+}
+
+# data_cid DEVICE SLOT: the PDP context behind a SIPA data device of SIM slot SLOT (each card has eight: sipa_eth0-7
+# are slot 0's CID 1-8, sipa_eth8-15 slot 1's CID 1-8, as mobile-data names them); nothing, and status 1, for any
+# other name or another card's device. Never guessed: the dashboard asks the modem about this CID's bearer.
+data_cid() {
+    case $2:$1 in
+        0:sipa_eth[0-7]) echo $(( ${1#sipa_eth} + 1 )) ;;
+        1:sipa_eth[89]|1:sipa_eth1[0-5]) echo $(( ${1#sipa_eth} - 7 )) ;;
+        *) return 1 ;;
     esac
 }
 
@@ -120,6 +151,10 @@ private_dir() {
 # the boot warm-up: K57); the panel's own radio sequences take the same lock through it (mobile-data radio-locked),
 # never a copy of its locking. A platform without it runs them unlocked, as before. MU300_MOBILE_DATA: the tests.
 MOBILE_DATA=${MU300_MOBILE_DATA:-/opt/mu300/bin/mobile-data}
+# SIM_RADIO: each SIM's radio on or off, kept across reboots (mu300-sim-radio, docs/FINDINGS.md 185). rf_allowed: the
+# card in use's radio may be on (yes without the tool). A sequence that would switch the radio on asks it first.
+SIM_RADIO=${MU300_SIM_RADIO_BIN:-/opt/mu300/bin/mu300-sim-radio}
+rf_allowed() { [ ! -x "$SIM_RADIO" ] || "$SIM_RADIO" allowed 2>/dev/null; }
 # radio_busy: a live process holds the radio lock (the panel answers "busy" instead of starting a sequence)
 radio_busy() { [ -x "$MOBILE_DATA" ] && "$MOBILE_DATA" radio-busy >/dev/null 2>&1; }
 # radio_locked CMD...: CMD under the radio lock, waiting MU300_RADIO_LOCK_WAIT seconds (0 by default) for a holder;

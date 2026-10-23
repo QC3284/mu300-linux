@@ -13,6 +13,9 @@ msgstr "Κινητό δίκτυο"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Ρυθμίσεις SIM"
+
 msgid "Network locks"
 msgstr "Κλειδώματα δικτύου"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Οι επισημασμένοι πυρήνες είναι ενεργοί. Ένας πυρήνας που απενεργοποιήθηκε μένει ανενεργός, και μετά από επανεκκίνηση, μέχρι να ενεργοποιηθεί ξανά. Ο CPU0 μένει πάντα ενεργός."
+
+msgid "Low latency: on"
+msgstr "Χαμηλή καθυστέρηση: ενεργή"
+
+msgid "Low latency: off"
+msgstr "Χαμηλή καθυστέρηση: ανενεργή"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Η χαμηλή καθυστέρηση κρατά τον CPU0 εκτός των καταστάσεων αδράνειας, όπως το υλικολογισμικό U30 Air της ZTE: οι καθυστερήσεις του Wi-Fi είναι πολύ μικρότερες και η συσκευή καταναλώνει περισσότερη ενέργεια. Ανενεργή από προεπιλογή."
+
 msgid "Thermal"
 msgstr "Θερμικά"
 
@@ -763,6 +778,12 @@ msgstr "Αφαίρεση της αποθηκευμένης τιμής"
 msgid "Presets"
 msgstr "Προεπιλογές"
 
+msgid "Form (URL-encoded)"
+msgstr "Φόρμα (κωδικοποίηση URL)"
+
+msgid "Plain text"
+msgstr "Απλό κείμενο"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Τα ληφθέντα μηνύματα προωθούνται μόλις φτάσουν στη δεξαμενή SMS. Μια αποτυχημένη αποστολή επαναλαμβάνεται μετά από 30 s και μετά κάθε φορά σε διπλάσιο χρόνο (έως μία ώρα), δέκα φορές συνολικά."
 
@@ -801,12 +822,6 @@ msgstr "Διεύθυνση (http:// ή https://)"
 
 msgid "Body"
 msgstr "Σώμα"
-
-msgid "Form (URL-encoded)"
-msgstr "Φόρμα (κωδικοποίηση URL)"
-
-msgid "Plain text"
-msgstr "Απλό κείμενο"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Πεδία: sender, time, text, device, message (το συμπληρωμένο πρότυπο)"
@@ -924,6 +939,9 @@ msgstr "Καμία παράδοση ακόμη"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Η δοκιμή ξεκίνησε με τις αποθηκευμένες ρυθμίσεις· το αποτέλεσμα εμφανίζεται στο αρχείο παράδοσης."
+
+msgid "Automatic without 2G (152)"
+msgstr "Αυτόματα χωρίς 2G (152)"
 
 msgid "4G only"
 msgstr "Μόνο 4G"
@@ -1087,8 +1105,8 @@ msgstr "Σημείο πρόσβασης Wi-Fi"
 msgid "Restart modem"
 msgstr "Επανεκκίνηση μόντεμ"
 
-msgid "Restart device"
-msgstr "Επανεκκίνηση συσκευής"
+msgid "Power off or restart"
+msgstr "Απενεργοποίηση ή επανεκκίνηση"
 
 msgid "Switch to Android"
 msgstr "Μετάβαση σε Android"
@@ -1123,14 +1141,14 @@ msgstr "Σύνδεση δεδομένων…"
 msgid "Turn off cellular radio"
 msgstr "Απενεργοποίηση ραδιοφώνου κινητού δικτύου"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Η συνδεσιμότητα κινητού δικτύου θα διακοπεί."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Αυτή η SIM δεν θα έχει κλήσεις, SMS ή δεδομένα, και ο πομπός της μένει κλειστός και μετά από επανεκκίνηση μέχρι να τον ανοίξετε ξανά."
 
 msgid "Turn on cellular radio"
 msgstr "Ενεργοποίηση ραδιοφώνου κινητού δικτύου"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Θα εκτελεστεί η ακολουθία ενεργοποίησης SFUN (έως περίπου 1 λεπτό)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Ο πομπός της SIM σε χρήση ανοίγει και μένει ανοιχτός μετά από επανεκκίνηση (έως περίπου 1 λεπτό)."
 
 msgid "Turn data roaming off"
 msgstr "Απενεργοποίηση περιαγωγής δεδομένων"
@@ -1147,11 +1165,14 @@ msgstr "Τα δεδομένα κινητής χρησιμοποιούνται κ
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Η συνδεσιμότητα κινητού δικτύου μπορεί να διακοπεί για 1–2 λεπτά."
 
-msgid "Restart the entire device"
-msgstr "Επανεκκίνηση ολόκληρης της συσκευής"
-
 msgid "All connections will be interrupted."
 msgstr "Όλες οι συνδέσεις θα διακοπούν."
+
+msgid "Power off"
+msgstr "Απενεργοποίηση"
+
+msgid "Restart"
+msgstr "Επανεκκίνηση"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Η επόμενη εκκίνηση θα γίνει σε Android και η συσκευή επανεκκινείται τώρα. Αυτή η σελίδα διαχείρισης και η κοινή χρήση κινητού δικτύου θα αποσυνδεθούν."
@@ -1477,6 +1498,21 @@ msgstr "Κλείδωμα τρέχουσας κυψέλης εξυπηρέτησ�
 msgid "Unlock cell"
 msgstr "Ξεκλείδωμα κυψέλης"
 
+msgid "Enter a cell"
+msgstr "Εισαγωγή κυψέλης"
+
+msgid "Type"
+msgstr "Τύπος"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Αριθμός καναλιού (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Κλείδωμα αυτής της κυψέλης"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Αριθμός καναλιού, όχι συχνότητα σε MHz· η κυψέλη δεν χρειάζεται να είναι στη λίστα γειτονικών."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Η εφαρμογή επανεκκινεί τη στοίβα ραδιοφώνου (SFUN) και διακόπτει για λίγο την υπηρεσία κινητού δικτύου. Οι ρυθμίσεις αποθηκεύονται και εφαρμόζονται ξανά από το πρόσθετο όταν το AT είναι έτοιμο, εφόσον είναι ενεργή η Εφαρμογή κατά την εκκίνηση. Ένα hook πλατφόρμας πριν από το ραδιόφωνο μπορεί να τις εφαρμόσει χωρίς επανεκκίνηση. Εφαρμόστε χωρίς επιλεγμένες ζώνες για επαναφορά της αυτόματης λειτουργίας."
 
@@ -1563,6 +1599,9 @@ msgstr "Κλείδωμα %s στο παρασκήνιο…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "Το %s κλειδώθηκε στο παρασκήνιο (επανεκκίνηση SFUN, περίπου 30 δευτερόλεπτα)· ανάγνωση της κατάστασης…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Εισαγάγετε αριθμό καναλιού και PCI εντός των παρακάτω περιοχών"
 
 msgid "No serving-network data"
 msgstr "Δεν υπάρχουν δεδομένα δικτύου εξυπηρέτησης"
@@ -1798,6 +1837,15 @@ msgstr "Το 0 % δεν φορτίζει ποτέ την μπαταρία (η σ
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "Το 80 % προστατεύει την μπαταρία μιας συσκευής που μένει στην πρίζα."
 
+msgid "When the charger switches the device on"
+msgstr "Όταν ο φορτιστής ενεργοποιεί τη συσκευή"
+
+msgid "Charge only, until a key starts it"
+msgstr "Μόνο φόρτιση, μέχρι να την εκκινήσει ένα πλήκτρο"
+
+msgid "Start normally"
+msgstr "Κανονική εκκίνηση"
+
 msgid "Keep as is"
 msgstr "Να μείνει ως έχει"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Ενσωματωμένη SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Ενσωματωμένη SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Ενσωματωμένη SIM 3"
+
+msgid "External SIM"
+msgstr "Εξωτερική SIM"
+
+msgid "SIM card"
+msgstr "Κάρτα SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "Η ενσωματωμένη SIM 3 μοιράζεται τη SIM2 και η εξωτερική SIM τη SIM1. Η κάρτα που επιλέγεται εδώ ενεργοποιείται πριν ξεκινήσει το μόντεμ, στην επόμενη εκκίνηση· χωρίς επιλογή οι κάρτες μένουν όπως τις ορίζει ο φορτωτής εκκίνησης."
+
+msgid "As the bootloader sets them"
+msgstr "Όπως τις ορίζει ο φορτωτής εκκίνησης"
+
+msgid "Applying the radio setting…"
+msgstr "Εφαρμογή ρύθμισης πομπού…"
+
+msgid "SIM settings are not available"
+msgstr "Οι ρυθμίσεις SIM δεν είναι διαθέσιμες"
+
+msgid "Modem default"
+msgstr "Προεπιλογή μόντεμ"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "σε χρήση"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Απενεργοποίηση πομπού SIM%d"
+
+msgid "Radio"
+msgstr "Πομπός"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Μόντεμ: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Αποστέλλεται σε αυτή τη SIM την επόμενη φορά που θα ξεκινήσει ο πομπός της."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE και VoNR για κάθε SIM, διατηρούνται μετά από επανεκκίνηση και αποστέλλονται ξανά κάθε φορά που ξεκινά η SIM. Το VoLTE είναι ενεργό εκτός αν απενεργοποιηθεί· το VoNR μένει όπως στο μόντεμ μέχρι να οριστεί."
+
+msgid "All radios off (airplane mode)"
+msgstr "Όλοι οι πομποί κλειστοί (λειτουργία πτήσης)"
+
+msgid "All radios on"
+msgstr "Όλοι οι πομποί ανοιχτοί"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Καμία SIM δεν θα έχει κλήσεις, SMS ή δεδομένα, ακόμη και μετά από επανεκκίνηση, μέχρι να ανοίξει ξανά ένας πομπός εδώ ή με το κουμπί πομπού του πίνακα."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Ο πομπός κάθε SIM μένει όπως ορίστηκε εδώ μετά από επανεκκίνηση. Μια SIM με κλειστό πομπό δεν έχει κλήσεις, SMS ή δεδομένα, και η συσκευή δεν μεταβαίνει σε αυτή."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Η ρύθμιση αποθηκεύτηκε, αλλά ο πομπός δεν την ακολούθησε ακόμη."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Παραλήπτης: αριθμός, π.χ. 10086 ή +86..."
@@ -2299,9 +2419,6 @@ msgstr "Η συσκευή επανεκκινείται τώρα. Η προεπι
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Η συσκευή επανεκκινείται τώρα και θα λείπει για περίπου ένα λεπτό. Αν το νέο σύστημα δεν ξεκινήσει, η συσκευή επιστρέφει μόνη της στο Android μετά τις αποτυχημένες προσπάθειες."
-
-msgid "Restart"
-msgstr "Επανεκκίνηση"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Επανεκκίνηση… ανοίξτε ξανά αυτή τη σελίδα σε περίπου ένα λεπτό."
@@ -2957,9 +3074,6 @@ msgstr "Εντοπισμός"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "Το URL μπορεί να περιέχει διακριτικό: πηγαίνει στη συσκευή χωριστά, ποτέ σε γραμμή εντολών ή αρχείο καταγραφής."
 
-msgid "Type"
-msgstr "Τύπος"
-
 msgid "Share link"
 msgstr "Σύνδεσμος κοινοποίησης"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Μη έγκυρος πυρήνας CPU"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Άγνωστη λειτουργία τάσης CPU"
 
@@ -3433,17 +3553,32 @@ msgstr "Μη έγκυρο αίτημα ενημέρωσης"
 msgid "The backup tool gave no valid reply"
 msgstr "Το εργαλείο αντιγράφων δεν έδωσε έγκυρη απάντηση"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Η ενσωμάτωση δεδομένων κινητής δεν παρέχεται από αυτή την πλατφόρμα"
+
+msgid "The SIM settings could not be read"
+msgstr "Δεν ήταν δυνατή η ανάγνωση των ρυθμίσεων SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Αυτή η πλατφόρμα δεν παρέχει έλεγχο πομπού"
+
+msgid "A SIM radio change is already running"
+msgstr "Μια αλλαγή πομπού SIM εκτελείται ήδη"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Το μόντεμ δεν δέχτηκε τη ρύθμιση· δεν αποθηκεύτηκε τίποτα"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Το αίτημα είναι πολύ μεγάλο"
@@ -3598,15 +3733,15 @@ msgstr "Ο αριθμός γραμμών είναι από 1 έως 1000"
 msgid "The log could not be read"
 msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου καταγραφής"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Ο πομπός αυτής της SIM είναι κλειστός στις ρυθμίσεις της"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Το ραδιόφωνο δεν ενεργοποιήθηκε"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Η ενσωμάτωση δεδομένων κινητής δεν παρέχεται από αυτή την πλατφόρμα"
+msgid "The radio did not follow its setting"
+msgstr "Ο πομπός δεν ακολούθησε τη ρύθμισή του"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Δεν ήταν δυνατή η αποθήκευση της ρύθμισης περιαγωγής δεδομένων"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Δεν ήταν δυνατή η εναλλαγή του πυρήνα CPU"
+
+msgid "Invalid low latency setting"
+msgstr "Μη έγκυρη ρύθμιση χαμηλής καθυστέρησης"
+
+msgid "The low latency setting could not be applied"
+msgstr "Δεν ήταν δυνατή η εφαρμογή της ρύθμισης χαμηλής καθυστέρησης"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Δεν ήταν δυνατή η ανάγνωση της μετατόπισης τάσης CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "Δεν ήταν δυνατή η απενεργοποίηση της με
 
 msgid "The stress test could not be started"
 msgstr "Δεν ήταν δυνατή η εκκίνηση της δοκιμής καταπόνησης"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Ο προσαρμογέας ρόλου USB δεν είναι εκτελέσιμος"

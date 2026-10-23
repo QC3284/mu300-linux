@@ -13,6 +13,9 @@ msgstr "סלולר"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "הגדרות SIM"
+
 msgid "Network locks"
 msgstr "נעילות רשת"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "הליבות המודגשות פעילות. ליבה שכובתה נשארת כבויה, גם אחרי הפעלה מחדש, עד שתופעל שוב. CPU0 תמיד נשארת פעילה."
+
+msgid "Low latency: on"
+msgstr "השהיה נמוכה: מופעל"
+
+msgid "Low latency: off"
+msgstr "השהיה נמוכה: כבוי"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "השהיה נמוכה מונעת מ-CPU0 להיכנס למצבי סרק, כמו הקושחה של ZTE U30 Air: השהיות ה-Wi-Fi קצרות בהרבה, והמכשיר צורך יותר חשמל. כבוי כברירת מחדל."
+
 msgid "Thermal"
 msgstr "תרמי"
 
@@ -763,6 +778,12 @@ msgstr "הסרת הערך השמור"
 msgid "Presets"
 msgstr "הגדרות מוכנות"
 
+msgid "Form (URL-encoded)"
+msgstr "טופס (קידוד URL)"
+
+msgid "Plain text"
+msgstr "טקסט פשוט"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "הודעות שהתקבלו מועברות ברגע שהן מגיעות למאגר ה-SMS. מסירה שנכשלה מנוסה שוב אחרי 30 שניות, ואז בכל פעם אחרי זמן כפול (שעה לכל היותר), עשר פעמים בסך הכול."
 
@@ -801,12 +822,6 @@ msgstr "כתובת (http:// או https://)"
 
 msgid "Body"
 msgstr "גוף"
-
-msgid "Form (URL-encoded)"
-msgstr "טופס (קידוד URL)"
-
-msgid "Plain text"
-msgstr "טקסט פשוט"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "שדות: sender, time, text, device, message (התבנית המלאה)"
@@ -924,6 +939,9 @@ msgstr "אין מסירות עדיין"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "הבדיקה החלה עם ההגדרות השמורות; התוצאה תופיע ביומן המסירה."
+
+msgid "Automatic without 2G (152)"
+msgstr "אוטומטי ללא 2G (152)"
 
 msgid "4G only"
 msgstr "4G בלבד"
@@ -1087,8 +1105,8 @@ msgstr "נקודה חמה Wi-Fi"
 msgid "Restart modem"
 msgstr "הפעלה מחדש של המודם"
 
-msgid "Restart device"
-msgstr "הפעלה מחדש של ההתקן"
+msgid "Power off or restart"
+msgstr "כיבוי או הפעלה מחדש"
 
 msgid "Switch to Android"
 msgstr "מעבר ל-Android"
@@ -1123,14 +1141,14 @@ msgstr "מחבר נתונים…"
 msgid "Turn off cellular radio"
 msgstr "כיבוי הרדיו הסלולרי"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "הקישוריות הסלולרית תיקטע."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "ל-SIM זה לא יהיו שיחות, SMS או נתונים, והרדיו שלו יישאר כבוי גם אחרי הפעלה מחדש עד שתפעילו אותו שוב."
 
 msgid "Turn on cellular radio"
 msgstr "הפעלת הרדיו הסלולרי"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "רצף ההפעלה SFUN יורץ (עד כדקה אחת)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "הרדיו של ה-SIM שבשימוש יופעל ויישאר פועל גם אחרי הפעלה מחדש (עד כדקה)."
 
 msgid "Turn data roaming off"
 msgstr "כיבוי נדידת נתונים"
@@ -1147,11 +1165,14 @@ msgstr "נתונים סלולריים משמשים גם ברשתות נדידה,
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "הקישוריות הסלולרית עלולה להיפסק ל-1–2 דקות."
 
-msgid "Restart the entire device"
-msgstr "הפעלה מחדש של ההתקן כולו"
-
 msgid "All connections will be interrupted."
 msgstr "כל החיבורים ינותקו."
+
+msgid "Power off"
+msgstr "כיבוי"
+
+msgid "Restart"
+msgstr "הפעלה מחדש"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "האתחול הבא ייכנס ל-Android וההתקן יאותחל כעת. דף ניהול זה ושיתוף החיבור הסלולרי ינותקו."
@@ -1477,6 +1498,21 @@ msgstr "נעילת התא המשרת הנוכחי"
 msgid "Unlock cell"
 msgstr "ביטול נעילת תא"
 
+msgid "Enter a cell"
+msgstr "הזנת תא"
+
+msgid "Type"
+msgstr "סוג"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "מספר ערוץ (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "נעילת תא זה"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. מספר ערוץ, לא תדר ב-MHz; התא אינו חייב להופיע ברשימת התאים השכנים."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "ההחלה מפעילה מחדש את מחסנית הרדיו (SFUN) וקוטעת לזמן קצר את השירות הסלולרי. ההגדרות נשמרות, והתוסף מחיל אותן מחדש לאחר ש-AT מוכן כאשר “החלה בעת האתחול” מופעלת. Hook של הפלטפורמה שרץ לפני הרדיו יכול להחיל אותן ללא הפעלה מחדש. החלה ללא בחירת פסים משחזרת את המצב האוטומטי."
 
@@ -1563,6 +1599,9 @@ msgstr "נועל את %s ברקע…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s ננעל ברקע (הפעלה מחדש של SFUN, כ-30 שניות); קורא את המצב בחזרה…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "הזינו מספר ערוץ ו-PCI בטווחים שלהלן"
 
 msgid "No serving-network data"
 msgstr "אין נתוני רשת משרתת"
@@ -1798,6 +1837,15 @@ msgstr "0 % לעולם לא טוען את הסוללה (המכשיר פועל מ
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % שומרים על הסוללה במכשיר שנשאר מחובר לחשמל."
 
+msgid "When the charger switches the device on"
+msgstr "כאשר המטען מדליק את המכשיר"
+
+msgid "Charge only, until a key starts it"
+msgstr "טעינה בלבד, עד שמקש יפעיל אותו"
+
+msgid "Start normally"
+msgstr "הפעלה רגילה"
+
 msgid "Keep as is"
 msgstr "ללא שינוי"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "SIM מובנה 1"
+
+msgid "Built-in SIM 2"
+msgstr "SIM מובנה 2"
+
+msgid "Built-in SIM 3"
+msgstr "SIM מובנה 3"
+
+msgid "External SIM"
+msgstr "SIM חיצוני"
+
+msgid "SIM card"
+msgstr "כרטיס SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "SIM מובנה 3 חולק את SIM2, וה-SIM החיצוני חולק את SIM1. הכרטיס שנבחר כאן מחובר לפני שהמודם מתחיל לפעול, באתחול הבא; ללא בחירה הכרטיסים נשארים כפי שמנהל האתחול קובע אותם."
+
+msgid "As the bootloader sets them"
+msgstr "כפי שמנהל האתחול קובע אותם"
+
+msgid "Applying the radio setting…"
+msgstr "מחיל את הגדרת הרדיו…"
+
+msgid "SIM settings are not available"
+msgstr "הגדרות SIM אינן זמינות"
+
+msgid "Modem default"
+msgstr "ברירת המחדל של המודם"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "בשימוש"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "כיבוי הרדיו של SIM%d"
+
+msgid "Radio"
+msgstr "רדיו"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "מודם: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "יישלח ל-SIM זה בפעם הבאה שהרדיו שלו יופעל."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE ו-VoNR לכל SIM, נשמרים לאחר הפעלה מחדש ונשלחים שוב בכל פעם שה-SIM מופעל. VoLTE פועל אלא אם כובה; VoNR נשאר כפי שהוא במודם עד שייקבע."
+
+msgid "All radios off (airplane mode)"
+msgstr "כל מכשירי הרדיו כבויים (מצב טיסה)"
+
+msgid "All radios on"
+msgstr "כל מכשירי הרדיו פועלים"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "לאף SIM לא יהיו שיחות, SMS או נתונים, גם אחרי הפעלה מחדש, עד שרדיו יופעל שוב כאן או בכפתור הרדיו בלוח הבקרה."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "הרדיו של כל SIM נשאר כפי שהוגדר כאן גם אחרי הפעלה מחדש. ל-SIM שהרדיו שלו כבוי אין שיחות, SMS או נתונים, והמכשיר לא עובר אליו."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "ההגדרה נשמרה, אך הרדיו עדיין לא פעל לפיה."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "נמען: מספר, לדוגמה 10086 או +86..."
@@ -2299,9 +2419,6 @@ msgstr "ההתקן מופעל מחדש עכשיו. ברירת המחדל לאת�
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "ההתקן מופעל מחדש עכשיו ולא יהיה זמין כדקה. אם המערכת החדשה לא תעלה, ההתקן יחזור ל-Android מעצמו אחרי הניסיונות הכושלים."
-
-msgid "Restart"
-msgstr "הפעלה מחדש"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "מופעל מחדש… פתחו את הדף הזה שוב בעוד כדקה."
@@ -2957,9 +3074,6 @@ msgstr "זיהוי"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "ה-URL עשוי להכיל אסימון: הוא נשלח להתקן בנפרד, ואף פעם לא לשורת פקודה או ליומן."
 
-msgid "Type"
-msgstr "סוג"
-
 msgid "Share link"
 msgstr "קישור שיתוף"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "ליבת מעבד לא תקינה"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "פעולת מתח CPU לא מוכרת"
 
@@ -3433,17 +3553,32 @@ msgstr "בקשת עדכון לא תקינה"
 msgid "The backup tool gave no valid reply"
 msgstr "כלי הגיבוי לא החזיר תשובה תקינה"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "שילוב הנתונים הסלולריים אינו זמין בפלטפורמה זו"
+
+msgid "The SIM settings could not be read"
+msgstr "לא ניתן היה לקרוא את הגדרות ה-SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "פלטפורמה זו אינה מספקת שליטה ברדיו"
+
+msgid "A SIM radio change is already running"
+msgstr "שינוי ברדיו SIM כבר מתבצע"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "המודם לא קיבל את ההגדרה; דבר לא נשמר"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "הבקשה גדולה מדי"
@@ -3598,15 +3733,15 @@ msgstr "מספר השורות הוא 1 עד 1000"
 msgid "The log could not be read"
 msgstr "לא ניתן היה לקרוא את היומן"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "הרדיו של SIM זה כבוי בהגדרות שלו"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "הרדיו לא עלה"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "שילוב הנתונים הסלולריים אינו זמין בפלטפורמה זו"
+msgid "The radio did not follow its setting"
+msgstr "הרדיו לא פעל לפי ההגדרה שלו"
 
 msgid "The data roaming setting could not be saved"
 msgstr "לא ניתן היה לשמור את הגדרת נדידת הנתונים"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "לא ניתן היה להחליף את מצב ליבת המעבד"
+
+msgid "Invalid low latency setting"
+msgstr "הגדרת השהיה נמוכה לא תקינה"
+
+msgid "The low latency setting could not be applied"
+msgstr "לא ניתן היה להחיל את הגדרת ההשהיה הנמוכה"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "לא ניתן היה לקרוא את היסט מתח ה-CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "לא ניתן היה לכבות את היסט מתח ה-CPU"
 
 msgid "The stress test could not be started"
 msgstr "לא ניתן היה להפעיל את בדיקת העומס"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "מתאם תפקיד ה-USB אינו ניתן להרצה"
