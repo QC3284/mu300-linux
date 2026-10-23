@@ -1,0 +1,13 @@
+#!/bin/sh
+# mu300-block-detect.guard [ARGS...] -- /sbin/block detect with a deadline.
+#
+# The LuCI plugin writes the result to /etc/config/fstab. Like the info probe, detect can block in sbuf_read
+# (sipc_core) when a block event races it; rpcd is single threaded, so the whole ubus queue waits. Ten seconds is
+# generous for a detect (it walks the block devices once), and a timeout leaves the fstab untouched.
+set -u
+DEADLINE=${MU300_BLOCK_DETECT_GUARD_SECONDS:-10}
+T=/opt/mu300/busybox-bin/timeout
+if [ -x "$T" ]; then
+    exec "$T" "$DEADLINE" /sbin/block detect "$@" 2>/dev/null
+fi
+exec /sbin/block detect "$@" 2>/dev/null

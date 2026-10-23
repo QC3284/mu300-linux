@@ -531,7 +531,7 @@ const methods = {
 
 	setBlockDetect: {
 		call: function() {
-			return { result: system((access('/opt/mu300/bin/mu300-block-info.guard') ? '/opt/mu300/bin/mu300-block-info.guard detect' : '/sbin/block detect') + ' > /etc/config/fstab') == 0 };
+			return { result: system((access('/opt/mu300/bin/mu300-block-detect.guard') ? '/opt/mu300/bin/mu300-block-detect.guard' : '/sbin/block detect') + ' > /etc/config/fstab') == 0 };
 		}
 	},
 
