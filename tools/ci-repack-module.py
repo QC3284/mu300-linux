@@ -34,6 +34,22 @@ def main(payload):
     with open(os.path.join(payload, 'payload.sha256'), 'w') as f:
         f.write('\n'.join(lines) + '\n')
     print('payload checks regenerated')
+    assert_no_case_collisions(payload)
+
+
+def assert_no_case_collisions(root):
+    """FINDINGS 212 lesson: two entries whose names differ only by case are one entry
+    on macOS's APFS and Windows' NTFS, so a user unpacking this zip would lose one."""
+    seen = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        for name in dirnames + filenames:
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, root)
+            key = rel.lower()
+            if key in seen and seen[key] != rel:
+                raise SystemExit('case collision in the payload: %r vs %r' % (seen[key], rel))
+            seen[key] = rel
+    print('no case-only collisions in the payload (%d entries)' % len(seen))
 
 
 if __name__ == '__main__':
