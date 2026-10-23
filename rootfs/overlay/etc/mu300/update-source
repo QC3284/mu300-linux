@@ -1,0 +1,4 @@
+# Release source of this image: the fork that builds it (fresh installs offer its releases).
+# A file here is the whole setting; delete it to fall back to the project's own repository.
+MU300_API_URL=https://api.github.com/repos/QC3284/mu300-linux
+MU300_DOWNLOAD_URL=https://github.com/QC3284/mu300-linux/releases/download
