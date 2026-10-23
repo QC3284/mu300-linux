@@ -1,0 +1,17 @@
+#!/bin/sh
+# mu300-block-info.guard [SUBCOMMAND [ARGS...]] -- /sbin/block with a deadline.
+#
+# /sbin/block info can block in sbuf_read (sipc_core) when a block event races the probe: it then never returns and,
+# because rpcd is single threaded, every later ubus call (and so every LuCI page) queues behind it. The deadline turns
+# that into an empty or failed probe instead: the panel shows no block devices for that request and the daemon lives.
+#
+# Default subcommand is "info". A system without the static applet runs /sbin/block directly (no deadline), which is
+# the behaviour before this guard existed.
+set -u
+DEADLINE=${MU300_BLOCK_GUARD_SECONDS:-8}
+T=/opt/mu300/busybox-bin/timeout
+[ $# -gt 0 ] || set -- info
+if [ -x "$T" ]; then
+    exec "$T" "$DEADLINE" /sbin/block "$@" 2>/dev/null
+fi
+exec /sbin/block "$@" 2>/dev/null

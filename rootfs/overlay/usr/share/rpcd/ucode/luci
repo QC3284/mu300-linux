@@ -480,7 +480,7 @@ const methods = {
 
 	getBlockDevices: {
 		call: function() {
-			const block = popen((access('/opt/mu300/busybox-bin/timeout') ? '/opt/mu300/busybox-bin/timeout 5 ' : '') + '/sbin/block info 2>/dev/null');
+			const block = popen(access('/opt/mu300/bin/mu300-block-info.guard') ? '/opt/mu300/bin/mu300-block-info.guard info 2>/dev/null' : '/sbin/block info 2>/dev/null');
 
 			if (block) {
 				let result = {};
@@ -531,7 +531,7 @@ const methods = {
 
 	setBlockDetect: {
 		call: function() {
-			return { result: system((access('/opt/mu300/busybox-bin/timeout') ? '/opt/mu300/busybox-bin/timeout 5 ' : '') + 'sh -c "/sbin/block detect > /etc/config/fstab"') == 0 };
+			return { result: system((access('/opt/mu300/bin/mu300-block-info.guard') ? '/opt/mu300/bin/mu300-block-info.guard detect' : '/sbin/block detect') + ' > /etc/config/fstab') == 0 };
 		}
 	},
 
