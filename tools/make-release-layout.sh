@@ -12,12 +12,17 @@
 set -eu
 ROOTFS=${1:?rootfs tar}
 OUT=${2:?outdir}
+TAG="$MU300_TAG"   # sets image-version + manifest head to the release tag
 TREE=${3:-/tmp/sync-wt}
 rm -rf "$OUT" && mkdir -p "$OUT/stage"
 echo '== rootfs asset =='
 mkdir -p "$OUT/r"
 tar -xzf "$ROOTFS" -C "$OUT/r"
 printf 'sdcard\ngpt-root\n' > "$OUT/r/features"
+if [ -n "$TAG" ]; then
+    printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
+    python3 "$TREE/tools/image-manifest.py" make "$OUT/r" openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz" || true
+fi
 chmod 644 "$OUT/r/features"
 tar --owner=0 --group=0 -czf "$OUT/mu300-openwrt-rootfs.tar.gz" -C "$OUT/r" .
 rm -rf "$OUT/r"
