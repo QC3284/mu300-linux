@@ -10,7 +10,7 @@
  * kernel. Nothing here is an updater of its own: every action is one mu300-update command that the backend
  * (mu300dash update_get/update_job/update_act, unisoc-modem/update) runs as a task of its own, which goes on when
  * this page is closed. The page asks after the task and shows it to whoever opens it. */
-var WIKI = 'https://github.com/dikeckaan/mu300-linux/wiki/Updating';
+var WIKI = 'https://github.com/QC3284/mu300-linux/wiki/Updating';
 var UPLOAD_URL = '/cgi-upload';
 
 function row(k, v) {
