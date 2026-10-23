@@ -1,0 +1,4 @@
+#!/usr/bin/ucode
+// Compatibility entry point; native rpcd uses the same sampler.
+import { sample } from 'mu300.rates';
+printf('%J\n', sample());
