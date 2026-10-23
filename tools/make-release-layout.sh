@@ -1,0 +1,42 @@
+#!/bin/bash
+# Build a release in the UPSTREAM layout so upstream's mu300-update can consume it:
+#   mu300-openwrt-rootfs.tar.gz   our rootfs, plus ./features (capability marker)
+#   mu300-kernel-7.2.tar.gz       kernel bundle (./Image + ./lib/modules + ./features) when an Image is available
+#   mu300-update                  the updater script from this tree
+#   SHA256SUMS                    every asset
+# Mapping: our Magisk layout -> upstream layout
+#   mu300-immortalwrt-25.12.2-rootfs.tar.gz -> mu300-openwrt-rootfs.tar.gz (byte-identical payload + ./features)
+#   boot-linux.img                          -> stays a Magisk/installer asset; the kernel bundle needs ./Image,
+#                                              which is NOT derivable from the flashable image (open gap) 
+#!/bin/bash
+set -eu
+ROOTFS=${1:?rootfs tar}
+OUT=${2:?outdir}
+TREE=${3:-/tmp/sync-wt}
+rm -rf "$OUT" && mkdir -p "$OUT/stage"
+echo '== rootfs asset =='
+mkdir -p "$OUT/r"
+tar -xzf "$ROOTFS" -C "$OUT/r"
+printf 'sdcard\ngpt-root\n' > "$OUT/r/features"
+chmod 644 "$OUT/r/features"
+tar --owner=0 --group=0 -czf "$OUT/mu300-openwrt-rootfs.tar.gz" -C "$OUT/r" .
+rm -rf "$OUT/r"
+echo "  mu300-openwrt-rootfs.tar.gz $(stat -c%s "$OUT/mu300-openwrt-rootfs.tar.gz") B"
+echo '== updater asset =='
+cp "$TREE/rootfs/overlay/opt/mu300/bin/mu300-update" "$OUT/mu300-update"
+chmod 755 "$OUT/mu300-update"
+echo '== kernel bundle =='
+if [ -n "${IMAGE_FILE:-}" ] && [ -f "$IMAGE_FILE" ]; then
+    mkdir -p "$OUT/k/lib/modules" "$OUT/k/features.d"
+    cp "$IMAGE_FILE" "$OUT/k/Image"
+    tar -xzf "$ROOTFS" -C "$OUT/k" ./lib/modules/7.2.8 2>/dev/null || true
+    printf 'linux-slot\ngpt-root\n' > "$OUT/k/features"
+    tar --owner=0 --group=0 -czf "$OUT/mu300-kernel-7.2.tar.gz" -C "$OUT/k" .
+    rm -rf "$OUT/k"
+    echo "  mu300-kernel-7.2.tar.gz $(stat -c%s "$OUT/mu300-kernel-7.2.tar.gz") B"
+else
+    echo '  SKIPPED: no Image file (see the mapping note: our boot-linux.img is a flashable image, not Image+ramdisk)'
+fi
+echo '== SHA256SUMS =='
+cd "$OUT" && sha256sum mu300-openwrt-rootfs.tar.gz mu300-update ${IMAGE_FILE:+mu300-kernel-7.2.tar.gz} 2>/dev/null | tee SHA256SUMS | sed 's/^/  /'
+ls -l "$OUT" | sed 's/^/  /'
