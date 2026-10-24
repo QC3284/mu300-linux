@@ -2,4 +2,13 @@
 # or automount it from a block hotplug event.
 case "${DEVNAME:-}" in mmcblk1*) exit 0 ;; esac
 
+# The same lock the block probe takes (/opt/mu300/bin/mu300-block-*.guard): a block event handled here must not race
+# the probe in sbuf_read (sipc_core), which wedges rpcd. The lock is released when this script exits.
+LOCK=${MU300_BLOCK_LOCK:-/run/mu300-block.lock}
+if [ -e "$LOCK" ] || : >> "$LOCK" 2>/dev/null; then
+    exec 9>>"$LOCK" 2>/dev/null || true
+    if command -v flock >/dev/null 2>&1; then flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    elif [ -x /opt/mu300/busybox-bin/flock ]; then /opt/mu300/busybox-bin/flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true; fi
+fi
+
 [ "$ACTION" = "add" -o "$ACTION" = "remove" ] && /sbin/block hotplug

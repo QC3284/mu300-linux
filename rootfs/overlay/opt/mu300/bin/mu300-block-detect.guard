@@ -1,15 +1,26 @@
 #!/bin/sh
-# mu300-block-detect.guard [OUT] -- /sbin/block detect with a deadline, written atomically.
+# mu300-block-detect.guard [OUT] -- /sbin/block detect with the block lock and a deadline, written atomically.
 #
-# detect can block like the info probe. The LuCI plugin used to run it with a redirection, which truncates the file
-# BEFORE the command runs: a timeout then left an empty /etc/config/fstab. Here the result goes to a temporary file
-# beside the target and only replaces it when detect answered; a timeout writes nothing and exits non-zero.
+# The result goes to a temporary file beside the target and replaces it only when detect answered, so a timeout writes
+# nothing (the old redirection truncated /etc/config/fstab before the command even ran).
 set -u
 OUT=${1:-${MU300_BLOCK_DETECT_OUT:-/etc/config/fstab}}
 DEADLINE=${MU300_BLOCK_DETECT_GUARD_SECONDS:-10}
 T=/opt/mu300/busybox-bin/timeout
+LOCK=${MU300_BLOCK_LOCK:-/run/mu300-block.lock}
+# One lock for every reader and every hotplug handler of /sbin/block: the probe (mu300-block-*.guard) and the block
+# hotplug scripts take it, so the two never meet. flock when the applet is there, otherwise a best-effort mkdir lock.
+block_lock() {
+    [ -e "$LOCK" ] || : >> "$LOCK" 2>/dev/null || true
+    if [ ! -w "$LOCK" ]; then return 0; fi
+    exec 9>>"$LOCK" || return 0
+    if command -v flock >/dev/null 2>&1; then flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    elif [ -x /opt/mu300/busybox-bin/flock ]; then /opt/mu300/busybox-bin/flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    fi
+}
 tmp=$(mktemp "$OUT.XXXXXX" 2>/dev/null) || { echo "cannot create a temporary file beside $OUT" >&2; exit 1; }
 trap 'rm -f "$tmp"' EXIT
+block_lock
 if [ -x "$T" ]; then
     "$T" "$DEADLINE" /sbin/block detect > "$tmp" 2>/dev/null || { echo "block detect did not finish within ${DEADLINE}s; $OUT unchanged" >&2; exit 1; }
 else

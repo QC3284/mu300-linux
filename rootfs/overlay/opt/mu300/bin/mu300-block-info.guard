@@ -1,12 +1,25 @@
 #!/bin/sh
-# mu300-block-info.guard [info|detect ...] -- /sbin/block with a deadline.
+# mu300-block-info.guard [info|detect ...] -- /sbin/block with a deadline, taking the block lock first.
 #
-# /sbin/block can block in sbuf_read (sipc_core) when a block event races the probe; rpcd is single threaded, so every
-# later ubus call (and every LuCI page) queues behind it. The deadline turns that into a failed probe instead.
+# /sbin/block can block in sbuf_read (sipc_core) when a block event races the probe. rpcd is single threaded, so the
+# queue behind it is all of LuCI. The lock serialises the probe against the block hotplug scripts (which take the same
+# lock) and the deadline turns a still-blocked call into a failed probe.
 set -u
 DEADLINE=${MU300_BLOCK_GUARD_SECONDS:-8}
 T=/opt/mu300/busybox-bin/timeout
 [ $# -gt 0 ] || set -- info
+LOCK=${MU300_BLOCK_LOCK:-/run/mu300-block.lock}
+# One lock for every reader and every hotplug handler of /sbin/block: the probe (mu300-block-*.guard) and the block
+# hotplug scripts take it, so the two never meet. flock when the applet is there, otherwise a best-effort mkdir lock.
+block_lock() {
+    [ -e "$LOCK" ] || : >> "$LOCK" 2>/dev/null || true
+    if [ ! -w "$LOCK" ]; then return 0; fi
+    exec 9>>"$LOCK" || return 0
+    if command -v flock >/dev/null 2>&1; then flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    elif [ -x /opt/mu300/busybox-bin/flock ]; then /opt/mu300/busybox-bin/flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    fi
+}
+block_lock
 if [ -x "$T" ]; then
     exec "$T" "$DEADLINE" /sbin/block "$@" 2>/dev/null
 fi
