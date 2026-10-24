@@ -4,7 +4,7 @@
 #   ttl set N|off  {"ok":1}, or {"ok":0,"error":...}; N from 1 to 255, checked here again
 set -u
 export PATH="$PATH:/opt/mu300/bin:/usr/sbin:/sbin"
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 

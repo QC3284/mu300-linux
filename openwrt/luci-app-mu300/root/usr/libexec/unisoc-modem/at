@@ -15,7 +15,7 @@ case $cmd in *"$(printf '\r')"*|*'
 case $timeout in ''|*[!0-9]*) timeout=8 ;; esac
 
 # the shared JSON escaper and uci allow-lists (/usr/share/unisoc-modem/lib.sh)
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 # The UI can write these options: the port must be a tty under /dev, the custom

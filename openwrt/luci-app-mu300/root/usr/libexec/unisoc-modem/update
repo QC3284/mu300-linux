@@ -31,7 +31,7 @@
 # The log a reply carries is redacted (redact_log): no address, no password or key, no long number.
 set -u
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin:/usr/sbin:/sbin"
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 

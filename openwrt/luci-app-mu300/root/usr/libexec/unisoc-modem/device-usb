@@ -6,7 +6,7 @@
 set -u
 export PATH="$PATH:/opt/mu300/bin:/usr/sbin:/sbin"
 # the shared JSON escaper and uci allow-lists (/usr/share/unisoc-modem/lib.sh)
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 

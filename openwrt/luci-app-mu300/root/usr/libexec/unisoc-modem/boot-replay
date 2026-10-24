@@ -4,7 +4,7 @@
 # adapter answers. No saved state or a disabled switch means zero AT traffic.
 
 # the shared JSON escaper and uci allow-lists (/usr/share/unisoc-modem/lib.sh)
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 cfg() { uci_get "$1"; }

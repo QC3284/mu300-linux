@@ -13,7 +13,7 @@
 # and paths only when they are plain paths in etc/; text (the reasons, the DNS note) goes through json_str.
 set -u
 export PATH="$PATH:/opt/mu300/bin:/usr/sbin:/sbin"
-LIB=${0%/*}/../../share/unisoc-modem/lib.sh
+LIB=/usr/share/unisoc-modem/lib.sh
 [ -f "$LIB" ] || LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 
