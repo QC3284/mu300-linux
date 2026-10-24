@@ -11,7 +11,7 @@ on:
       base_rootfs_url:
         description: 'ImmortalWrt rootfs tarball to repack (our release asset)'
         required: false
-        default: 'https://github.com/QC3284/mu300-linux/releases/latest/download/mu300-openwrt-rootfs.tar.gz'
+        default: ''
       base_rootfs_sha256:
         description: 'Expected sha256 of that tarball'
         required: false
@@ -19,7 +19,11 @@ on:
       base_zip_url:
         description: 'Release package that carries the installer payload'
         required: false
-        default: 'https://github.com/QC3284/mu300-linux/releases/latest/download/mu300-linux-immortalwrt-tf-7.2.zip'
+        default: ''
+      base_tag:
+        description: 'Release whose rootfs and module zip are the base (it must carry both assets)'
+        required: false
+        default: 'v2026.10.24.7'
       tag:
         description: 'Release tag to publish this build under (empty: do not publish)'
         required: false
@@ -51,7 +55,7 @@ jobs:
         run: docker info >/dev/null
       - name: Fetch the base rootfs (our build, with the reference feature layer)
         env:
-          URL: ${{ inputs.base_rootfs_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-immortalwrt-25.12.2-rootfs.tar.gz' }}
+          URL: ${{ inputs.base_rootfs_url || format('https://github.com/QC3284/mu300-linux/releases/download/{0}/mu300-openwrt-rootfs.tar.gz', inputs.base_tag || 'v2026.10.24.7') }}
           SHA: ${{ inputs.base_rootfs_sha256 || '' }}
         run: |
           set -eu
@@ -93,7 +97,7 @@ jobs:
           sha256sum openwrt/mu300-immortalwrt-base.tar.gz
       - name: Repack the Magisk installer with our rootfs
         env:
-          BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
+          BASE_ZIP: ${{ inputs.base_zip_url || format('https://github.com/QC3284/mu300-linux/releases/download/{0}/mu300-linux-immortalwrt-tf-7.2.zip', inputs.base_tag || 'v2026.10.24.7') }}
           THEME: ${{ inputs.theme || 'aurora' }}
         run: |
           set -eu
