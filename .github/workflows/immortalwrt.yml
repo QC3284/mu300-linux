@@ -20,6 +20,10 @@ on:
         description: 'Release package that carries the installer payload'
         required: false
         default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip'
+      tag:
+        description: 'Release tag to publish this build under (empty: do not publish)'
+        required: false
+        default: ''
       theme:
         description: 'Theme variant of this build: aurora (default) or argon' 
         required: false
@@ -88,6 +92,7 @@ jobs:
       - name: Repack the Magisk installer with our rootfs
         env:
           BASE_ZIP: ${{ inputs.base_zip_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip' }}
+          THEME: ${{ inputs.theme || 'aurora' }}
         run: |
           set -eu
           curl -fsSL "$BASE_ZIP" -o /tmp/base.zip
@@ -99,10 +104,28 @@ jobs:
           cd build/base
           zip -q -r ../out/mu300-linux-immortalwrt-tf-7.2.zip .
           cd ../out
+          SUF=""
+          [ "${THEME:-aurora}" = aurora ] || SUF="-${THEME}"
+          if [ -n "$SUF" ]; then mv mu300-linux-immortalwrt-tf-7.2.zip "mu300-linux-immortalwrt-tf-7.2${SUF}.zip"; fi
           sha256sum *.zip | tee SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: mu300-immortalwrt-image
+          name: mu300-immortalwrt-image-${{ inputs.theme || 'aurora' }}
           path: |
             build/out/*.zip
             build/out/SHA256SUMS
+      - name: Publish (when a tag was given)
+        if: ${{ inputs.tag != '' }}
+        env:
+          TAG: ${{ inputs.tag }}
+          THEME: ${{ inputs.theme || 'aurora' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          # One plain numeric tag per variant; the theme shows in the asset names only, because mu300-update tag_ok
+          # accepts vYYYY.MM.DD[.N] and would refuse a suffix.
+          cd build/out
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
+            --title "ImmortalWrt image $TAG ($THEME theme)" \
+            --notes "Theme variant: $THEME." 
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber *.zip SHA256SUMS
