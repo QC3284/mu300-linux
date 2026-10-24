@@ -5,6 +5,8 @@ set -e
 A=/opt/mu300/android
 # boot timeline marks (bootmark never fails; the guard covers an image without it)
 mark() { [ -x /opt/mu300/bin/bootmark ] && /opt/mu300/bin/bootmark "$@" || true; }
+# first thing the script says: proves it started at all (the wrapper experiment exited before this point)
+mark vendor-enter
 # /dev/block links for every eMMC partition, without a fork per partition: the path and PARTNAME are taken in the
 # shell itself, only ln is run (the version with basename/dirname/sed was ~365 forks, 0.64 s on the boot path).
 # link_partitions SYSDIR DEVDIR [DISK]: SYSDIR is /sys/class/block, DEVDIR is /dev, DISK the eMMC (mmcblk0 if not given)

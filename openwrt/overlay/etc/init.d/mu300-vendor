@@ -28,10 +28,9 @@ start_service() {
 
 	procd_open_instance modem_control
 	# android-vendor-start already waits on the actual modem nodes: no fixed delay before it
-	# The modem_control path runs in its own PID namespace: android-vendor-start is a shell script, so the
-	# namespace has to be applied to IT (android-run's own unshare covers only the daemons it execs). Without
-	# this the script's child daemons still see the host's procd as PID 1 and a reload signal kills the box.
-	procd_set_param command /opt/mu300/bin/busybox unshare -p -f --mount-proc /opt/mu300/bin/android-vendor-start
+	# No namespace around the SCRIPT: its setup mounts and reads the host /proc, and a private --mount-proc makes that
+	# exit before its first line. The namespace belongs around the DAEMON exec only (android-run does it).
+	procd_set_param command /opt/mu300/bin/android-vendor-start
 	procd_set_param env PATH="$PATH"
 	procd_set_param respawn 3600 10 0
 	procd_set_param stdout 1
