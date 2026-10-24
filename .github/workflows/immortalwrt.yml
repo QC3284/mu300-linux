@@ -66,6 +66,21 @@ jobs:
           echo "  mu300-api files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'opt/mu300/bin/mu300-api$')"
           echo "  panel views: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'view/mu300/.*\.js$')"
           echo "  mu300 services: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'etc/init.d/mu300-')"
+      - name: Overlay this checkout (app, overlays, tools)
+        run: |
+          set -eu
+          # The base rootfs is a released build; the app, the overlays and the packager tools must come from THIS tree,
+          # otherwise a fix made after the base release never reaches the image.
+          R=$PWD/overlay-root
+          rm -rf "$R" && mkdir -p "$R"
+          tar -xzf openwrt/mu300-immortalwrt-base.tar.gz -C "$R"
+          cp -a rootfs/overlay/. "$R"/
+          cp -a openwrt/overlay/. "$R"/
+          cp -a openwrt/luci-app-mu300/root/. "$R"/
+          mkdir -p "$R/www/luci-static" && cp -a openwrt/luci-app-mu300/htdocs/luci-static/. "$R/www/luci-static"/
+          tar --owner=0 --group=0 --exclude=./lib/apk/exec -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
+          sudo rm -rf "$R"
+          echo "packages.js require fs: $(tar xzOf openwrt/mu300-immortalwrt-base.tar.gz ./www/luci-static/resources/view/mu300/packages.js | grep -c "require fs")"
       - name: Theme variant
         env:
           THEME: ${{ inputs.theme || 'aurora' }}
