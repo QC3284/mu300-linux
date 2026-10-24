@@ -88,6 +88,17 @@ jobs:
           # the clock/PMIC providers must be built in, or every consumer fails "can't get the clock"
           CLKSOC="$GITHUB_WORKSPACE/boot/kernel-fragments/clk-soc.config"
           [ -f "$CLKSOC" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLKSOC" >/dev/null
+          # Firmware the rootfs should not have to carry: whatever sits in boot/firmware/ is linked INTO the kernel
+          # (CONFIG_EXTRA_FIRMWARE), so a fresh rootfs needs nothing in /lib/firmware for it.
+          FW="$GITHUB_WORKSPACE/boot/firmware"
+          if [ -d "$FW" ] && [ -n "$(ls -A "$FW" 2>/dev/null)" ]; then
+            LIST=$(cd "$FW" && ls -1 | tr '\n' ' ')
+            printf 'CONFIG_EXTRA_FIRMWARE="%s"\nCONFIG_EXTRA_FIRMWARE_DIR="%s"\n' "$LIST" "$FW" > "$O/fw.config"
+            ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$O/fw.config" >/dev/null
+            echo "extra firmware embedded: $LIST"
+          else
+            echo "no boot/firmware/ content yet: firmware stays a rootfs item"
+          fi
           CLK="$GITHUB_WORKSPACE/boot/kernel-fragments/clk.config"
           [ -f "$CLK" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLK" >/dev/null
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
