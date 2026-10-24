@@ -4,6 +4,9 @@ name: Kernel 7.2.8 (self-build)
 # Image that was built elsewhere. The gate job proves the result is equivalent to what we ship today.
 
 on:
+  push:
+    branches: ['local/immortalwrt-ci']
+    paths: ['.github/workflows/kernel.yml']
   workflow_dispatch:
     inputs:
       kernel:
