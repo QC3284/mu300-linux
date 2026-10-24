@@ -571,6 +571,7 @@ version() {
     printf 'running now       %s\n' "$(running_os)"
     _xs=; for x in $(extra_installed); do _xs="$_xs $x ($(extra_release "$x"))"; done
     printf 'extras           %s\n' "${_xs:- none (mu300-extra list)}"
+    printf 'theme             %s (the image marker /etc/mu300/image-theme)\n' "$DEVICE_THEME"
     printf 'kernel            %s (boot image: %s; kernel choice %s)\n' "$(uname -r)" "$(cat "$BOOTDIR/installed.tag" 2>/dev/null || echo "from the installer")" "$(kernel_choice)"
 }
 # "openwrt v2026.10.18 ubuntu v2026.10.17": each system with the release its image came from
@@ -3941,7 +3942,13 @@ sums_trusted() {
     SUMS_PIN=$(sha_of "$STAGE/SHA256SUMS") || return 1
     # the image about to be applied must be this device's theme, refused the same way as a bad signature
     if [ -n "${STAGE:-}" ] && [ -f "$STAGE/mu300-openwrt.tar.gz" ]; then
-        theme_ok "$STAGE/mu300-openwrt.tar.gz" || { warn "refusing release $1: wrong theme"; return 1; }
+        if [ -n "${MU300_THEME_SWITCH:-}" ]; then
+            # an explicit variant switch: the image may be the other theme, but it must be the one asked for
+            _swt=$(untar -xzOf "$STAGE/mu300-openwrt.tar.gz" ./etc/mu300/image-theme 2>/dev/null | head -n1 | tr -d " \r\n")
+            [ "$_swt" = "$MU300_THEME_SWITCH" ] || { warn "refusing: this release is ${_swt:-no theme}, not $MU300_THEME_SWITCH"; return 1; }
+        else
+            theme_ok "$STAGE/mu300-openwrt.tar.gz" || { warn "refusing release $1: wrong theme"; return 1; }
+        fi
     fi
     sums_verdict "$1" "$(sig_state "$STAGE/SHA256SUMS" "$STAGE/SHA256SUMS.sig")" "release $1" "$STAGE/SHA256SUMS" || { SUMS_PIN=; return 1; }
     [ "$(sha_of "$STAGE/SHA256SUMS")" = "$SUMS_PIN" ] || { SUMS_PIN=; echo "SHA256SUMS of $1 changed while it was checked" >&2; return 1; }
