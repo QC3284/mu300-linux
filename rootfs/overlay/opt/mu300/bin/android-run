@@ -24,4 +24,4 @@ if [ -n "$caps" ] && grep -q '^mu300vnd:' "${MU300_ETC:-/etc}/passwd" 2>/dev/nul
     exec setpriv --reuid=mu300vnd --regid=mu300vnd --clear-groups --no-new-privs \
         --inh-caps="$c" --ambient-caps="$c" --bounding-set="$c" chroot $A /vendor/bin/"$1"
 fi
-exec chroot $A /vendor/bin/"$1"
+exec /opt/mu300/bin/busybox unshare -p -f --mount-proc chroot $A /vendor/bin/"$1"
