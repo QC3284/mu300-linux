@@ -15,7 +15,7 @@ on:
       base_rootfs_sha256:
         description: 'Expected sha256 of that tarball'
         required: false
-        default: 'fc28516902671c442ba6fc3c70e0f49a0f1e93903ed8614b681578f8241a4bb6'
+        default: ''
       base_zip_url:
         description: 'Release package that carries the installer payload'
         required: false
