@@ -62,6 +62,12 @@ jobs:
           # the USB stack the carried kernel has and the mainline config does not (all USB modules failed without it)
           USB="$GITHUB_WORKSPACE/boot/kernel-fragments/usb.config"
           [ -f "$USB" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$USB" >/dev/null
+          # the clock/PMIC providers must be built in, or every consumer fails "can't get the clock"
+          CLK="$GITHUB_WORKSPACE/boot/kernel-fragments/clk.config"
+          [ -f "$CLK" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLK" >/dev/null
+          make O="$O" ARCH=arm64 olddefconfig >/dev/null
+          echo "--- effective clock/PMIC config ---"
+          grep -E 'CONFIG_(SPRD|SC27|COMMON_CLK|SPMI|REGULATOR)' "$O/.config" | grep -v '^#' | sort | head -40 || true
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
           echo "out=$O" >> "$GITHUB_ENV"
       - name: Build Image and modules
