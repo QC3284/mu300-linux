@@ -150,18 +150,42 @@ mount --bind /run/mu300-cmdline.android $A/proc/cmdline
 mark vendor-chroot-ready
 # sprd_modem_loader only accepts a task whose comm is exactly "modem_control": android-run execs it directly, as the
 # vendor account where there is one
-# modem_control is started ASYNC and watched with a bounded wait. Two guards against leaking D-state instances, which
-# happened when every service cycle spawned a fresh one while the old held the loader's write lock (ioctl 0x4d03):
-#   (a) never spawn while ANY modem_control is alive - the old one may be in D and still own the lock;
-#   (b) after the first timeout, do not retry again until the flag file is removed by hand.
+# modem_control is started ASYNC, under a guard that survives a process stuck in D (uninterruptible), which is the
+# state it enters when it takes the loader's write lock (ioctl 0x4d03) with no cp_diskserver behind it.
+#   1. a LOCK FILE taken before the exec: a D process never releases it, so later starts fail immediately - this is
+#      the only mechanism that holds against a process that cannot be killed or reaped;
+#   2. a /proc/*/stat scan for a modem_control in D, refused outright (fail closed);
+#   3. at most MU300_MODEM_TRIES (3) attempts per boot, then vendor-modem-timeout and silence.
 MU300_MODEM_WAIT=${MU300_MODEM_WAIT:-25}
-TIMEOUT_FLAG=${MU300_RUN:-/run}/mu300/modem-timeout
-if pgrep -x modem_control >/dev/null 2>&1; then
-    mark "vendor-modem-running"          # already alive: leave it alone, never a second instance
+MU300_MODEM_TRIES=${MU300_MODEM_TRIES:-3}
+RUND=${MU300_RUN:-/run}/mu300
+LOCK=$RUND/modem.lock
+COUNT=$RUND/modem-tries
+TIMEOUT_FLAG=$RUND/modem-timeout
+mkdir -p "$RUND" 2>/dev/null || true
+modem_in_d() {   # any modem_control in state D? (field 3 of /proc/<pid>/stat)
+    for f in /proc/[0-9]*/stat; do
+        [ -r "$f" ] || continue
+        set -- $(sed 's/.*) //' "$f" 2>/dev/null)
+        [ "${3}" = D ] || continue
+        case $(sed 's/.*(\([^)]*\)).*/\1/' "$f" 2>/dev/null) in modem_control*) return 0 ;; esac
+    done
+    return 1
+}
+if modem_in_d; then
+    mark "vendor-modem-locked (a modem_control is in D; nothing new until reboot)"
 elif [ -e "$TIMEOUT_FLAG" ] && [ "${MU300_MODEM_RETRY:-0}" != 1 ]; then
-    mark "vendor-modem-skipped (timed out before; rm $TIMEOUT_FLAG and MU300_MODEM_RETRY=1 to retry)"
+    mark "vendor-modem-skipped (timed out before; rm $TIMEOUT_FLAG to retry)"
+elif [ "$(cat "$COUNT" 2>/dev/null || echo 0)" -ge "$MU300_MODEM_TRIES" ] && [ "${MU300_MODEM_RETRY:-0}" != 1 ]; then
+    mark "vendor-modem-skipped (attempt cap $MU300_MODEM_TRIES reached this boot; rm $COUNT to retry)"
+elif ! ( : > "$LOCK" ) 2>/dev/null; then
+    mark "vendor-modem-skipped (lock $LOCK not writable)"
 else
-    ( /opt/mu300/bin/android-run modem_control >>/var/log/modem-control.log 2>&1 ) &
+    n=$(cat "$COUNT" 2>/dev/null || echo 0)
+    echo $((n + 1)) > "$COUNT" 2>/dev/null || true
+    # the lock is held by the child for as long as it lives: flock -n fails for every later start once it is D
+    ( flock -n 9 || { mark "vendor-modem-locked (lock held)"; exit 0; }
+      exec /opt/mu300/bin/android-run modem_control ) 9>"$LOCK" >>/var/log/modem-control.log 2>&1 &
     MC=$!
     n=0
     while [ $n -lt "$MU300_MODEM_WAIT" ]; do
@@ -170,9 +194,8 @@ else
         n=$((n + 1)); sleep 1
     done
     if [ ! -e /dev/stty_nr1 ]; then
-        mkdir -p "${TIMEOUT_FLAG%/*}" 2>/dev/null || true
         : > "$TIMEOUT_FLAG" 2>/dev/null || true
-        mark "vendor-modem-timeout (no further attempts until $TIMEOUT_FLAG is removed)"
+        mark "vendor-modem-timeout (attempt $(cat "$COUNT" 2>/dev/null || echo ?) of $MU300_MODEM_TRIES)"
     fi
 fi
 mark vendor-modem-watch-end
