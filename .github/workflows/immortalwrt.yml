@@ -20,6 +20,10 @@ on:
         description: 'Release package that carries the installer payload'
         required: false
         default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip'
+      theme:
+        description: 'Theme variant of this build: aurora (default) or argon' 
+        required: false
+        default: 'aurora'
       version:
         description: 'Image version string'
         required: false
@@ -53,6 +57,28 @@ jobs:
           echo "  mu300-api files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'opt/mu300/bin/mu300-api$')"
           echo "  panel views: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'view/mu300/.*\.js$')"
           echo "  mu300 services: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'etc/init.d/mu300-')"
+      - name: Theme variant
+        env:
+          THEME: ${{ inputs.theme || 'aurora' }}
+        run: |
+          set -eu
+          case "$THEME" in
+            aurora) echo "aurora: already the image own theme, nothing to add" ; exit 0 ;;
+            argon) ;;
+            *) echo "unknown theme: $THEME" >&2 ; exit 2 ;;
+          esac
+          # One firmware, one theme set: the argon variant installs argon + its config plugin, the aurora variant stays
+          # lean. The runner is arm64, so the rootfs binaries run under chroot and its own apk (SJTU mirror) is used.
+          R=$PWD/theme-root
+          rm -rf "$R" && mkdir -p "$R"
+          tar -xzf openwrt/mu300-immortalwrt-base.tar.gz -C "$R"
+          cp /etc/resolv.conf "$R/etc/resolv.conf"
+          sudo chroot "$R" /bin/sh -c "apk update && apk add luci-theme-argon luci-app-argon-config"
+          rm -f "$R/etc/resolv.conf"
+          ln -sfn /tmp/resolv.conf "$R/etc/resolv.conf"
+          tar --owner=0 --group=0 -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
+          rm -rf "$R"
+          echo "argon files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c luci-static/argon || true)"
       - name: Post-build pass (SSH, password, dropbear off, ownership)
         run: |
           set -eu
