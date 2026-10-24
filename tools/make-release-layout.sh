@@ -28,6 +28,10 @@ echo '== rootfs asset =='
 mkdir -p "$OUT/r"
 tar -xzf "$ROOTFS" -C "$OUT/r"
 printf 'sdcard\ngpt-root\ntheme=%s\n' "$THEME" > "$OUT/r/features"
+# The boot directory's tag names the release the kernel came from; the panel offers an update while it differs from the
+# installed image-version. A release that ships a boot image writes it here.
+mkdir -p "$OUT/r/boot"
+printf '%s\n' "$TAG" > "$OUT/r/boot/installed.tag"
 printf '%s\n' "$THEME" > "$OUT/r/etc/mu300/image-theme"
 # Two entries that do not belong on this device: the attended-sysupgrade page and the stock Terminal (ours is
 # admin/system/terminal). Removing them here makes it deterministic, not first-boot dependent.
