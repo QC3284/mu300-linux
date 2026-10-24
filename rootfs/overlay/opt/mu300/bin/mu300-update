@@ -169,6 +169,12 @@ mirror_fell_back() {
         MIRROR_STAYED=1
         return 1
     fi
+    # another mirror in the list? step to it before giving up on the source
+    if [ "$(fetch_chain | wc -l)" -gt $((FETCH_CHAIN_INDEX + 2)) ]; then
+        FETCH_CHAIN_INDEX=$((FETCH_CHAIN_INDEX + 1))
+        echo "mirror unreachable: trying the next one ($(fetch_base TAGLESS 2>/dev/null | sed 's@/TAGLESS$@@'))" >&2
+        return 0
+    fi
     SOURCE_FELL_BACK=1
     # apply hands over to the release's own updater in this very environment ("exec sh $STAGE/mu300-update"): it
     # would read the source file again and wait for the same mirror, so the state goes along with it
@@ -182,9 +188,22 @@ mirror_fell_back() {
 }
 # fetch_base TAG: the directory this run takes release TAG's files from (MU300_RELEASE_URL is the whole base, the
 # tag included, as it always was; MU300_DOWNLOAD_URL is the one the tag is added to)
+# The download source may be a COMMA-SEPARATED LIST of mirrors (MU300_DOWNLOAD_URL / MU300_RELEASE_URL): each entry is
+# tried in order, and github.com is the last resort. FETCH_CHAIN_INDEX counts the entries already tried this run, so a
+# mirror_fell_back step moves to the next entry instead of jumping straight to github.com.
+FETCH_CHAIN_INDEX=0
+fetch_chain() {   # fetch_chain: the list of bases, in order, one per line (github.com last)
+    _fc="${MU300_RELEASE_URL:-${MU300_DOWNLOAD_URL:-}}"
+    if [ -n "$_fc" ]; then printf '%s\n' "$_fc" | tr ',' '\n' | sed '/^$/d'; fi
+    printf '%s\n' "https://github.com/$REPO/releases/download"
+}
 fetch_base() {
-    [ -z "$SOURCE_FELL_BACK" ] || { printf '%s\n' "https://github.com/$REPO/releases/download/$1"; return; }
-    printf '%s\n' "${MU300_RELEASE_URL:-${MU300_DOWNLOAD_URL:-https://github.com/$REPO/releases/download}/$1}"
+    if [ -n "$SOURCE_FELL_BACK" ] && [ "${MU300_MIRROR_FALLBACK:-1}" = 0 ]; then
+        FETCH_CHAIN_INDEX=999; printf '%s\n' "https://github.com/$REPO/releases/download/$1"; return
+    fi
+    _fb=$(fetch_chain | sed -n "$((FETCH_CHAIN_INDEX + 1))p")
+    [ -n "$_fb" ] || _fb="https://github.com/$REPO/releases/download"
+    printf '%s\n' "$_fb/$1"
 }
 fetch_stdout() {  # fetch_stdout URL (exit 9: the mirror of this run could not be reached)
     _try=1
@@ -440,9 +459,11 @@ api_base() { printf '%s\n' "${MU300_API_URL:-https://api.github.com/repos/$REPO}
 # set, every API read goes through the mirror and falls back to the direct API unless MU300_MIRROR_FALLBACK=0.
 api_get() {
     _ap=$1
-    _am=${MU300_API_MIRROR:-}
-    if [ -n "$_am" ]; then
-        _aj=$(fetch_stdout "$_am/repos/$REPO$_ap" 2>/dev/null) && [ -n "$_aj" ] && { printf '%s\n' "$_aj"; return 0; }
+    _am_list=${MU300_API_MIRROR:-}
+    if [ -n "$_am_list" ]; then
+        for _am in $(printf '%s\n' "$_am_list" | tr ',' ' '); do
+            _aj=$(fetch_stdout "$_am/repos/$REPO$_ap" 2>/dev/null) && [ -n "$_aj" ] && { printf '%s\n' "$_aj"; return 0; }
+        done
         [ "${MU300_MIRROR_FALLBACK:-1}" = 0 ] && return 1
     fi
     fetch_stdout "$(api_base)$_ap"
