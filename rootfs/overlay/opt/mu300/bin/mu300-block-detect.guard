@@ -1,13 +1,20 @@
 #!/bin/sh
-# mu300-block-detect.guard [ARGS...] -- /sbin/block detect with a deadline.
+# mu300-block-detect.guard [OUT] -- /sbin/block detect with a deadline, written atomically.
 #
-# The LuCI plugin writes the result to /etc/config/fstab. Like the info probe, detect can block in sbuf_read
-# (sipc_core) when a block event races it; rpcd is single threaded, so the whole ubus queue waits. Ten seconds is
-# generous for a detect (it walks the block devices once), and a timeout leaves the fstab untouched.
+# detect can block like the info probe. The LuCI plugin used to run it with a redirection, which truncates the file
+# BEFORE the command runs: a timeout then left an empty /etc/config/fstab. Here the result goes to a temporary file
+# beside the target and only replaces it when detect answered; a timeout writes nothing and exits non-zero.
 set -u
+OUT=${1:-${MU300_BLOCK_DETECT_OUT:-/etc/config/fstab}}
 DEADLINE=${MU300_BLOCK_DETECT_GUARD_SECONDS:-10}
 T=/opt/mu300/busybox-bin/timeout
+tmp=$(mktemp "$OUT.XXXXXX" 2>/dev/null) || { echo "cannot create a temporary file beside $OUT" >&2; exit 1; }
+trap 'rm -f "$tmp"' EXIT
 if [ -x "$T" ]; then
-    exec "$T" "$DEADLINE" /sbin/block detect "$@" 2>/dev/null
+    "$T" "$DEADLINE" /sbin/block detect > "$tmp" 2>/dev/null || { echo "block detect did not finish within ${DEADLINE}s; $OUT unchanged" >&2; exit 1; }
+else
+    /sbin/block detect > "$tmp" 2>/dev/null || { echo "block detect failed; $OUT unchanged" >&2; exit 1; }
 fi
-exec /sbin/block detect "$@" 2>/dev/null
+[ -s "$tmp" ] || { echo "block detect produced nothing; $OUT unchanged" >&2; exit 1; }
+chmod 644 "$tmp" 2>/dev/null || true
+mv "$tmp" "$OUT"
