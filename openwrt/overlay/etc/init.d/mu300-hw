@@ -7,9 +7,9 @@ export PATH="$PATH:/opt/mu300/busybox-bin"
 # finished, so anything slow (or hanging) in here costs the device its serial console *and* its network - which
 # is exactly what a hanging wifi-start did on the mainline kernel, leaving no way in at all.
 boot() {
-		# No LED write here: LK already turned the LED full white at ~2.1 s ("normal_mode enable leds", brightness 255)
-	# and Linux inherits it. Writing here (power on, or the two-phase white flash) would stomp that white before the
-	# events daemon paints the first real state. The boot flash is held until the user decides.
+		# ImmortalWrt-style boot signal: the white and the blue alternate fast, then slow; the bootloader white shows for the
+	# first two seconds inside the verb. The events daemon's first real state ends it.
+	/opt/mu300/bin/mu300-led boot >/dev/null 2>&1 &
 	/opt/mu300/bin/mu300-usb boot
 	# the kernel's module helper once its table is made (~2 s; FINDINGS 163)
 	/opt/mu300/bin/mu300-modprobe-guard --prepare > /tmp/mu300-modprobe-guard.log 2>&1 &
