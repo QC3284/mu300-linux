@@ -37,7 +37,9 @@ rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" \
 rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" "$OUT/r/usr/share/luci/menu.d/luci-app-ttyd.json"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
-    python3 "$TREE/tools/image-manifest.py" make "$OUT/r" openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz" || true
+    tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
+    python3 "$TREE/tools/image-manifest.py" make "$OUT/manifest-stage.tar.gz" openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz"
+    rm -f "$OUT/manifest-stage.tar.gz"
 fi
 chmod 644 "$OUT/r/features"
 tar --owner=0 --group=0 -czf "$OUT/mu300-openwrt-rootfs.tar.gz" -C "$OUT/r" .
