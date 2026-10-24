@@ -903,7 +903,19 @@ m_cpu_voltage_set() {
 # The Settings page's card of the packages installed before an update: mu300-user-packages through the adapter,
 # which checks the operation again and starts retry and repair-dns in the background itself
 PKGA=${MU300_PKG_ADAPTER:-$DASH/packages}
-m_packages_get() { reply_obj "$("$PKGA" get 2>/dev/null)" 'The packages adapter gave no valid reply'; }
+# packages_get: the adapter's state, plus the set this image shipped with (/etc/mu300/image-packages): a fresh
+# device has no user-package list yet and the page should still show something true.
+m_packages_get() {
+    _r=$("$PKGA" get 2>/dev/null)
+    _o=$(json_obj "$_r") || { refuse 'The packages adapter gave no valid reply'; return; }
+    _f=/etc/mu300/image-packages
+    if [ -s "$_f" ]; then
+        _l=$(grep -v '^[[:space:]]*#' "$_f" | awk 'NF' | awk '{printf "%s\"%s\"", sep, $0; sep=","}')
+        printf '%s' "$_o" | sed "s/}[[:space:]]*$/, \"image_packages\":[$_l]}/"
+    else
+        printf '%s\n' "$_o"
+    fi
+}
 m_packages_act() {
     local op
     inp '@.op'; op=$V

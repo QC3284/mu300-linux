@@ -2,7 +2,6 @@
 'require view';
 'require dom';
 'require mu300.common as M';
-'require fs';
 
 /* Every value from the backend goes into E() inside an array: LuCI's E() takes a lone string as HTML, an array's
  * strings as text. */
@@ -117,18 +116,13 @@ return view.extend({
 		if (st.running) retry.disabled = dns.disabled = true;
 		if (st.state !== 'done') actions.appendChild(retry);
 
-		// Nothing recorded for this device yet (a fresh image): show the set the image itself came with, which
-		// /etc/mu300/image-packages lists. It is what a re-install after an update would start from.
-		if (st.state !== 'done') {
-			var shipped = null;
-			try { shipped = fs.read('/etc/mu300/image-packages'); } catch (e) {}
-			var names = (shipped || '').split(/\r?\n/).filter(function(l) { return l.trim() && l.charAt(0) != '#'; });
-			if (names.length)
-				card.appendChild(E('div', { 'class': 'mud-note', 'id': 'mud-pkg-shipped', 'style': 'margin-top:8px' }, [
-					E('div', {}, [ E('strong', {}, [ _('Packages this image shipped with') ]) ]),
-					E('div', {}, [ names.map(String).join(' ') ])
-				]));
-		}
+		// Nothing recorded for this device yet: the backend sends the set the image shipped with (mu300dash
+		// packages_get reads /etc/mu300/image-packages), so the page shows what a re-install starts from.
+		if (st.state !== 'done' && Array.isArray(st.image_packages) && st.image_packages.length)
+			card.appendChild(E('div', { 'class': 'mud-note', 'id': 'mud-pkg-shipped', 'style': 'margin-top:8px' }, [
+				E('div', {}, [ E('strong', {}, [ _('Packages this image shipped with') ]) ]),
+				E('div', {}, [ st.image_packages.map(String).join(' ') ])
+			]));
 		if (st.dns) actions.appendChild(dns);
 		actions.appendChild(dismiss);
 		card.appendChild(actions);
