@@ -96,6 +96,7 @@ jobs:
           cp "$out/arch/arm64/boot/Image" dist/Image
           find "$out" -name '*.ko' -exec cp {} dist/modules/ \;
           echo "modules: $(ls dist/modules/*.ko | wc -l)"
+          cp "$O/.config" dist/config-effective
           sha256sum dist/Image | tee dist/Image.sha256
       - uses: actions/upload-artifact@v4
         with:
