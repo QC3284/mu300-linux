@@ -8,6 +8,8 @@
 /* System > Packages after an update: what mu300-update wrote down of the packages installed on the device, and what
  * the first boot's mu300-user-packages made of them (mu300dash packages_get/packages_act, unisoc-modem/packages).
  * Retry and Repair DNS run in the background; the page looks again a few seconds later. */
+var fs = require('fs');
+
 return view.extend({
 	load: function() { return L.resolveDefault(M.callPackagesGet(), {}); },
 
@@ -114,6 +116,19 @@ return view.extend({
 		dns.addEventListener('click', function() { self.repairDns(dns); });
 		if (st.running) retry.disabled = dns.disabled = true;
 		if (st.state !== 'done') actions.appendChild(retry);
+
+		// Nothing recorded for this device yet (a fresh image): show the set the image itself came with, which
+		// /etc/mu300/image-packages lists. It is what a re-install after an update would start from.
+		if (st.state !== 'done') {
+			var shipped = null;
+			try { shipped = fs.read('/etc/mu300/image-packages'); } catch (e) {}
+			var names = (shipped || '').split(/\r?\n/).filter(function(l) { return l.trim() && l.charAt(0) != '#'; });
+			if (names.length)
+				card.appendChild(E('div', { 'class': 'mud-note', 'id': 'mud-pkg-shipped', 'style': 'margin-top:8px' }, [
+					E('div', {}, [ E('strong', {}, [ _('Packages this image shipped with') ]) ]),
+					E('div', {}, [ names.map(String).join(' ') ])
+				]));
+		}
 		if (st.dns) actions.appendChild(dns);
 		actions.appendChild(dismiss);
 		card.appendChild(actions);
