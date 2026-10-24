@@ -1,4 +1,6 @@
-# Release source of this image: the fork that builds it (fresh installs offer its releases).
-# A file here is the whole setting; delete it to fall back to the project's own repository.
+# Release source of this image: the fork that builds it, read through a mirror that is reachable from mainland
+# networks (the GitHub API itself is not, on mobile data). MU300_MIRROR_FALLBACK lets a failed mirror fall back to
+# github.com for that run; the setting stays, so the next run tries the mirror again.
+MU300_DOWNLOAD_URL=https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download
 MU300_API_URL=https://api.github.com/repos/QC3284/mu300-linux
-MU300_DOWNLOAD_URL=https://github.com/QC3284/mu300-linux/releases/download
+MU300_MIRROR_FALLBACK=1

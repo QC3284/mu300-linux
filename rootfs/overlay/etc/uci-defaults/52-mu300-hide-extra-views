@@ -1,0 +1,8 @@
+#!/bin/sh
+# Two entries that do not belong on this device: the attended-sysupgrade page (its login check is off and an update
+# here is mu300-update, not a sysupgrade image - flashing one would overwrite the eMMC table) and the stock Terminal,
+# which duplicates our own (VPN/AT/terminal) entry.
+rm -f /usr/share/luci/menu.d/luci-app-attendedsysupgrade.json 2>/dev/null || true
+rm -f /usr/share/luci/menu.d/luci-app-ttyd.json 2>/dev/null || true
+rm -f /usr/share/luci/menu.d/luci-app-terminal.json 2>/dev/null || true
+exit 0
