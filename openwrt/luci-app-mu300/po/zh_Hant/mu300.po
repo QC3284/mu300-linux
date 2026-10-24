@@ -13,6 +13,9 @@ msgstr "行動網路"
 msgid "Dual SIM"
 msgstr "雙 SIM 卡"
 
+msgid "SIM settings"
+msgstr "SIM 卡設定"
+
 msgid "Network locks"
 msgstr "網路鎖定"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "高亮的核心處於線上狀態。被關閉的核心會保持離線，重新開機後也是如此，直到重新開啟。CPU0 始終保持線上。"
+
+msgid "Low latency: on"
+msgstr "低延遲：開"
+
+msgid "Low latency: off"
+msgstr "低延遲：關"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "低延遲模式讓 CPU0 不進入閒置狀態，與 ZTE U30 Air 原廠韌體相同：Wi-Fi 延遲大幅縮短，裝置耗電增加。預設關閉。"
+
 msgid "Thermal"
 msgstr "溫控"
 
@@ -763,6 +778,12 @@ msgstr "刪除已儲存的值"
 msgid "Presets"
 msgstr "預設"
 
+msgid "Form (URL-encoded)"
+msgstr "表單（URL 編碼）"
+
+msgid "Plain text"
+msgstr "純文字"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "收到的簡訊進入簡訊池後即被轉寄。傳送失敗時 30 秒後重試，之後每次間隔加倍（最長一小時），共十次。"
 
@@ -801,12 +822,6 @@ msgstr "位址（http:// 或 https://）"
 
 msgid "Body"
 msgstr "內容"
-
-msgid "Form (URL-encoded)"
-msgstr "表單（URL 編碼）"
-
-msgid "Plain text"
-msgstr "純文字"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "欄位：sender、time、text、device、message（填好的範本）"
@@ -924,6 +939,9 @@ msgstr "尚無傳送記錄"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "已使用儲存的設定開始測試；結果會顯示在傳送記錄中。"
+
+msgid "Automatic without 2G (152)"
+msgstr "自動，不含 2G（152）"
 
 msgid "4G only"
 msgstr "僅 4G"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi 熱點"
 msgid "Restart modem"
 msgstr "重新啟動數據機"
 
-msgid "Restart device"
-msgstr "重新啟動裝置"
+msgid "Power off or restart"
+msgstr "關機或重新啟動"
 
 msgid "Switch to Android"
 msgstr "切換到 Android"
@@ -1123,14 +1141,14 @@ msgstr "正在建立數據連線…"
 msgid "Turn off cellular radio"
 msgstr "關閉行動網路射頻"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "行動網路連線將會中斷。"
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "關閉後該卡無法通話、收發簡訊或上網，重新開機後射頻仍保持關閉，直到再次開啟。"
 
 msgid "Turn on cellular radio"
 msgstr "開啟行動網路射頻"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "將執行 SFUN 開機程序（最多約 1 分鐘）。"
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "將開啟目前使用卡的射頻，重新開機後仍保持開啟（最多約 1 分鐘）。"
 
 msgid "Turn data roaming off"
 msgstr "關閉數據漫遊"
@@ -1147,11 +1165,14 @@ msgstr "行動數據也會在漫遊網路上使用，可能產生額外費用。
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "行動網路連線可能會中斷 1–2 分鐘。"
 
-msgid "Restart the entire device"
-msgstr "重新啟動整台裝置"
-
 msgid "All connections will be interrupted."
 msgstr "所有連線都將中斷。"
+
+msgid "Power off"
+msgstr "關機"
+
+msgid "Restart"
+msgstr "重新啟動"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "下次開機將進入 Android，並立即重新開機。此管理頁面與行動網路分享都會中斷。"
@@ -1477,6 +1498,21 @@ msgstr "鎖定目前服務基地台"
 msgid "Unlock cell"
 msgstr "解除基地台鎖定"
 
+msgid "Enter a cell"
+msgstr "手動輸入基地台"
+
+msgid "Type"
+msgstr "類型"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "頻點（EARFCN / NR-ARFCN）"
+
+msgid "Lock this cell"
+msgstr "鎖定指定基地台"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. 請輸入頻點編號，不是 MHz 頻率；基地台無需出現在鄰近基地台列表中。"
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "套用後射頻協定堆疊會重新啟動（SFUN），行動網路服務會短暫中斷。設定會永久儲存，並在啟用「開機時套用」時由外掛程式於 AT 就緒後重新套用。若平台提供射頻啟動前掛鉤，則可不經重新啟動即重新套用。不選任何頻段再按套用，即可恢復自動模式。"
 
@@ -1563,6 +1599,9 @@ msgstr "正在背景鎖定 %s…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "已在背景鎖定 %s（SFUN 重新啟動，約 30 秒）；正在回讀狀態…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "請輸入下列範圍內的頻點和 PCI"
 
 msgid "No serving-network data"
 msgstr "尚無註冊網路資料"
@@ -1798,6 +1837,15 @@ msgstr "0 % 表示從不為電池充電（裝置由充電器供電），100 % �
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % 可讓長期插著電源的裝置電池更健康。"
 
+msgid "When the charger switches the device on"
+msgstr "充電器開機時"
+
+msgid "Charge only, until a key starts it"
+msgstr "僅充電，按鍵後啟動"
+
+msgid "Start normally"
+msgstr "正常啟動"
+
 msgid "Keep as is"
 msgstr "維持不變"
 
@@ -1991,6 +2039,78 @@ msgstr "切換到卡%d"
 # Dual SIM controls.
 msgid "Use SIM%d at next boot"
 msgstr "下次啟動使用卡%d"
+
+msgid "Built-in SIM 1"
+msgstr "內建 SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "內建 SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "內建 SIM 3"
+
+msgid "External SIM"
+msgstr "外接 SIM"
+
+msgid "SIM card"
+msgstr "SIM 卡"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "內建 SIM 3 與 SIM2 共用，外接 SIM 與 SIM1 共用。此處選擇的卡會在下次開機、基頻啟動前切換到位；未選擇時，各卡保持開機載入程式設定的狀態。"
+
+msgid "As the bootloader sets them"
+msgstr "保持開機載入程式的設定"
+
+msgid "Applying the radio setting…"
+msgstr "正在套用射頻設定…"
+
+msgid "SIM settings are not available"
+msgstr "SIM 卡設定無法使用"
+
+msgid "Modem default"
+msgstr "模組預設"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "使用中"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "關閉 SIM%d 射頻"
+
+msgid "Radio"
+msgstr "射頻"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "模組：%s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "將在該卡射頻下次啟動時傳送。"
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "每張卡的 VoLTE 和 VoNR，重新開機後保留，並在該卡每次啟動時重新下發。VoLTE 預設開啟，除非關閉；VoNR 在設定之前保持模組原狀。"
+
+msgid "All radios off (airplane mode)"
+msgstr "關閉全部射頻（飛航模式）"
+
+msgid "All radios on"
+msgstr "開啟全部射頻"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "所有卡都將無法通話、收發簡訊或上網，重新開機後也一樣，直到在此處或用儀表板的射頻按鈕重新開啟射頻。"
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "每張卡的射頻在重新開機後保持此處的設定。射頻關閉的卡無法通話、收發簡訊或上網，裝置也不會切換到該卡。"
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "設定已儲存，但射頻尚未生效。"
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "收件人：號碼，例如 10086 或 +86..."
@@ -2294,9 +2414,6 @@ msgstr "裝置現在重新啟動。預設開機的是 Android，因此會進入 
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "裝置現在重新啟動，大約一分鐘內無法連線。如果新系統無法啟動，裝置會在幾次失敗後自動回到 Android。"
-
-msgid "Restart"
-msgstr "重新啟動"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "正在重新啟動… 請在大約一分鐘後重新開啟此頁面。"
@@ -2952,9 +3069,6 @@ msgstr "自動偵測"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL 可能包含權杖：它會單獨傳送到裝置，絕不會出現在命令列或記錄中。"
 
-msgid "Type"
-msgstr "類型"
-
 msgid "Share link"
 msgstr "分享連結"
 
@@ -3390,6 +3504,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "無效的 CPU 核心"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "未知的 CPU 電壓操作"
 
@@ -3426,17 +3546,32 @@ msgstr "無效的更新要求"
 msgid "The backup tool gave no valid reply"
 msgstr "備份工具沒有給出有效的回覆"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "此平台未提供行動數據整合"
+
+msgid "The SIM settings could not be read"
+msgstr "無法讀取 SIM 卡設定"
+
+msgid "Radio control is not provided by this platform"
+msgstr "此平台不提供射頻控制"
+
+msgid "A SIM radio change is already running"
+msgstr "已有射頻設定正在執行"
+
 # Dual SIM controls.
 msgid "Invalid SIM setting"
 msgstr "SIM 設定無效"
 
-# Dual SIM controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "請啟用熱切換；通道尚未準備好時請重新啟動，操作進行中請等待。"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "模組未接受該設定，未儲存任何內容"
 
 # Dual SIM controls.
 msgid "SIM control failed"
 msgstr "SIM 控制失敗"
+
+# Dual SIM controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "請啟用熱切換；通道尚未準備好時請重新啟動，操作進行中請等待。"
 
 msgid "Request too large"
 msgstr "請求過大"
@@ -3591,15 +3726,15 @@ msgstr "行數必須在 1 到 1000 之間"
 msgid "The log could not be read"
 msgstr "無法讀取記錄"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "該卡的射頻已在設定中關閉"
+
 # Dual SIM controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "請使用雙 SIM 控制頁或重新啟動來操作受管理的雙卡射頻。"
 
-msgid "Radio did not come up"
-msgstr "射頻未能啟動"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "此平台未提供行動數據整合"
+msgid "The radio did not follow its setting"
+msgstr "射頻未按設定生效"
 
 msgid "The data roaming setting could not be saved"
 msgstr "無法儲存數據漫遊設定"
@@ -3625,6 +3760,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "無法切換該 CPU 核心"
+
+msgid "Invalid low latency setting"
+msgstr "無效的低延遲設定"
+
+msgid "The low latency setting could not be applied"
+msgstr "無法套用低延遲設定"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "無法讀取 CPU 電壓偏移"
 
@@ -3636,9 +3780,6 @@ msgstr "無法關閉 CPU 電壓偏移"
 
 msgid "The stress test could not be started"
 msgstr "無法啟動壓力測試"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "USB 角色轉接程式不可執行"

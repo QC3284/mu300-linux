@@ -13,6 +13,9 @@ msgstr "सेल्युलर"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "SIM सेटिंग्स"
+
 msgid "Network locks"
 msgstr "नेटवर्क लॉक"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "हाइलाइट किए गए कोर ऑनलाइन हैं। बंद किया गया कोर फिर से चालू किए जाने तक, रीबूट के बाद भी, ऑफ़लाइन रहता है। CPU0 हमेशा ऑनलाइन रहता है।"
+
+msgid "Low latency: on"
+msgstr "कम विलंब: चालू"
+
+msgid "Low latency: off"
+msgstr "कम विलंब: बंद"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "कम विलंब मोड CPU0 को उसकी निष्क्रिय अवस्थाओं से बाहर रखता है, जैसा ZTE का U30 Air फ़र्मवेयर करता है: Wi-Fi विलंब बहुत कम हो जाता है और डिवाइस अधिक बिजली लेता है। डिफ़ॉल्ट रूप से बंद।"
+
 msgid "Thermal"
 msgstr "थर्मल"
 
@@ -763,6 +778,12 @@ msgstr "सहेजा गया मान हटाएँ"
 msgid "Presets"
 msgstr "प्रीसेट"
 
+msgid "Form (URL-encoded)"
+msgstr "फ़ॉर्म (URL-एन्कोडेड)"
+
+msgid "Plain text"
+msgstr "सादा पाठ"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "प्राप्त संदेश SMS पूल में पहुँचते ही आगे भेजे जाते हैं। विफल डिलीवरी 30 सेकंड बाद फिर आज़माई जाती है, फिर हर बार दोगुने समय बाद (अधिकतम एक घंटा), कुल दस बार।"
 
@@ -801,12 +822,6 @@ msgstr "पता (http:// या https://)"
 
 msgid "Body"
 msgstr "बॉडी"
-
-msgid "Form (URL-encoded)"
-msgstr "फ़ॉर्म (URL-एन्कोडेड)"
-
-msgid "Plain text"
-msgstr "सादा पाठ"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "फ़ील्ड: sender, time, text, device, message (भरा हुआ टेम्पलेट)"
@@ -924,6 +939,9 @@ msgstr "अभी तक कोई डिलीवरी नहीं"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "सहेजी गई सेटिंग्स से परीक्षण शुरू हुआ; परिणाम डिलीवरी लॉग में दिखेगा।"
+
+msgid "Automatic without 2G (152)"
+msgstr "स्वचालित, 2G के बिना (152)"
 
 msgid "4G only"
 msgstr "केवल 4G"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi हॉटस्पॉट"
 msgid "Restart modem"
 msgstr "मॉडेम पुनः आरंभ करें"
 
-msgid "Restart device"
-msgstr "डिवाइस पुनः आरंभ करें"
+msgid "Power off or restart"
+msgstr "बंद करें या पुनः आरंभ करें"
 
 msgid "Switch to Android"
 msgstr "Android पर जाएँ"
@@ -1123,14 +1141,14 @@ msgstr "डेटा कनेक्ट किया जा रहा है…"
 msgid "Turn off cellular radio"
 msgstr "सेल्युलर रेडियो बंद करें"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "सेल्युलर कनेक्टिविटी बाधित होगी।"
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "इस SIM पर कॉल, SMS या डेटा नहीं होगा, और इसका रेडियो रीबूट के बाद भी तब तक बंद रहेगा जब तक आप इसे फिर से चालू न करें।"
 
 msgid "Turn on cellular radio"
 msgstr "सेल्युलर रेडियो चालू करें"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "SFUN पावर-ऑन क्रम चलेगा (लगभग 1 मिनट तक)।"
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "उपयोग में SIM का रेडियो चालू होता है और रीबूट के बाद भी चालू रहता है (लगभग 1 मिनट तक)।"
 
 msgid "Turn data roaming off"
 msgstr "डेटा रोमिंग बंद करें"
@@ -1147,11 +1165,14 @@ msgstr "मोबाइल डेटा रोमिंग नेटवर्क
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "सेल्युलर कनेक्टिविटी 1–2 मिनट के लिए रुक सकती है।"
 
-msgid "Restart the entire device"
-msgstr "पूरा डिवाइस पुनः आरंभ करें"
-
 msgid "All connections will be interrupted."
 msgstr "सभी कनेक्शन बाधित होंगे।"
+
+msgid "Power off"
+msgstr "बंद करें"
+
+msgid "Restart"
+msgstr "रीस्टार्ट करें"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "अगला बूट Android में होगा और डिवाइस अभी रीबूट होगा। यह प्रबंधन पेज और सेल्युलर शेयरिंग डिस्कनेक्ट हो जाएँगे।"
@@ -1477,6 +1498,21 @@ msgstr "वर्तमान सर्विंग सेल लॉक कर�
 msgid "Unlock cell"
 msgstr "सेल अनलॉक करें"
 
+msgid "Enter a cell"
+msgstr "सेल दर्ज करें"
+
+msgid "Type"
+msgstr "प्रकार"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "चैनल संख्या (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "इस सेल को लॉक करें"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. चैनल संख्या, MHz में आवृत्ति नहीं; सेल का पड़ोसी सूची में होना ज़रूरी नहीं है।"
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "लागू करने से रेडियो स्टैक (SFUN) पुनः आरंभ होता है और सेल्युलर सेवा कुछ देर बाधित होती है। सेटिंग्स सहेजी जाती हैं और “स्टार्टअप पर लागू करें” सक्षम होने पर AT तैयार होने के बाद प्लगइन उन्हें दोबारा लागू करता है। प्लेटफ़ॉर्म का प्री-रेडियो हुक बिना पुनः आरंभ के उन्हें लागू कर सकता है। स्वचालित मोड पर लौटने के लिए बिना कोई बैंड चुने लागू करें।"
 
@@ -1563,6 +1599,9 @@ msgstr "%s को पृष्ठभूमि में लॉक किया �
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s पृष्ठभूमि में लॉक किया गया (SFUN पुनः आरंभ, लगभग 30 सेकंड); स्थिति वापस पढ़ी जा रही है…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "नीचे दी गई सीमाओं में चैनल संख्या और PCI दर्ज करें"
 
 msgid "No serving-network data"
 msgstr "सर्विंग नेटवर्क का कोई डेटा नहीं"
@@ -1798,6 +1837,15 @@ msgstr "0 % बैटरी को कभी चार्ज नहीं कर
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % हमेशा बिजली से जुड़े रहने वाले डिवाइस में बैटरी को स्वस्थ रखता है।"
 
+msgid "When the charger switches the device on"
+msgstr "जब चार्जर डिवाइस को चालू करे"
+
+msgid "Charge only, until a key starts it"
+msgstr "केवल चार्जिंग, जब तक कोई बटन इसे चालू न करे"
+
+msgid "Start normally"
+msgstr "सामान्य रूप से शुरू करें"
+
 msgid "Keep as is"
 msgstr "जैसा है वैसा रखें"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "अंतर्निहित SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "अंतर्निहित SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "अंतर्निहित SIM 3"
+
+msgid "External SIM"
+msgstr "बाहरी SIM"
+
+msgid "SIM card"
+msgstr "SIM कार्ड"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "अंतर्निहित SIM 3, SIM2 साझा करता है और बाहरी SIM, SIM1 साझा करता है। यहाँ चुना गया कार्ड अगले बूट पर मॉडेम शुरू होने से पहले जोड़ा जाता है; कोई चुनाव न होने पर कार्ड वैसे ही रहते हैं जैसे बूटलोडर उन्हें सेट करता है।"
+
+msgid "As the bootloader sets them"
+msgstr "जैसे बूटलोडर उन्हें सेट करता है"
+
+msgid "Applying the radio setting…"
+msgstr "रेडियो सेटिंग लागू हो रही है…"
+
+msgid "SIM settings are not available"
+msgstr "SIM सेटिंग्स उपलब्ध नहीं हैं"
+
+msgid "Modem default"
+msgstr "मॉडेम का डिफ़ॉल्ट"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "उपयोग में"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "SIM%d का रेडियो बंद करें"
+
+msgid "Radio"
+msgstr "रेडियो"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "मॉडेम: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "इस SIM का रेडियो अगली बार शुरू होने पर इसे भेजा जाएगा।"
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "हर SIM के लिए VoLTE और VoNR, रीबूट के बाद भी रहते हैं और वह SIM जब भी शुरू हो, फिर से भेजे जाते हैं। VoLTE बंद न करने तक चालू रहता है; VoNR सेट करने तक मॉडेम जैसा ही रहता है।"
+
+msgid "All radios off (airplane mode)"
+msgstr "सभी रेडियो बंद (हवाई जहाज़ मोड)"
+
+msgid "All radios on"
+msgstr "सभी रेडियो चालू"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "किसी भी SIM पर कॉल, SMS या डेटा नहीं होगा, रीबूट के बाद भी, जब तक यहाँ या डैशबोर्ड के रेडियो बटन से कोई रेडियो फिर चालू न हो।"
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "हर SIM का रेडियो रीबूट के बाद भी यहाँ सेट किए अनुसार रहता है। जिस SIM का रेडियो बंद है उस पर कॉल, SMS या डेटा नहीं होता, और डिवाइस उस पर स्विच नहीं करता।"
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "सेटिंग सहेज ली गई है, पर रेडियो ने अभी उसका पालन नहीं किया।"
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "प्राप्तकर्ता: नंबर, जैसे 10086 या +86..."
@@ -2299,9 +2419,6 @@ msgstr "डिवाइस अभी रीस्टार्ट होगा।
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "डिवाइस अभी रीस्टार्ट होगा और लगभग एक मिनट तक उपलब्ध नहीं रहेगा। अगर नया सिस्टम शुरू नहीं होता, तो विफल प्रयासों के बाद डिवाइस अपने आप Android पर लौट जाता है।"
-
-msgid "Restart"
-msgstr "रीस्टार्ट करें"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "रीस्टार्ट हो रहा है… लगभग एक मिनट बाद यह पेज फिर से खोलें।"
@@ -2957,9 +3074,6 @@ msgstr "पहचानें"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL में टोकन हो सकता है: वह डिवाइस को अलग से भेजा जाता है, कभी कमांड लाइन या लॉग में नहीं जाता।"
 
-msgid "Type"
-msgstr "प्रकार"
-
 msgid "Share link"
 msgstr "शेयर लिंक"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "अमान्य CPU कोर"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "अज्ञात CPU वोल्टेज ऑपरेशन"
 
@@ -3433,17 +3553,32 @@ msgstr "अमान्य अपडेट अनुरोध"
 msgid "The backup tool gave no valid reply"
 msgstr "बैकअप टूल ने कोई मान्य उत्तर नहीं दिया"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "इस प्लेटफ़ॉर्म पर मोबाइल डेटा एकीकरण उपलब्ध नहीं है"
+
+msgid "The SIM settings could not be read"
+msgstr "SIM सेटिंग्स पढ़ी नहीं जा सकीं"
+
+msgid "Radio control is not provided by this platform"
+msgstr "यह प्लेटफ़ॉर्म रेडियो नियंत्रण नहीं देता"
+
+msgid "A SIM radio change is already running"
+msgstr "SIM रेडियो का बदलाव पहले से चल रहा है"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "मॉडेम ने सेटिंग स्वीकार नहीं की; कुछ भी सहेजा नहीं गया"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "अनुरोध बहुत बड़ा है"
@@ -3598,15 +3733,15 @@ msgstr "पंक्तियों की संख्या 1 से 1000 ह�
 msgid "The log could not be read"
 msgstr "लॉग पढ़ा नहीं जा सका"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "इस SIM का रेडियो उसकी सेटिंग्स में बंद है"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "रेडियो चालू नहीं हुआ"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "इस प्लेटफ़ॉर्म पर मोबाइल डेटा एकीकरण उपलब्ध नहीं है"
+msgid "The radio did not follow its setting"
+msgstr "रेडियो ने अपनी सेटिंग का पालन नहीं किया"
 
 msgid "The data roaming setting could not be saved"
 msgstr "डेटा रोमिंग सेटिंग सहेजी नहीं जा सकी"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "CPU कोर बदला नहीं जा सका"
+
+msgid "Invalid low latency setting"
+msgstr "अमान्य कम विलंब सेटिंग"
+
+msgid "The low latency setting could not be applied"
+msgstr "कम विलंब सेटिंग लागू नहीं की जा सकी"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "CPU वोल्टेज ऑफ़सेट पढ़ा नहीं जा सका"
 
@@ -3643,9 +3787,6 @@ msgstr "CPU वोल्टेज ऑफ़सेट बंद नहीं क�
 
 msgid "The stress test could not be started"
 msgstr "स्ट्रेस टेस्ट शुरू नहीं किया जा सका"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "USB भूमिका एडेप्टर निष्पादन योग्य नहीं है"

@@ -13,6 +13,9 @@ msgstr "Мобільний зв'язок"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Налаштування SIM"
+
 msgid "Network locks"
 msgstr "Фіксація мережі"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Виділені ядра увімкнені. Вимкнене ядро залишається вимкненим, також після перезавантаження, доки його знову не увімкнуть. CPU0 завжди залишається увімкненим."
+
+msgid "Low latency: on"
+msgstr "Низька затримка: увімк."
+
+msgid "Low latency: off"
+msgstr "Низька затримка: вимк."
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Режим низької затримки не пускає CPU0 у стани простою, як прошивка ZTE U30 Air: затримки Wi-Fi набагато менші, а пристрій споживає більше енергії. Типово вимкнено."
+
 msgid "Thermal"
 msgstr "Температура"
 
@@ -763,6 +778,12 @@ msgstr "Видалити збережене значення"
 msgid "Presets"
 msgstr "Готові варіанти"
 
+msgid "Form (URL-encoded)"
+msgstr "Форма (URL-кодування)"
+
+msgid "Plain text"
+msgstr "Простий текст"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Отримані повідомлення пересилаються, щойно потрапляють до пулу SMS. Невдале надсилання повторюється через 30 с, далі щоразу через удвічі довший інтервал (не більше години), усього десять разів."
 
@@ -801,12 +822,6 @@ msgstr "Адреса (http:// або https://)"
 
 msgid "Body"
 msgstr "Тіло"
-
-msgid "Form (URL-encoded)"
-msgstr "Форма (URL-кодування)"
-
-msgid "Plain text"
-msgstr "Простий текст"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Поля: sender, time, text, device, message (заповнений шаблон)"
@@ -924,6 +939,9 @@ msgstr "Доставок поки немає"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Тест запущено зі збереженими налаштуваннями; результат з'явиться в журналі доставки."
+
+msgid "Automatic without 2G (152)"
+msgstr "Автоматично без 2G (152)"
 
 msgid "4G only"
 msgstr "Лише 4G"
@@ -1087,8 +1105,8 @@ msgstr "Точка доступу Wi-Fi"
 msgid "Restart modem"
 msgstr "Перезапустити модем"
 
-msgid "Restart device"
-msgstr "Перезавантажити пристрій"
+msgid "Power off or restart"
+msgstr "Вимкнути або перезапустити"
 
 msgid "Switch to Android"
 msgstr "Перейти до Android"
@@ -1123,14 +1141,14 @@ msgstr "Підключення передавання даних…"
 msgid "Turn off cellular radio"
 msgstr "Вимкнути мобільний радіомодуль"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Мобільний зв'язок буде перервано."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Ця SIM не матиме дзвінків, SMS і даних, а її радіо лишатиметься вимкненим і після перезавантаження, доки ви знову його не ввімкнете."
 
 msgid "Turn on cellular radio"
 msgstr "Увімкнути мобільний радіомодуль"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Буде виконано послідовність увімкнення SFUN (до 1 хвилини)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Радіо SIM, що використовується, увімкнеться й лишиться ввімкненим після перезавантаження (до 1 хвилини)."
 
 msgid "Turn data roaming off"
 msgstr "Вимкнути роумінг даних"
@@ -1147,11 +1165,14 @@ msgstr "Мобільні дані використовуються і в роу�
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Мобільний зв'язок може перерватися на 1–2 хвилини."
 
-msgid "Restart the entire device"
-msgstr "Перезавантажити весь пристрій"
-
 msgid "All connections will be interrupted."
 msgstr "Усі з'єднання буде перервано."
+
+msgid "Power off"
+msgstr "Вимкнути"
+
+msgid "Restart"
+msgstr "Перезапустити"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Наступне завантаження буде в Android, перезавантаження відбудеться зараз. Ця сторінка керування та роздача мобільного зв'язку від'єднаються."
@@ -1477,6 +1498,21 @@ msgstr "Зафіксувати поточну обслуговуючу соту"
 msgid "Unlock cell"
 msgstr "Зняти фіксацію соти"
 
+msgid "Enter a cell"
+msgstr "Ввести соту"
+
+msgid "Type"
+msgstr "Тип"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Номер каналу (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Заблокувати цю соту"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Номер каналу, а не частота в МГц; сота не мусить бути в списку сусідніх."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Застосування перезапускає радіостек (SFUN) і ненадовго перериває мобільний зв'язок. Налаштування зберігаються і, якщо ввімкнено «Застосовувати під час запуску», повторно застосовуються плагіном після готовності AT. Хук платформи перед запуском радіо може застосувати їх без перезапуску. Щоб повернути автоматичний режим, застосуйте без вибраних діапазонів."
 
@@ -1563,6 +1599,9 @@ msgstr "Фіксація %s у фоні…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s зафіксовано у фоні (перезапуск SFUN, близько 30 секунд); зчитування стану…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Введіть номер каналу та PCI в діапазонах нижче"
 
 msgid "No serving-network data"
 msgstr "Немає даних про обслуговуючу мережу"
@@ -1798,6 +1837,15 @@ msgstr "0 % ніколи не заряджає батарею (пристрій 
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % бережуть батарею пристрою, який постійно підключений до мережі."
 
+msgid "When the charger switches the device on"
+msgstr "Коли зарядний пристрій вмикає пристрій"
+
+msgid "Charge only, until a key starts it"
+msgstr "Лише заряджання, доки кнопка не запустить його"
+
+msgid "Start normally"
+msgstr "Звичайний запуск"
+
 msgid "Keep as is"
 msgstr "Не змінювати"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Вбудована SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Вбудована SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Вбудована SIM 3"
+
+msgid "External SIM"
+msgstr "Зовнішня SIM"
+
+msgid "SIM card"
+msgstr "SIM-картка"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "Вбудована SIM 3 ділить SIM2, зовнішня SIM ділить SIM1. Вибрана тут картка вмикається до запуску модема, під час наступного завантаження; без вибору картки лишаються такими, як їх встановлює завантажувач."
+
+msgid "As the bootloader sets them"
+msgstr "Як встановлює завантажувач"
+
+msgid "Applying the radio setting…"
+msgstr "Застосування налаштування радіо…"
+
+msgid "SIM settings are not available"
+msgstr "Налаштування SIM недоступні"
+
+msgid "Modem default"
+msgstr "Типове значення модема"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "використовується"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Вимкнути радіо SIM%d"
+
+msgid "Radio"
+msgstr "Радіо"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Модем: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Буде надіслано цій SIM під час наступного запуску її радіо."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE і VoNR для кожної SIM: зберігаються після перезавантаження й надсилаються знову щоразу, коли ця SIM запускається. VoLTE увімкнено, доки його не вимкнути; VoNR лишається як у модемі, доки його не задати."
+
+msgid "All radios off (airplane mode)"
+msgstr "Усі радіо вимкнено (режим польоту)"
+
+msgid "All radios on"
+msgstr "Усі радіо ввімкнено"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Жодна SIM не матиме дзвінків, SMS і даних, також після перезавантаження, доки радіо не ввімкнуть знову тут або кнопкою радіо на панелі."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Радіо кожної SIM після перезавантаження лишається таким, як задано тут. SIM із вимкненим радіо не має дзвінків, SMS і даних, і пристрій на неї не перемикається."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Налаштування збережено, але радіо ще не виконало його."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Одержувач: номер, наприклад 10086 або +86..."
@@ -2299,9 +2419,6 @@ msgstr "Пристрій зараз перезавантажиться. Типо
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Пристрій зараз перезавантажиться й буде недоступний близько хвилини. Якщо нова система не запуститься, після невдалих спроб пристрій сам повернеться до Android."
-
-msgid "Restart"
-msgstr "Перезапустити"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Перезавантаження… відкрийте цю сторінку знову приблизно за хвилину."
@@ -2957,9 +3074,6 @@ msgstr "Визначити"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL може містити токен: він надсилається на пристрій окремо і ніколи не потрапляє в командний рядок чи журнал."
 
-msgid "Type"
-msgstr "Тип"
-
 msgid "Share link"
 msgstr "Посилання для обміну"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Неприпустиме ядро ЦП"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Невідома операція з напругою CPU"
 
@@ -3433,17 +3553,32 @@ msgstr "Неприпустимий запит оновлення"
 msgid "The backup tool gave no valid reply"
 msgstr "Інструмент резервного копіювання не дав коректної відповіді"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Інтеграція мобільних даних на цій платформі не передбачена"
+
+msgid "The SIM settings could not be read"
+msgstr "Не вдалося прочитати налаштування SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Ця платформа не надає керування радіо"
+
+msgid "A SIM radio change is already running"
+msgstr "Зміна радіо SIM уже виконується"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Модем не прийняв налаштування; нічого не збережено"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Запит завеликий"
@@ -3598,15 +3733,15 @@ msgstr "Кількість рядків - від 1 до 1000"
 msgid "The log could not be read"
 msgstr "Не вдалося прочитати журнал"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Радіо цієї SIM вимкнено в її налаштуваннях"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Радіомодуль не ввімкнувся"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Інтеграція мобільних даних на цій платформі не передбачена"
+msgid "The radio did not follow its setting"
+msgstr "Радіо не виконало своє налаштування"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Не вдалося зберегти налаштування роумінгу даних"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Не вдалося перемкнути ядро ЦП"
+
+msgid "Invalid low latency setting"
+msgstr "Неприпустиме налаштування низької затримки"
+
+msgid "The low latency setting could not be applied"
+msgstr "Не вдалося застосувати налаштування низької затримки"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Не вдалося прочитати зсув напруги CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "Не вдалося вимкнути зсув напруги CPU"
 
 msgid "The stress test could not be started"
 msgstr "Не вдалося запустити стрес-тест"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Адаптер ролі USB не є виконуваним"

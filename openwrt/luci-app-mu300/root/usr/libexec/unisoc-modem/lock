@@ -11,7 +11,8 @@
 #                                       and in the runtime directory for the page (lock get -> "reset")
 #
 # KIND / VALUE:
-#   mode  auto | 4g | sa | nsa          network mode lock (SPTESTMODE + SP5GRAN)
+#   mode  auto | auto152 | 4g | sa | nsa   network mode lock (SPTESTMODE + SP5GRAN); auto152 is the automatic
+#                                       mode 152 instead of 134 (no 2G, from kanoqwq's fork; FINDINGS 198)
 #   endc  on | off                      EN-DC / NSA anchor permission (SPENDC; note OFF is value 2)
 #   lte   "1,3,5" or ""                 LTE band lock (SPLBAND); empty = automatic
 #   nr    "78,41" or ""                 NR band lock (SPLBAND); empty = automatic
@@ -79,7 +80,7 @@ filter_bands() {  # filter_bands "1,5,79" "1,5,6,..." -> "1,5"
 }
 nr_sup() {
     local s
-    s=$(jsonfilter -i "$LOCKCACHE" -e '@.caps.nr' 2>/dev/null)
+    s=$(jfilter -i "$LOCKCACHE" -e '@.caps.nr' 2>/dev/null)
     printf '%s' "${s:-$NR_SUP_FALLBACK}"
 }
 # Boot replay only needs to deliver writes; several vendor setters apply the
@@ -96,7 +97,7 @@ digits() {
 # same before it starts us; this is the adapter's own guard)
 valid_value() {
     case $1 in
-        mode) case $2 in auto|4g|sa|nsa) return 0 ;; esac; return 1 ;;
+        mode) case $2 in auto|auto152|4g|sa|nsa) return 0 ;; esac; return 1 ;;
         endc|auto_apply) case $2 in on|off) return 0 ;; esac; return 1 ;;
         lte|nr)
             # up to 32 band numbers of up to 3 digits, comma-separated; empty = automatic
@@ -183,6 +184,7 @@ mode_label() {  # mode_label WORKMODE GRAN  (decode per ufi_tools toAppMode, slo
     case $1 in
         3)   echo 4g ;;
         134) echo auto ;;
+        152) echo auto152 ;;
         128|131) [ "$2" = 1 ] && echo sa || echo nsa ;;
         *)   echo auto ;;
     esac
@@ -192,6 +194,7 @@ mode_pair() {  # mode_pair LABEL -> "workmode gran"  (encode per ufi_tools modeC
         4g)   echo "3 1" ;;
         sa)   echo "128 1" ;;
         nsa)  echo "131 0" ;;
+        auto152) echo "152 1" ;;
         *)    echo "134 1" ;;
     esac
 }
@@ -267,6 +270,12 @@ do_get() {
 # ------------------------------------------------------------------ apply
 sfun_restart() {
     local phase=${1:-late}
+    # the SIM's radio is switched off in its settings: the stack is not restarted (that would switch the radio on);
+    # the setting is in the modem and takes effect when the radio is switched on (FINDINGS 185)
+    if ! rf_allowed; then
+        say "the radio of this SIM is switched off in its settings: no stack restart, the setting applies when it is on"
+        return 0
+    fi
     # SFUN 5 -> 4 itself takes 1-2 seconds. The old code waited here for the radio
     # and registration to come back (up to 70 s of polling) - completely unnecessary:
     # mobile-data's watch redials automatically and the watchdog handles a dead radio.
@@ -339,7 +348,7 @@ cell_state_seed() {
     [ -e "$f" ] && return
     : > "$f"
     [ -s "$LOCKCACHE" ] || return
-    jsonfilter -i "$LOCKCACHE" -e '@.cells[*]' 2>/dev/null |
+    jfilter -i "$LOCKCACHE" -e '@.cells[*]' 2>/dev/null |
         grep -E '^(nr|lte):[0-9]+,[0-9]+$' > "$f" 2>/dev/null || true
 }
 
@@ -458,13 +467,13 @@ do_apply() {  # do_apply KIND VALUE
                     ;;
                 auto)  # lock whatever the current serving cell is
                     c=$(cat "$RUNDIR/cell.json" 2>/dev/null) || c=
-                    fr=$(printf '%s' "$c" | jsonfilter -e '@.nr.arfcn' 2>/dev/null)
-                    pc=$(printf '%s' "$c" | jsonfilter -e '@.nr.pci' 2>/dev/null)
+                    fr=$(printf '%s' "$c" | jfilter -e '@.nr.arfcn' 2>/dev/null)
+                    pc=$(printf '%s' "$c" | jfilter -e '@.nr.pci' 2>/dev/null)
                     if [ -n "$fr" ] && [ "$fr" != null ] && [ "$fr" -gt 0 ] 2>/dev/null; then
                         val="nr:$fr,$pc"
                     else
-                        fr=$(printf '%s' "$c" | jsonfilter -e '@.lte.earfcn' 2>/dev/null)
-                        pc=$(printf '%s' "$c" | jsonfilter -e '@.lte.pci' 2>/dev/null)
+                        fr=$(printf '%s' "$c" | jfilter -e '@.lte.earfcn' 2>/dev/null)
+                        pc=$(printf '%s' "$c" | jfilter -e '@.lte.pci' 2>/dev/null)
                         if [ -n "$fr" ] && [ "$fr" != null ] && [ "$fr" -gt 0 ] 2>/dev/null; then
                             val="lte:$fr,$pc"
                         else

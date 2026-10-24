@@ -1,0 +1,3 @@
+#!/bin/sh
+# Match the logical WAN, never alter another interface's rules.
+case "$ACTION:$INTERFACE" in ifup:wan|ifupdate:wan) /usr/libexec/unisoc-modem/ttl-engine apply || logger -t unisoc-ttl 'Failed to apply saved TTL';; esac

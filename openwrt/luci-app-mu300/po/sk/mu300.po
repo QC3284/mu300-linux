@@ -13,6 +13,9 @@ msgstr "Mobilná sieť"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Nastavenia SIM"
+
 msgid "Network locks"
 msgstr "Zámky siete"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Zvýraznené jadrá sú online. Vypnuté jadro zostane offline, aj po reštarte, kým ho znova nezapnete. CPU0 zostáva vždy online."
+
+msgid "Low latency: on"
+msgstr "Nízka latencia: zapnutá"
+
+msgid "Low latency: off"
+msgstr "Nízka latencia: vypnutá"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Nízka latencia drží CPU0 mimo stavov nečinnosti, rovnako ako firmvér ZTE U30 Air: oneskorenia Wi-Fi sú oveľa kratšie a zariadenie spotrebúva viac energie. Predvolene vypnutá."
+
 msgid "Thermal"
 msgstr "Teplota"
 
@@ -763,6 +778,12 @@ msgstr "Odstrániť uloženú hodnotu"
 msgid "Presets"
 msgstr "Predvoľby"
 
+msgid "Form (URL-encoded)"
+msgstr "Formulár (kódovanie URL)"
+
+msgid "Plain text"
+msgstr "Obyčajný text"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Prijaté správy sa preposielajú hneď, ako prídu do fondu SMS. Neúspešné doručenie sa zopakuje po 30 s a potom zakaždým po dvojnásobnom čase (najviac hodina), celkovo desaťkrát."
 
@@ -801,12 +822,6 @@ msgstr "Adresa (http:// alebo https://)"
 
 msgid "Body"
 msgstr "Telo"
-
-msgid "Form (URL-encoded)"
-msgstr "Formulár (kódovanie URL)"
-
-msgid "Plain text"
-msgstr "Obyčajný text"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Polia: sender, time, text, device, message (vyplnená šablóna)"
@@ -924,6 +939,9 @@ msgstr "Zatiaľ žiadne doručenia"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Test spustený s uloženými nastaveniami; výsledok sa zobrazí v zázname doručení."
+
+msgid "Automatic without 2G (152)"
+msgstr "Automaticky bez 2G (152)"
 
 msgid "4G only"
 msgstr "Iba 4G"
@@ -1087,8 +1105,8 @@ msgstr "Hotspot Wi-Fi"
 msgid "Restart modem"
 msgstr "Reštartovať modem"
 
-msgid "Restart device"
-msgstr "Reštartovať zariadenie"
+msgid "Power off or restart"
+msgstr "Vypnúť alebo reštartovať"
 
 msgid "Switch to Android"
 msgstr "Prepnúť na Android"
@@ -1123,14 +1141,14 @@ msgstr "Pripájanie dát…"
 msgid "Turn off cellular radio"
 msgstr "Vypnúť mobilné rádio"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Mobilné pripojenie bude prerušené."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Táto SIM nebude mať hovory, SMS ani dáta a jej rádio zostane vypnuté aj po reštarte, kým ho znova nezapnete."
 
 msgid "Turn on cellular radio"
 msgstr "Zapnúť mobilné rádio"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Prebehne sekvencia zapnutia SFUN (až asi 1 minúta)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Rádio používanej SIM sa zapne a zostane zapnuté aj po reštarte (až asi 1 minúta)."
 
 msgid "Turn data roaming off"
 msgstr "Vypnúť dátový roaming"
@@ -1147,11 +1165,14 @@ msgstr "Mobilné dáta sa používajú aj v roamingových sieťach, čo môže s
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Mobilné pripojenie sa môže na 1–2 minúty zastaviť."
 
-msgid "Restart the entire device"
-msgstr "Reštartovať celé zariadenie"
-
 msgid "All connections will be interrupted."
 msgstr "Všetky spojenia budú prerušené."
+
+msgid "Power off"
+msgstr "Vypnúť"
+
+msgid "Restart"
+msgstr "Reštartovať"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Nasledujúci štart prejde do Android a zariadenie sa teraz reštartuje. Táto stránka správy a zdieľanie mobilného pripojenia sa odpoja."
@@ -1477,6 +1498,21 @@ msgstr "Uzamknúť aktuálnu obsluhujúcu bunku"
 msgid "Unlock cell"
 msgstr "Odomknúť bunku"
 
+msgid "Enter a cell"
+msgstr "Zadať bunku"
+
+msgid "Type"
+msgstr "Typ"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Číslo kanála (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Uzamknúť túto bunku"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Číslo kanála, nie frekvencia v MHz; bunka nemusí byť v zozname susedných."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Použitie reštartuje rádiový stack (SFUN) a nakrátko preruší mobilnú službu. Nastavenia sa uložia a plugin ich znova použije, keď je AT pripravené, ak je povolené Použiť pri štarte. Háčik platformy spúšťaný pred rádiom ich môže použiť bez reštartu. Použite bez vybraných pásiem na obnovenie automatického režimu."
 
@@ -1563,6 +1599,9 @@ msgstr "Zamykanie %s na pozadí…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s uzamknuté na pozadí (reštart SFUN, asi 30 sekúnd); spätné čítanie stavu…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Zadajte číslo kanála a PCI v rozsahoch nižšie"
 
 msgid "No serving-network data"
 msgstr "Žiadne údaje o obsluhujúcej sieti"
@@ -1798,6 +1837,15 @@ msgstr "0 % batériu nikdy nenabíja (zariadenie beží z nabíjačky), 100 % ju
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % šetrí batériu zariadenia, ktoré zostáva pripojené k sieti."
 
+msgid "When the charger switches the device on"
+msgstr "Keď nabíjačka zapne zariadenie"
+
+msgid "Charge only, until a key starts it"
+msgstr "Len nabíjať, kým ho nespustí tlačidlo"
+
+msgid "Start normally"
+msgstr "Spustiť normálne"
+
 msgid "Keep as is"
 msgstr "Ponechať bez zmeny"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Vstavaná SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Vstavaná SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Vstavaná SIM 3"
+
+msgid "External SIM"
+msgstr "Externá SIM"
+
+msgid "SIM card"
+msgstr "SIM karta"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "Vstavaná SIM 3 zdieľa SIM2, externá SIM zdieľa SIM1. Tu zvolená karta sa prepne pred spustením modemu, pri ďalšom štarte; bez voľby zostanú karty tak, ako ich nastaví zavádzač."
+
+msgid "As the bootloader sets them"
+msgstr "Ako ich nastaví zavádzač"
+
+msgid "Applying the radio setting…"
+msgstr "Používa sa nastavenie rádia…"
+
+msgid "SIM settings are not available"
+msgstr "Nastavenia SIM nie sú k dispozícii"
+
+msgid "Modem default"
+msgstr "Predvolené modemu"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "používa sa"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Vypnúť rádio SIM%d"
+
+msgid "Radio"
+msgstr "Rádio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Odošle sa tejto SIM pri ďalšom spustení jej rádia."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE a VoNR pre každú SIM, zachovajú sa po reštarte a odošlú sa znova pri každom spustení danej SIM. VoLTE je zapnuté, kým ho nevypnete; VoNR zostáva podľa modemu, kým ho nenastavíte."
+
+msgid "All radios off (airplane mode)"
+msgstr "Všetky rádiá vypnuté (režim lietadlo)"
+
+msgid "All radios on"
+msgstr "Všetky rádiá zapnuté"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Žiadna SIM nebude mať hovory, SMS ani dáta, ani po reštarte, kým sa rádio znova nezapne tu alebo tlačidlom rádia na prehľade."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Rádio každej SIM zostane po reštarte tak, ako je nastavené tu. SIM s vypnutým rádiom nemá hovory, SMS ani dáta a zariadenie na ňu neprepne."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Nastavenie je uložené, ale rádio sa ním zatiaľ neriadi."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Príjemca: číslo, napr. 10086 alebo +86..."
@@ -2299,9 +2419,6 @@ msgstr "Zariadenie sa teraz reštartuje. Predvolené spúšťanie je Android, ta
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Zariadenie sa teraz reštartuje a asi minútu bude nedostupné. Ak sa nový systém nespustí, zariadenie sa po neúspešných pokusoch samo vráti do Androidu."
-
-msgid "Restart"
-msgstr "Reštartovať"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Reštartuje sa… otvorte túto stránku znova asi o minútu."
@@ -2957,9 +3074,6 @@ msgstr "Rozpoznať"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL môže obsahovať token: do zariadenia sa posiela samostatne, nikdy nie do príkazového riadka ani záznamu."
 
-msgid "Type"
-msgstr "Typ"
-
 msgid "Share link"
 msgstr "Zdieľaný odkaz"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Neplatné jadro CPU"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Neznáma operácia s napätím CPU"
 
@@ -3433,17 +3553,32 @@ msgstr "Neplatná požiadavka na aktualizáciu"
 msgid "The backup tool gave no valid reply"
 msgstr "Nástroj zálohy nedal platnú odpoveď"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Integrácia mobilných dát nie je na tejto platforme k dispozícii"
+
+msgid "The SIM settings could not be read"
+msgstr "Nastavenia SIM sa nepodarilo prečítať"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Táto platforma neposkytuje ovládanie rádia"
+
+msgid "A SIM radio change is already running"
+msgstr "Zmena rádia SIM už prebieha"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modem nastavenie neprijal; nič sa neuložilo"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Požiadavka je príliš veľká"
@@ -3598,15 +3733,15 @@ msgstr "Počet riadkov je od 1 do 1000"
 msgid "The log could not be read"
 msgstr "Záznam sa nepodarilo prečítať"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Rádio tejto SIM je v jej nastaveniach vypnuté"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Rádio sa nespustilo"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Integrácia mobilných dát nie je na tejto platforme k dispozícii"
+msgid "The radio did not follow its setting"
+msgstr "Rádio sa neriadilo svojím nastavením"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Nastavenie dátového roamingu sa nepodarilo uložiť"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Jadro CPU sa nepodarilo prepnúť"
+
+msgid "Invalid low latency setting"
+msgstr "Neplatné nastavenie nízkej latencie"
+
+msgid "The low latency setting could not be applied"
+msgstr "Nastavenie nízkej latencie sa nepodarilo použiť"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Posun napätia CPU sa nepodarilo prečítať"
 
@@ -3643,9 +3787,6 @@ msgstr "Posun napätia CPU sa nepodarilo vypnúť"
 
 msgid "The stress test could not be started"
 msgstr "Záťažový test sa nepodarilo spustiť"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Adaptér roly USB nie je spustiteľný"

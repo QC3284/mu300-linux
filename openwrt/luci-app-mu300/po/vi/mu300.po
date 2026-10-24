@@ -13,6 +13,9 @@ msgstr "Di động"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Cài đặt SIM"
+
 msgid "Network locks"
 msgstr "Khóa mạng"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Các nhân được tô sáng đang trực tuyến. Nhân đã tắt sẽ vẫn ngoại tuyến, kể cả sau khi khởi động lại, cho đến khi được bật lại. CPU0 luôn trực tuyến."
+
+msgid "Low latency: on"
+msgstr "Độ trễ thấp: bật"
+
+msgid "Low latency: off"
+msgstr "Độ trễ thấp: tắt"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Chế độ độ trễ thấp giữ CPU0 không vào các trạng thái nghỉ, giống firmware U30 Air của ZTE: độ trễ Wi-Fi ngắn hơn nhiều và thiết bị tiêu thụ nhiều điện hơn. Mặc định tắt."
+
 msgid "Thermal"
 msgstr "Nhiệt"
 
@@ -763,6 +778,12 @@ msgstr "Xóa giá trị đã lưu"
 msgid "Presets"
 msgstr "Mẫu có sẵn"
 
+msgid "Form (URL-encoded)"
+msgstr "Biểu mẫu (mã hóa URL)"
+
+msgid "Plain text"
+msgstr "Văn bản thuần"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Tin nhắn nhận được sẽ được chuyển tiếp ngay khi vào kho SMS. Lần gửi thất bại được thử lại sau 30 giây, sau đó mỗi lần cách gấp đôi (tối đa một giờ), tổng cộng mười lần."
 
@@ -801,12 +822,6 @@ msgstr "Địa chỉ (http:// hoặc https://)"
 
 msgid "Body"
 msgstr "Nội dung"
-
-msgid "Form (URL-encoded)"
-msgstr "Biểu mẫu (mã hóa URL)"
-
-msgid "Plain text"
-msgstr "Văn bản thuần"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Các trường: sender, time, text, device, message (mẫu đã điền)"
@@ -924,6 +939,9 @@ msgstr "Chưa có lần gửi nào"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Đã bắt đầu thử với cài đặt đã lưu; kết quả sẽ hiện trong nhật ký gửi."
+
+msgid "Automatic without 2G (152)"
+msgstr "Tự động không có 2G (152)"
 
 msgid "4G only"
 msgstr "Chỉ 4G"
@@ -1087,8 +1105,8 @@ msgstr "Điểm phát Wi-Fi"
 msgid "Restart modem"
 msgstr "Khởi động lại modem"
 
-msgid "Restart device"
-msgstr "Khởi động lại thiết bị"
+msgid "Power off or restart"
+msgstr "Tắt nguồn hoặc khởi động lại"
 
 msgid "Switch to Android"
 msgstr "Chuyển sang Android"
@@ -1123,14 +1141,14 @@ msgstr "Đang kết nối dữ liệu…"
 msgid "Turn off cellular radio"
 msgstr "Tắt radio di động"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Kết nối di động sẽ bị gián đoạn."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "SIM này sẽ không có cuộc gọi, SMS hay dữ liệu, và radio của nó vẫn tắt sau khi khởi động lại cho đến khi bạn bật lại."
 
 msgid "Turn on cellular radio"
 msgstr "Bật radio di động"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Trình tự bật nguồn SFUN sẽ chạy (tối đa khoảng 1 phút)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Radio của SIM đang dùng được bật và vẫn bật sau khi khởi động lại (tối đa khoảng 1 phút)."
 
 msgid "Turn data roaming off"
 msgstr "Tắt chuyển vùng dữ liệu"
@@ -1147,11 +1165,14 @@ msgstr "Dữ liệu di động cũng được dùng trên mạng chuyển vùng,
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Kết nối di động có thể dừng trong 1–2 phút."
 
-msgid "Restart the entire device"
-msgstr "Khởi động lại toàn bộ thiết bị"
-
 msgid "All connections will be interrupted."
 msgstr "Mọi kết nối sẽ bị gián đoạn."
+
+msgid "Power off"
+msgstr "Tắt nguồn"
+
+msgid "Restart"
+msgstr "Khởi động lại"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Lần khởi động tới sẽ vào Android và thiết bị khởi động lại ngay. Trang quản lý này và chia sẻ mạng di động sẽ bị ngắt."
@@ -1477,6 +1498,21 @@ msgstr "Khóa cell phục vụ hiện tại"
 msgid "Unlock cell"
 msgstr "Mở khóa cell"
 
+msgid "Enter a cell"
+msgstr "Nhập ô"
+
+msgid "Type"
+msgstr "Loại"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Số kênh (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Khóa ô này"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Số kênh, không phải tần số tính bằng MHz; ô không cần có trong danh sách ô lân cận."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Áp dụng sẽ khởi động lại ngăn xếp radio (SFUN) và làm gián đoạn dịch vụ di động trong giây lát. Cài đặt được lưu và plugin sẽ áp dụng lại sau khi AT sẵn sàng nếu bật “Áp dụng khi khởi động”. Hook trước radio của nền tảng có thể áp dụng lại mà không cần khởi động lại. Áp dụng khi không chọn băng tần nào để trở về chế độ tự động."
 
@@ -1563,6 +1599,9 @@ msgstr "Đang khóa %s trong nền…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "Đã khóa %s trong nền (khởi động lại SFUN, khoảng 30 giây); đang đọc lại trạng thái…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Nhập số kênh và PCI trong các khoảng dưới đây"
 
 msgid "No serving-network data"
 msgstr "Không có dữ liệu mạng phục vụ"
@@ -1798,6 +1837,15 @@ msgstr "0 % không bao giờ sạc pin (thiết bị chạy bằng bộ sạc), 
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % giúp pin bền hơn trên thiết bị luôn cắm sạc."
 
+msgid "When the charger switches the device on"
+msgstr "Khi bộ sạc bật thiết bị"
+
+msgid "Charge only, until a key starts it"
+msgstr "Chỉ sạc, cho đến khi một phím khởi động nó"
+
+msgid "Start normally"
+msgstr "Khởi động bình thường"
+
 msgid "Keep as is"
 msgstr "Giữ nguyên"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "SIM tích hợp 1"
+
+msgid "Built-in SIM 2"
+msgstr "SIM tích hợp 2"
+
+msgid "Built-in SIM 3"
+msgstr "SIM tích hợp 3"
+
+msgid "External SIM"
+msgstr "SIM ngoài"
+
+msgid "SIM card"
+msgstr "Thẻ SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "SIM tích hợp 3 dùng chung SIM2, SIM ngoài dùng chung SIM1. Thẻ được chọn ở đây sẽ được chuyển vào trước khi modem khởi động, ở lần khởi động tiếp theo; nếu không chọn, các thẻ giữ nguyên như bootloader thiết lập."
+
+msgid "As the bootloader sets them"
+msgstr "Như bootloader thiết lập"
+
+msgid "Applying the radio setting…"
+msgstr "Đang áp dụng cài đặt radio…"
+
+msgid "SIM settings are not available"
+msgstr "Không có cài đặt SIM"
+
+msgid "Modem default"
+msgstr "Mặc định của modem"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "đang dùng"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Tắt radio của SIM%d"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Sẽ được gửi tới SIM này khi radio của nó khởi động lần tới."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE và VoNR cho từng SIM, được giữ qua khởi động lại và gửi lại mỗi khi SIM đó khởi động. VoLTE bật trừ khi bị tắt; VoNR giữ như modem cho đến khi được đặt."
+
+msgid "All radios off (airplane mode)"
+msgstr "Tắt mọi radio (chế độ máy bay)"
+
+msgid "All radios on"
+msgstr "Bật mọi radio"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Không SIM nào có cuộc gọi, SMS hay dữ liệu, kể cả sau khi khởi động lại, cho đến khi một radio được bật lại tại đây hoặc bằng nút radio trên bảng điều khiển."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Radio của mỗi SIM giữ như cài đặt ở đây sau khi khởi động lại. SIM có radio tắt sẽ không có cuộc gọi, SMS hay dữ liệu, và thiết bị không chuyển sang SIM đó."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Cài đặt đã được lưu nhưng radio chưa làm theo."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Người nhận: số, ví dụ 10086 hoặc +86..."
@@ -2299,9 +2419,6 @@ msgstr "Thiết bị sẽ khởi động lại ngay. Khởi động mặc địn
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Thiết bị sẽ khởi động lại ngay và không truy cập được trong khoảng một phút. Nếu hệ thống mới không khởi động được, thiết bị tự quay về Android sau các lần thử thất bại."
-
-msgid "Restart"
-msgstr "Khởi động lại"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Đang khởi động lại… hãy mở lại trang này sau khoảng một phút."
@@ -2957,9 +3074,6 @@ msgstr "Tự phát hiện"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL có thể chứa token: nó được gửi riêng tới thiết bị, không bao giờ nằm trong dòng lệnh hay nhật ký."
 
-msgid "Type"
-msgstr "Loại"
-
 msgid "Share link"
 msgstr "Liên kết chia sẻ"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Nhân CPU không hợp lệ"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Thao tác điện áp CPU không xác định"
 
@@ -3433,17 +3553,32 @@ msgstr "Yêu cầu cập nhật không hợp lệ"
 msgid "The backup tool gave no valid reply"
 msgstr "Công cụ sao lưu không trả lời hợp lệ"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Nền tảng này không cung cấp tích hợp dữ liệu di động"
+
+msgid "The SIM settings could not be read"
+msgstr "Không đọc được cài đặt SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Nền tảng này không hỗ trợ điều khiển radio"
+
+msgid "A SIM radio change is already running"
+msgstr "Đang có một thay đổi radio SIM"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modem không nhận cài đặt; chưa lưu gì"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Yêu cầu quá lớn"
@@ -3598,15 +3733,15 @@ msgstr "Số dòng từ 1 đến 1000"
 msgid "The log could not be read"
 msgstr "Không thể đọc nhật ký"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Radio của SIM này đang tắt trong cài đặt"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Radio không bật lên được"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Nền tảng này không cung cấp tích hợp dữ liệu di động"
+msgid "The radio did not follow its setting"
+msgstr "Radio không làm theo cài đặt"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Không thể lưu cài đặt chuyển vùng dữ liệu"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Không thể chuyển nhân CPU"
+
+msgid "Invalid low latency setting"
+msgstr "Thiết lập độ trễ thấp không hợp lệ"
+
+msgid "The low latency setting could not be applied"
+msgstr "Không thể áp dụng thiết lập độ trễ thấp"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Không thể đọc độ lệch điện áp CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "Không thể tắt độ lệch điện áp CPU"
 
 msgid "The stress test could not be started"
 msgstr "Không thể bắt đầu kiểm tra tải nặng"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Bộ điều hợp vai trò USB không thực thi được"

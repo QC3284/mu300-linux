@@ -1,0 +1,21 @@
+# The TF card (mmcblk1) carries the Linux rootfs and the OS area: never probe, mount
+# or automount it from a block hotplug event.
+case "${DEVNAME:-}" in mmcblk1*) exit 0 ;; esac
+
+# The same lock the block probe takes (/opt/mu300/bin/mu300-block-*.guard): a block event handled here must not race
+# the probe in sbuf_read (sipc_core), which wedges rpcd. The lock is released when this script exits.
+LOCK=${MU300_BLOCK_LOCK:-/run/mu300-block.lock}
+if [ -e "$LOCK" ] || : >> "$LOCK" 2>/dev/null; then
+    exec 9>>"$LOCK" 2>/dev/null || true
+    if command -v flock >/dev/null 2>&1; then flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    elif [ -x /opt/mu300/busybox-bin/flock ]; then /opt/mu300/busybox-bin/flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true; fi
+fi
+
+[ -n "$DISK_MEDIA_CHANGE" ] && /sbin/block info
+
+if [ "$ACTION" = "add" -a "$DEVTYPE" = "disk" ]; then
+	case "$DEVNAME" in
+		mtd*) : ;;
+		*) echo 2000 > /sys/block/$DEVNAME/events_poll_msecs ;;
+	esac
+fi

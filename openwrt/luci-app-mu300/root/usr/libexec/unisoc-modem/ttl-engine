@@ -1,0 +1,78 @@
+#!/bin/sh
+# Explicit nftables backend. One transaction replaces only our cellular table.
+# fw4 offloading bypasses postrouting, so it must be off while TTL rewriting is on.
+set -eu
+CONF=${MU300_TTL_CONF:-/etc/mu300/ttl.conf}
+LOCK=${MU300_TTL_LOCK:-/var/lock/unisoc-ttl.lock}
+MARK=${CONF%/*}/ttl.offload-off
+TABLE='inet mu300_ttl'
+saved() { sed -n 's/^TTL=\([0-9]*\)$/\1/p' "$CONF" 2>/dev/null | tail -n1; }
+valid() { case ${1:-} in ''|0*|*[!0-9]*) return 1;; esac; [ ${#1} -le 3 ] && [ "$1" -le 255 ]; }
+offload_restore() {
+    [ -f "$MARK" ] || return 0
+    while IFS= read -r key; do
+        case "$key" in flow_offloading|flow_offloading_hw) ;; *) return 1;; esac
+        uci set "firewall.@defaults[0].$key=1" || return 1
+    done < "$MARK"
+    uci commit firewall || return 1
+    fw4 -q reload || return 1
+    rm -f "$MARK"
+}
+offload_disable() {
+    changed=0
+    for key in flow_offloading flow_offloading_hw; do
+        v=$(uci -q get "firewall.@defaults[0].$key" || true)
+        case "$v" in 1)
+            # Record ownership before changing a persistent firewall setting.
+            grep -qx "$key" "$MARK" 2>/dev/null || { printf '%s\n' "$key" >> "$MARK" || return 1; }
+            uci set "firewall.@defaults[0].$key=0" || return 1
+            changed=1;;
+        ''|0) ;; *) echo 'Invalid firewall offloading setting' >&2; return 1;; esac
+    done
+    if [ "$changed" = 1 ] || [ -f "$MARK" ]; then uci commit firewall && fw4 -q reload; fi
+}
+clear_rule() {
+    if nft list table $TABLE >/dev/null 2>&1; then nft delete table $TABLE || return 1; fi
+}
+apply_value() {
+    value=$1
+    if [ -z "$value" ]; then clear_rule || return 1; offload_restore; return; fi
+    valid "$value" || { echo 'Invalid saved TTL' >&2; return 2; }
+    offload_disable || { echo 'Cannot disable firewall offloading; TTL was not applied' >&2; return 1; }
+    # add + delete + create in one batch also handles the first application.
+    nft -f - <<EOF
+add table $TABLE
+delete table $TABLE
+table $TABLE {
+ chain postrouting {
+  type filter hook postrouting priority mangle; policy accept;
+  oifname "sipa_eth*" ip ttl set $value counter
+  oifname "sipa_eth*" ip6 hoplimit set $value counter
+ }
+}
+EOF
+}
+state() {
+    v=$(saved)
+    if nft list table $TABLE >/dev/null 2>&1; then backend=nft; else backend=none; fi
+    offload=$(uci -q get 'firewall.@defaults[0].flow_offloading' || true)
+    printf 'TTL=%s\nBACKEND=%s\nIFACES=\nOFFLOAD=%s\n' "$v" "$backend" "$offload"
+}
+case ${1:-state} in
+state|status) state; exit;;
+set) valid "${2:-}" || { echo 'TTL must be an integer from 1 to 255' >&2; exit 2; };;
+off|apply) ;;
+*) echo 'Usage: ttl-engine [state|status|set N|off|apply]' >&2; exit 2;;
+esac
+mkdir -p "${CONF%/*}" "${LOCK%/*}"
+exec 9>"$LOCK"
+flock -n -x 9 || { echo 'TTL operation is busy; retry shortly' >&2; exit 75; }
+old=$(saved)
+case $1 in
+set)
+    apply_value "$2" || exit $?
+    printf 'TTL=%s\n' "$2" > "$CONF.tmp"
+    mv "$CONF.tmp" "$CONF";;
+off) apply_value ''; rm -f "$CONF";;
+apply) apply_value "$old";;
+esac

@@ -13,6 +13,9 @@ msgstr "سلولی"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "تنظیمات سیم‌کارت"
+
 msgid "Network locks"
 msgstr "قفل‌های شبکه"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "هسته‌های برجسته روشن هستند. هسته‌ای که خاموش شده، حتی پس از راه‌اندازی دوباره، خاموش می‌ماند تا دوباره روشن شود. CPU0 همیشه روشن می‌ماند."
+
+msgid "Low latency: on"
+msgstr "تأخیر کم: روشن"
+
+msgid "Low latency: off"
+msgstr "تأخیر کم: خاموش"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "حالت تأخیر کم، مانند میان‌افزار ZTE U30 Air، نمی‌گذارد CPU0 به حالت‌های بیکاری برود: تأخیر Wi-Fi بسیار کمتر می‌شود و دستگاه انرژی بیشتری مصرف می‌کند. به‌طور پیش‌فرض خاموش."
+
 msgid "Thermal"
 msgstr "حرارتی"
 
@@ -763,6 +778,12 @@ msgstr "حذف مقدار ذخیره‌شده"
 msgid "Presets"
 msgstr "پیش‌تنظیم‌ها"
 
+msgid "Form (URL-encoded)"
+msgstr "فرم (کدگذاری URL)"
+
+msgid "Plain text"
+msgstr "متن ساده"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "پیام‌های دریافتی به‌محض رسیدن به مخزن پیامک بازارسال می‌شوند. ارسال ناموفق پس از ۳۰ ثانیه و سپس هر بار پس از دو برابر زمان قبل (حداکثر یک ساعت) دوباره تلاش می‌شود، در مجموع ده بار."
 
@@ -801,12 +822,6 @@ msgstr "نشانی (http:// یا https://)"
 
 msgid "Body"
 msgstr "بدنه"
-
-msgid "Form (URL-encoded)"
-msgstr "فرم (کدگذاری URL)"
-
-msgid "Plain text"
-msgstr "متن ساده"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "فیلدها: sender، time، text، device، message (الگوی پرشده)"
@@ -924,6 +939,9 @@ msgstr "هنوز تحویلی نیست"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "آزمایش با تنظیمات ذخیره‌شده آغاز شد؛ نتیجه در گزارش تحویل نمایش داده می‌شود."
+
+msgid "Automatic without 2G (152)"
+msgstr "خودکار بدون 2G (152)"
 
 msgid "4G only"
 msgstr "فقط 4G"
@@ -1087,8 +1105,8 @@ msgstr "هات‌اسپات Wi-Fi"
 msgid "Restart modem"
 msgstr "راه‌اندازی مجدد مودم"
 
-msgid "Restart device"
-msgstr "راه‌اندازی مجدد دستگاه"
+msgid "Power off or restart"
+msgstr "خاموش کردن یا راه‌اندازی مجدد"
 
 msgid "Switch to Android"
 msgstr "رفتن به Android"
@@ -1123,14 +1141,14 @@ msgstr "در حال اتصال داده…"
 msgid "Turn off cellular radio"
 msgstr "خاموش کردن رادیوی سلولی"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "اتصال سلولی قطع خواهد شد."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "این سیم‌کارت تماس، پیامک یا داده نخواهد داشت و رادیوی آن پس از راه‌اندازی مجدد هم خاموش می‌ماند تا دوباره روشنش کنید."
 
 msgid "Turn on cellular radio"
 msgstr "روشن کردن رادیوی سلولی"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "توالی روشن‌سازی SFUN اجرا می‌شود (تا حدود 1 دقیقه)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "رادیوی سیم‌کارت در حال استفاده روشن می‌شود و پس از راه‌اندازی مجدد روشن می‌ماند (تا حدود ۱ دقیقه)."
 
 msgid "Turn data roaming off"
 msgstr "خاموش کردن رومینگ داده"
@@ -1147,11 +1165,14 @@ msgstr "داده همراه در شبکه‌های رومینگ نیز استف�
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "ممکن است اتصال سلولی 1–2 دقیقه متوقف شود."
 
-msgid "Restart the entire device"
-msgstr "راه‌اندازی مجدد کل دستگاه"
-
 msgid "All connections will be interrupted."
 msgstr "همهٔ اتصال‌ها قطع خواهند شد."
+
+msgid "Power off"
+msgstr "خاموش کردن"
+
+msgid "Restart"
+msgstr "راه‌اندازی مجدد"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "راه‌اندازی بعدی وارد Android می‌شود و دستگاه اکنون راه‌اندازی مجدد می‌شود. این صفحهٔ مدیریت و اشتراک‌گذاری اینترنت سلولی قطع می‌شوند."
@@ -1477,6 +1498,21 @@ msgstr "قفل سلول سرویس‌دهندهٔ فعلی"
 msgid "Unlock cell"
 msgstr "باز کردن قفل سلول"
 
+msgid "Enter a cell"
+msgstr "وارد کردن سلول"
+
+msgid "Type"
+msgstr "نوع"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "شماره کانال (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "قفل کردن این سلول"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. شماره کانال، نه فرکانس بر حسب مگاهرتز؛ لازم نیست سلول در فهرست سلول‌های همسایه باشد."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "اعمال، پشتهٔ رادیو را دوباره راه‌اندازی می‌کند (SFUN) و سرویس سلولی را برای مدت کوتاهی قطع می‌کند. وقتی «اعمال هنگام راه‌اندازی» فعال باشد، تنظیمات ذخیره می‌شوند و افزونه پس از آماده شدن AT آن‌ها را دوباره اعمال می‌کند. یک هوک پیش از رادیوی پلتفرم می‌تواند بدون راه‌اندازی مجدد آن‌ها را اعمال کند. برای بازگشت به حالت خودکار، بدون انتخاب هیچ باندی اعمال کنید."
 
@@ -1563,6 +1599,9 @@ msgstr "در حال قفل کردن %s در پس‌زمینه…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s در پس‌زمینه قفل شد (راه‌اندازی مجدد SFUN، حدود 30 ثانیه)؛ در حال خواندن دوبارهٔ وضعیت…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "شماره کانال و PCI را در محدوده‌های زیر وارد کنید"
 
 msgid "No serving-network data"
 msgstr "داده‌ای از شبکهٔ سرویس‌دهنده نیست"
@@ -1798,6 +1837,15 @@ msgstr "0 % هرگز باتری را شارژ نمی‌کند (دستگاه با
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % سلامت باتری را در دستگاهی که همیشه به برق وصل است بهتر حفظ می‌کند."
 
+msgid "When the charger switches the device on"
+msgstr "وقتی شارژر دستگاه را روشن می‌کند"
+
+msgid "Charge only, until a key starts it"
+msgstr "فقط شارژ، تا زمانی که یک کلید آن را راه‌اندازی کند"
+
+msgid "Start normally"
+msgstr "راه‌اندازی عادی"
+
 msgid "Keep as is"
 msgstr "بدون تغییر"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "سیم‌کارت داخلی ۱"
+
+msgid "Built-in SIM 2"
+msgstr "سیم‌کارت داخلی ۲"
+
+msgid "Built-in SIM 3"
+msgstr "سیم‌کارت داخلی ۳"
+
+msgid "External SIM"
+msgstr "سیم‌کارت خارجی"
+
+msgid "SIM card"
+msgstr "سیم‌کارت"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "سیم‌کارت داخلی ۳ با SIM2 و سیم‌کارت خارجی با SIM1 مشترک است. کارتی که اینجا انتخاب شود در راه‌اندازی بعدی، پیش از روشن شدن مودم، وصل می‌شود؛ بدون انتخاب، کارت‌ها همان‌طور می‌مانند که بوت‌لودر تنظیم می‌کند."
+
+msgid "As the bootloader sets them"
+msgstr "همان‌طور که بوت‌لودر تنظیم می‌کند"
+
+msgid "Applying the radio setting…"
+msgstr "در حال اعمال تنظیم رادیو…"
+
+msgid "SIM settings are not available"
+msgstr "تنظیمات سیم‌کارت در دسترس نیست"
+
+msgid "Modem default"
+msgstr "پیش‌فرض مودم"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "در حال استفاده"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "خاموش کردن رادیوی SIM%d"
+
+msgid "Radio"
+msgstr "رادیو"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "مودم: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "دفعه بعد که رادیوی این سیم‌کارت روشن شود، برای آن فرستاده می‌شود."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE و VoNR برای هر سیم‌کارت؛ پس از راه‌اندازی مجدد حفظ می‌شوند و هر بار که آن سیم‌کارت شروع به کار کند دوباره فرستاده می‌شوند. VoLTE روشن است مگر خاموش شود؛ VoNR تا وقتی تنظیم نشود همان حالت مودم را دارد."
+
+msgid "All radios off (airplane mode)"
+msgstr "همه رادیوها خاموش (حالت هواپیما)"
+
+msgid "All radios on"
+msgstr "همه رادیوها روشن"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "هیچ سیم‌کارتی تماس، پیامک یا داده نخواهد داشت، حتی پس از راه‌اندازی مجدد، تا وقتی رادیویی دوباره اینجا یا با دکمه رادیو در داشبورد روشن شود."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "رادیوی هر سیم‌کارت پس از راه‌اندازی مجدد همان‌طور که اینجا تنظیم شده می‌ماند. سیم‌کارتی که رادیویش خاموش است تماس، پیامک یا داده ندارد و دستگاه به آن تغییر نمی‌کند."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "تنظیم ذخیره شد، اما رادیو هنوز از آن پیروی نکرده است."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "گیرنده: شماره، مثلاً 10086 یا +86..."
@@ -2299,9 +2419,6 @@ msgstr "دستگاه اکنون دوباره راه‌اندازی می‌شود
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "دستگاه اکنون دوباره راه‌اندازی می‌شود و حدود یک دقیقه در دسترس نیست. اگر سیستم جدید بالا نیاید، دستگاه پس از تلاش‌های ناموفق خودش به Android برمی‌گردد."
-
-msgid "Restart"
-msgstr "راه‌اندازی مجدد"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "در حال راه‌اندازی مجدد… حدود یک دقیقهٔ دیگر این صفحه را دوباره باز کنید."
@@ -2957,9 +3074,6 @@ msgstr "تشخیص"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL ممکن است توکن داشته باشد: جداگانه به دستگاه می‌رسد و هرگز در خط فرمان یا گزارش نمی‌آید."
 
-msgid "Type"
-msgstr "نوع"
-
 msgid "Share link"
 msgstr "پیوند اشتراک‌گذاری"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "هسته پردازنده نامعتبر"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "عملیات ولتاژ CPU ناشناخته"
 
@@ -3433,17 +3553,32 @@ msgstr "درخواست به‌روزرسانی نامعتبر"
 msgid "The backup tool gave no valid reply"
 msgstr "ابزار پشتیبان پاسخ معتبری نداد"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "یکپارچه‌سازی داده همراه در این پلتفرم فراهم نیست"
+
+msgid "The SIM settings could not be read"
+msgstr "تنظیمات سیم‌کارت خوانده نشد"
+
+msgid "Radio control is not provided by this platform"
+msgstr "این بستر کنترل رادیو را فراهم نمی‌کند"
+
+msgid "A SIM radio change is already running"
+msgstr "تغییر رادیوی سیم‌کارت از قبل در حال اجراست"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "مودم تنظیم را نپذیرفت؛ چیزی ذخیره نشد"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "درخواست بیش از حد بزرگ است"
@@ -3598,15 +3733,15 @@ msgstr "تعداد خطوط از 1 تا 1000 است"
 msgid "The log could not be read"
 msgstr "گزارش خوانده نشد"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "رادیوی این سیم‌کارت در تنظیماتش خاموش است"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "رادیو روشن نشد"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "یکپارچه‌سازی داده همراه در این پلتفرم فراهم نیست"
+msgid "The radio did not follow its setting"
+msgstr "رادیو از تنظیم خود پیروی نکرد"
 
 msgid "The data roaming setting could not be saved"
 msgstr "تنظیم رومینگ داده ذخیره نشد"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "تغییر وضعیت هسته پردازنده ممکن نشد"
+
+msgid "Invalid low latency setting"
+msgstr "تنظیم تأخیر کم نامعتبر"
+
+msgid "The low latency setting could not be applied"
+msgstr "اعمال تنظیم تأخیر کم ممکن نشد"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "جابه‌جایی ولتاژ CPU خوانده نشد"
 
@@ -3643,9 +3787,6 @@ msgstr "جابه‌جایی ولتاژ CPU خاموش نشد"
 
 msgid "The stress test could not be started"
 msgstr "تست استرس آغاز نشد"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "آداپتور نقش USB قابل اجرا نیست"

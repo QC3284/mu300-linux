@@ -13,6 +13,9 @@ msgstr "Cellulaire"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Réglages SIM"
+
 msgid "Network locks"
 msgstr "Verrouillages réseau"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Les cœurs en surbrillance sont en ligne. Un cœur mis hors ligne le reste, même après un redémarrage, jusqu'à ce qu'il soit réactivé. CPU0 reste toujours en ligne."
+
+msgid "Low latency: on"
+msgstr "Faible latence : activée"
+
+msgid "Low latency: off"
+msgstr "Faible latence : désactivée"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "La faible latence empêche CPU0 d'entrer dans ses états de repos, comme le firmware U30 Air de ZTE : les délais Wi-Fi sont bien plus courts et l'appareil consomme davantage. Désactivée par défaut."
+
 msgid "Thermal"
 msgstr "Thermique"
 
@@ -763,6 +778,12 @@ msgstr "Supprimer la valeur enregistrée"
 msgid "Presets"
 msgstr "Préréglages"
 
+msgid "Form (URL-encoded)"
+msgstr "Formulaire (encodé URL)"
+
+msgid "Plain text"
+msgstr "Texte brut"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Les messages reçus sont transférés dès qu'ils arrivent dans le pool SMS. Un envoi échoué est réessayé après 30 s, puis après un délai deux fois plus long à chaque fois (une heure au plus), dix fois en tout."
 
@@ -801,12 +822,6 @@ msgstr "Adresse (http:// ou https://)"
 
 msgid "Body"
 msgstr "Corps"
-
-msgid "Form (URL-encoded)"
-msgstr "Formulaire (encodé URL)"
-
-msgid "Plain text"
-msgstr "Texte brut"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Champs : sender, time, text, device, message (le modèle rempli)"
@@ -924,6 +939,9 @@ msgstr "Aucun envoi pour l'instant"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Test lancé avec les paramètres enregistrés ; le résultat apparaît dans le journal des envois."
+
+msgid "Automatic without 2G (152)"
+msgstr "Automatique sans 2G (152)"
 
 msgid "4G only"
 msgstr "4G uniquement"
@@ -1087,8 +1105,8 @@ msgstr "Point d'accès Wi-Fi"
 msgid "Restart modem"
 msgstr "Redémarrer le modem"
 
-msgid "Restart device"
-msgstr "Redémarrer l'appareil"
+msgid "Power off or restart"
+msgstr "Éteindre ou redémarrer"
 
 msgid "Switch to Android"
 msgstr "Basculer vers Android"
@@ -1123,14 +1141,14 @@ msgstr "Connexion des données…"
 msgid "Turn off cellular radio"
 msgstr "Désactiver la radio cellulaire"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "La connectivité cellulaire sera interrompue."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Cette SIM n'aura ni appels, ni SMS, ni données, et sa radio reste éteinte après un redémarrage jusqu'à ce que vous la rallumiez."
 
 msgid "Turn on cellular radio"
 msgstr "Activer la radio cellulaire"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "La séquence de mise sous tension SFUN va s'exécuter (environ 1 minute au maximum)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "La radio de la SIM utilisée s'allume et reste allumée après un redémarrage (jusqu'à environ 1 minute)."
 
 msgid "Turn data roaming off"
 msgstr "Désactiver l'itinérance des données"
@@ -1147,11 +1165,14 @@ msgstr "Les données mobiles sont aussi utilisées sur les réseaux en itinéran
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "La connectivité cellulaire peut s'interrompre pendant 1 à 2 minutes."
 
-msgid "Restart the entire device"
-msgstr "Redémarrer l'appareil entier"
-
 msgid "All connections will be interrupted."
 msgstr "Toutes les connexions seront interrompues."
+
+msgid "Power off"
+msgstr "Éteindre"
+
+msgid "Restart"
+msgstr "Redémarrer"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Le prochain démarrage se fera sous Android et l'appareil redémarre maintenant. Cette page de gestion et le partage cellulaire seront déconnectés."
@@ -1477,6 +1498,21 @@ msgstr "Verrouiller la cellule de service actuelle"
 msgid "Unlock cell"
 msgstr "Déverrouiller la cellule"
 
+msgid "Enter a cell"
+msgstr "Saisir une cellule"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Numéro de canal (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Verrouiller cette cellule"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Un numéro de canal, pas une fréquence en MHz ; la cellule n’a pas besoin de figurer dans la liste des voisines."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "L'application redémarre la pile radio (SFUN) et interrompt brièvement le service cellulaire. Les réglages sont enregistrés et réappliqués par le plugin une fois AT prêt lorsque « Appliquer au démarrage » est activé. Un hook de plateforme exécuté avant la radio peut les réappliquer sans redémarrage. Appliquer sans aucune bande sélectionnée rétablit le mode automatique."
 
@@ -1563,6 +1599,9 @@ msgstr "Verrouillage de %s en arrière-plan…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s verrouillée en arrière-plan (redémarrage SFUN, environ 30 secondes) ; relecture de l'état…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Saisissez un numéro de canal et un PCI dans les plages ci-dessous"
 
 msgid "No serving-network data"
 msgstr "Aucune donnée de réseau de service"
@@ -1798,6 +1837,15 @@ msgstr "0 % ne charge jamais la batterie (l'appareil fonctionne sur le chargeur)
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % préservent mieux la batterie d'un appareil qui reste branché."
 
+msgid "When the charger switches the device on"
+msgstr "Quand le chargeur allume l'appareil"
+
+msgid "Charge only, until a key starts it"
+msgstr "Charge seule, jusqu'à ce qu'une touche le démarre"
+
+msgid "Start normally"
+msgstr "Démarrer normalement"
+
 msgid "Keep as is"
 msgstr "Laisser tel quel"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "SIM intégrée 1"
+
+msgid "Built-in SIM 2"
+msgstr "SIM intégrée 2"
+
+msgid "Built-in SIM 3"
+msgstr "SIM intégrée 3"
+
+msgid "External SIM"
+msgstr "SIM externe"
+
+msgid "SIM card"
+msgstr "Carte SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "La SIM intégrée 3 partage SIM2, la SIM externe partage SIM1. La carte choisie ici est commutée avant le démarrage du modem, au prochain démarrage ; sans choix, les cartes restent telles que le chargeur d'amorçage les règle."
+
+msgid "As the bootloader sets them"
+msgstr "Telles que le chargeur d'amorçage les règle"
+
+msgid "Applying the radio setting…"
+msgstr "Application du réglage radio…"
+
+msgid "SIM settings are not available"
+msgstr "Les réglages SIM ne sont pas disponibles"
+
+msgid "Modem default"
+msgstr "Valeur du modem"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "utilisée"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Éteindre la radio de la SIM%d"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem : %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Envoyé à cette SIM au prochain démarrage de sa radio."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE et VoNR pour chaque SIM, conservés après un redémarrage et renvoyés à chaque démarrage de cette SIM. VoLTE est activé sauf si on le désactive ; VoNR reste tel que le modem l'a tant qu'il n'est pas réglé."
+
+msgid "All radios off (airplane mode)"
+msgstr "Toutes les radios éteintes (mode avion)"
+
+msgid "All radios on"
+msgstr "Toutes les radios allumées"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Aucune SIM n'aura d'appels, de SMS ou de données, même après un redémarrage, tant qu'une radio n'est pas rallumée ici ou avec le bouton radio du tableau de bord."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "La radio de chaque SIM reste telle que réglée ici après un redémarrage. Une SIM dont la radio est éteinte n'a ni appels, ni SMS, ni données, et l'appareil ne bascule pas vers elle."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Le réglage est enregistré, mais la radio ne l'a pas encore suivi."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Destinataire : numéro, p. ex. 10086 ou +86..."
@@ -2299,9 +2419,6 @@ msgstr "L'appareil redémarre maintenant. Le démarrage par défaut est Android,
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "L'appareil redémarre maintenant et s'absente environ une minute. Si le nouveau système ne démarre pas, l'appareil revient de lui-même à Android après les tentatives échouées."
-
-msgid "Restart"
-msgstr "Redémarrer"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Redémarrage… rouvrez cette page dans environ une minute."
@@ -2957,9 +3074,6 @@ msgstr "Détecter"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "L'URL peut contenir un jeton : elle va à l'appareil séparément, jamais dans une ligne de commande ni dans un journal."
 
-msgid "Type"
-msgstr "Type"
-
 msgid "Share link"
 msgstr "Lien de partage"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Cœur CPU invalide"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Opération de tension CPU inconnue"
 
@@ -3433,17 +3553,32 @@ msgstr "Demande de mise à jour invalide"
 msgid "The backup tool gave no valid reply"
 msgstr "L'outil de sauvegarde n'a pas donné de réponse valide"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "L'intégration des données mobiles n'est pas fournie par cette plateforme"
+
+msgid "The SIM settings could not be read"
+msgstr "Impossible de lire les réglages SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Cette plateforme ne fournit pas le contrôle radio"
+
+msgid "A SIM radio change is already running"
+msgstr "Un changement de radio SIM est déjà en cours"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Le modem n'a pas pris le réglage ; rien n'a été enregistré"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Requête trop volumineuse"
@@ -3598,15 +3733,15 @@ msgstr "Le nombre de lignes va de 1 à 1000"
 msgid "The log could not be read"
 msgstr "Impossible de lire le journal"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "La radio de cette SIM est éteinte dans ses réglages"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "La radio ne s'est pas activée"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "L'intégration des données mobiles n'est pas fournie par cette plateforme"
+msgid "The radio did not follow its setting"
+msgstr "La radio n'a pas suivi son réglage"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Le réglage de l'itinérance des données n'a pas pu être enregistré"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Le cœur CPU n'a pas pu être basculé"
+
+msgid "Invalid low latency setting"
+msgstr "Réglage de faible latence invalide"
+
+msgid "The low latency setting could not be applied"
+msgstr "Le réglage de faible latence n'a pas pu être appliqué"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Impossible de lire le décalage de tension CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "Impossible de désactiver le décalage de tension CPU"
 
 msgid "The stress test could not be started"
 msgstr "Impossible de démarrer le test de charge"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "L'adaptateur de rôle USB n'est pas exécutable"

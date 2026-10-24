@@ -13,6 +13,9 @@ msgstr "Celular"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "Setări SIM"
+
 msgid "Network locks"
 msgstr "Blocări de rețea"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Nucleele evidențiate sunt online. Un nucleu oprit rămâne offline, și după repornire, până când este pornit din nou. CPU0 rămâne mereu online."
+
+msgid "Low latency: on"
+msgstr "Latență redusă: activată"
+
+msgid "Low latency: off"
+msgstr "Latență redusă: dezactivată"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Latența redusă ține CPU0 în afara stărilor de repaus, ca firmware-ul ZTE U30 Air: întârzierile Wi-Fi sunt mult mai mici, iar dispozitivul consumă mai multă energie. Dezactivată implicit."
+
 msgid "Thermal"
 msgstr "Termic"
 
@@ -763,6 +778,12 @@ msgstr "Eliminați valoarea salvată"
 msgid "Presets"
 msgstr "Presetări"
 
+msgid "Form (URL-encoded)"
+msgstr "Formular (codificat URL)"
+
+msgid "Plain text"
+msgstr "Text simplu"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Mesajele primite sunt redirecționate imediat ce ajung în fondul de SMS. O livrare eșuată este reîncercată după 30 s, apoi de fiecare dată după un timp de două ori mai lung (cel mult o oră), de zece ori în total."
 
@@ -801,12 +822,6 @@ msgstr "Adresă (http:// sau https://)"
 
 msgid "Body"
 msgstr "Corp"
-
-msgid "Form (URL-encoded)"
-msgstr "Formular (codificat URL)"
-
-msgid "Plain text"
-msgstr "Text simplu"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Câmpuri: sender, time, text, device, message (șablonul completat)"
@@ -924,6 +939,9 @@ msgstr "Încă nicio livrare"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Testul a pornit cu setările salvate; rezultatul apare în jurnalul de livrare."
+
+msgid "Automatic without 2G (152)"
+msgstr "Automat fără 2G (152)"
 
 msgid "4G only"
 msgstr "Doar 4G"
@@ -1087,8 +1105,8 @@ msgstr "Hotspot Wi-Fi"
 msgid "Restart modem"
 msgstr "Repornire modem"
 
-msgid "Restart device"
-msgstr "Repornire dispozitiv"
+msgid "Power off or restart"
+msgstr "Oprire sau repornire"
 
 msgid "Switch to Android"
 msgstr "Comutare la Android"
@@ -1123,14 +1141,14 @@ msgstr "Se conectează datele…"
 msgid "Turn off cellular radio"
 msgstr "Oprire radio celular"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Conectivitatea celulară va fi întreruptă."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Acest SIM nu va avea apeluri, SMS sau date, iar radioul său rămâne oprit și după repornire până îl porniți din nou."
 
 msgid "Turn on cellular radio"
 msgstr "Pornire radio celular"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "Se va rula secvența de pornire SFUN (până la aproximativ 1 minut)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Radioul SIM-ului în uz pornește și rămâne pornit după repornire (până la aproximativ 1 minut)."
 
 msgid "Turn data roaming off"
 msgstr "Dezactivează roamingul de date"
@@ -1147,11 +1165,14 @@ msgstr "Datele mobile sunt folosite și în rețelele de roaming, ceea ce poate 
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Conectivitatea celulară se poate opri timp de 1–2 minute."
 
-msgid "Restart the entire device"
-msgstr "Repornirea întregului dispozitiv"
-
 msgid "All connections will be interrupted."
 msgstr "Toate conexiunile vor fi întrerupte."
+
+msgid "Power off"
+msgstr "Oprire"
+
+msgid "Restart"
+msgstr "Repornește"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Următoarea pornire va intra în Android, iar dispozitivul repornește acum. Această pagină de administrare și partajarea celulară se vor deconecta."
@@ -1477,6 +1498,21 @@ msgstr "Blocare celulă de servire curentă"
 msgid "Unlock cell"
 msgstr "Deblocare celulă"
 
+msgid "Enter a cell"
+msgstr "Introduceți o celulă"
+
+msgid "Type"
+msgstr "Tip"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Număr de canal (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Blochează această celulă"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Un număr de canal, nu o frecvență în MHz; celula nu trebuie să fie în lista celulelor vecine."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Aplicarea repornește stiva radio (SFUN) și întrerupe scurt serviciul celular. Setările sunt salvate și reaplicate de plugin după ce AT este pregătit, dacă Aplicare la pornire este activat. Un hook pre-radio al platformei poate reaplica fără repornire. Aplicați fără benzi selectate pentru a reveni la modul automat."
 
@@ -1563,6 +1599,9 @@ msgstr "Se blochează %s în fundal…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s blocat în fundal (repornire SFUN, aproximativ 30 de secunde); se citește starea…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Introduceți un număr de canal și un PCI în intervalele de mai jos"
 
 msgid "No serving-network data"
 msgstr "Nu există date despre rețeaua de servire"
@@ -1798,6 +1837,15 @@ msgstr "0 % nu încarcă niciodată bateria (dispozitivul funcționează de la �
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % protejează mai bine bateria unui dispozitiv care rămâne la priză."
 
+msgid "When the charger switches the device on"
+msgstr "Când încărcătorul pornește dispozitivul"
+
+msgid "Charge only, until a key starts it"
+msgstr "Doar încărcare, până când o tastă îl pornește"
+
+msgid "Start normally"
+msgstr "Pornire normală"
+
 msgid "Keep as is"
 msgstr "Lasă neschimbat"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "SIM încorporat 1"
+
+msgid "Built-in SIM 2"
+msgstr "SIM încorporat 2"
+
+msgid "Built-in SIM 3"
+msgstr "SIM încorporat 3"
+
+msgid "External SIM"
+msgstr "SIM extern"
+
+msgid "SIM card"
+msgstr "Card SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "SIM-ul încorporat 3 împarte SIM2, SIM-ul extern împarte SIM1. Cardul ales aici este comutat înainte de pornirea modemului, la următoarea pornire; fără alegere, cardurile rămân cum le setează bootloaderul."
+
+msgid "As the bootloader sets them"
+msgstr "Cum le setează bootloaderul"
+
+msgid "Applying the radio setting…"
+msgstr "Se aplică setarea radio…"
+
+msgid "SIM settings are not available"
+msgstr "Setările SIM nu sunt disponibile"
+
+msgid "Modem default"
+msgstr "Implicit modem"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "în uz"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Oprește radioul SIM%d"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modem: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Se trimite acestui SIM la următoarea pornire a radioului său."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE și VoNR pentru fiecare SIM, păstrate după repornire și trimise din nou ori de câte ori pornește acel SIM. VoLTE este pornit dacă nu îl opriți; VoNR rămâne cum îl are modemul până îl setați."
+
+msgid "All radios off (airplane mode)"
+msgstr "Toate radiourile oprite (mod avion)"
+
+msgid "All radios on"
+msgstr "Toate radiourile pornite"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Niciun SIM nu va avea apeluri, SMS sau date, nici după repornire, până când un radio este pornit din nou aici sau cu butonul radio din panou."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Radioul fiecărui SIM rămâne cum este setat aici după repornire. Un SIM cu radioul oprit nu are apeluri, SMS sau date, iar dispozitivul nu trece pe el."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Setarea este salvată, dar radioul nu a urmat-o încă."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Destinatar: număr, de ex. 10086 sau +86..."
@@ -2299,9 +2419,6 @@ msgstr "Dispozitivul repornește acum. Pornirea implicită este Android, deci po
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Dispozitivul repornește acum și lipsește aproximativ un minut. Dacă noul sistem nu pornește, dispozitivul revine singur la Android după încercările eșuate."
-
-msgid "Restart"
-msgstr "Repornește"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Se repornește… deschideți din nou această pagină peste aproximativ un minut."
@@ -2957,9 +3074,6 @@ msgstr "Detectează"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL-ul poate conține un token: ajunge separat la dispozitiv, niciodată într-o linie de comandă sau într-un jurnal."
 
-msgid "Type"
-msgstr "Tip"
-
 msgid "Share link"
 msgstr "Link de partajare"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Nucleu CPU invalid"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Operație de tensiune CPU necunoscută"
 
@@ -3433,17 +3553,32 @@ msgstr "Cerere de actualizare nevalidă"
 msgid "The backup tool gave no valid reply"
 msgstr "Instrumentul de copiere nu a dat un răspuns valid"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Integrarea datelor mobile nu este oferită de această platformă"
+
+msgid "The SIM settings could not be read"
+msgstr "Setările SIM nu au putut fi citite"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Această platformă nu oferă control radio"
+
+msgid "A SIM radio change is already running"
+msgstr "O schimbare a radioului SIM este deja în curs"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modemul nu a acceptat setarea; nu s-a salvat nimic"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Cerere prea mare"
@@ -3598,15 +3733,15 @@ msgstr "Numărul de linii este între 1 și 1000"
 msgid "The log could not be read"
 msgstr "Jurnalul nu a putut fi citit"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Radioul acestui SIM este oprit în setările sale"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Radioul nu a pornit"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Integrarea datelor mobile nu este oferită de această platformă"
+msgid "The radio did not follow its setting"
+msgstr "Radioul nu și-a urmat setarea"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Setarea roamingului de date nu a putut fi salvată"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Nucleul CPU nu a putut fi comutat"
+
+msgid "Invalid low latency setting"
+msgstr "Setare de latență redusă invalidă"
+
+msgid "The low latency setting could not be applied"
+msgstr "Setarea de latență redusă nu a putut fi aplicată"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "Decalajul de tensiune CPU nu a putut fi citit"
 
@@ -3643,9 +3787,6 @@ msgstr "Decalajul de tensiune CPU nu a putut fi dezactivat"
 
 msgid "The stress test could not be started"
 msgstr "Testul de stres nu a putut fi pornit"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "Adaptorul de rol USB nu este executabil"

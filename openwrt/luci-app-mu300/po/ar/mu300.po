@@ -13,6 +13,9 @@ msgstr "الخلوي"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "إعدادات SIM"
+
 msgid "Network locks"
 msgstr "أقفال الشبكة"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "الأنوية المميزة متصلة. تبقى النواة التي أُوقفت غير متصلة، حتى بعد إعادة التشغيل، إلى أن تُشغَّل من جديد. تبقى CPU0 متصلة دائمًا."
+
+msgid "Low latency: on"
+msgstr "زمن انتقال منخفض: مفعّل"
+
+msgid "Low latency: off"
+msgstr "زمن انتقال منخفض: معطّل"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "يُبقي وضع زمن الانتقال المنخفض CPU0 خارج حالات الخمول، كما يفعل برنامج ZTE الثابت لجهاز U30 Air: تصبح تأخيرات Wi-Fi أقصر بكثير ويستهلك الجهاز طاقة أكبر. معطّل افتراضيًا."
+
 msgid "Thermal"
 msgstr "الحرارة"
 
@@ -763,6 +778,12 @@ msgstr "إزالة القيمة المحفوظة"
 msgid "Presets"
 msgstr "إعدادات جاهزة"
 
+msgid "Form (URL-encoded)"
+msgstr "نموذج (ترميز URL)"
+
+msgid "Plain text"
+msgstr "نص عادي"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "تُعاد توجيه الرسائل المستلمة فور وصولها إلى مجمّع الرسائل القصيرة. يُعاد إرسال التسليم الفاشل بعد 30 ثانية، ثم في كل مرة بعد ضعف المدة (ساعة على الأكثر)، عشر مرات إجمالًا."
 
@@ -801,12 +822,6 @@ msgstr "العنوان (http:// أو https://)"
 
 msgid "Body"
 msgstr "المحتوى"
-
-msgid "Form (URL-encoded)"
-msgstr "نموذج (ترميز URL)"
-
-msgid "Plain text"
-msgstr "نص عادي"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "الحقول: sender، time، text، device، message (القالب بعد ملئه)"
@@ -924,6 +939,9 @@ msgstr "لا توجد عمليات تسليم بعد"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "بدأت التجربة بالإعدادات المحفوظة؛ تظهر النتيجة في سجل التسليم."
+
+msgid "Automatic without 2G (152)"
+msgstr "تلقائي بدون 2G (152)"
 
 msgid "4G only"
 msgstr "4G فقط"
@@ -1087,8 +1105,8 @@ msgstr "نقطة اتصال Wi-Fi"
 msgid "Restart modem"
 msgstr "إعادة تشغيل المودم"
 
-msgid "Restart device"
-msgstr "إعادة تشغيل الجهاز"
+msgid "Power off or restart"
+msgstr "إيقاف التشغيل أو إعادة التشغيل"
 
 msgid "Switch to Android"
 msgstr "التبديل إلى Android"
@@ -1123,14 +1141,14 @@ msgstr "جارٍ توصيل البيانات…"
 msgid "Turn off cellular radio"
 msgstr "إيقاف الراديو الخلوي"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "سينقطع الاتصال الخلوي."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "لن تكون لهذه الشريحة مكالمات أو رسائل أو بيانات، ويبقى راديوها مطفأً بعد إعادة التشغيل حتى تشغّله من جديد."
 
 msgid "Turn on cellular radio"
 msgstr "تشغيل الراديو الخلوي"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "سيُنفَّذ تسلسل التشغيل SFUN (حتى دقيقة واحدة تقريباً)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "يُشغَّل راديو الشريحة المستخدمة ويبقى مشغّلاً بعد إعادة التشغيل (حتى دقيقة تقريباً)."
 
 msgid "Turn data roaming off"
 msgstr "إيقاف تجوال البيانات"
@@ -1147,11 +1165,14 @@ msgstr "تُستخدم بيانات الجوال على شبكات التجوا�
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "قد يتوقف الاتصال الخلوي لمدة 1–2 دقيقة."
 
-msgid "Restart the entire device"
-msgstr "إعادة تشغيل الجهاز بالكامل"
-
 msgid "All connections will be interrupted."
 msgstr "ستنقطع جميع الاتصالات."
+
+msgid "Power off"
+msgstr "إيقاف التشغيل"
+
+msgid "Restart"
+msgstr "إعادة التشغيل"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "سيدخل الإقلاع التالي إلى Android وستتم إعادة التشغيل الآن. ستنقطع صفحة الإدارة هذه ومشاركة الاتصال الخلوي."
@@ -1477,6 +1498,21 @@ msgstr "قفل الخلية الخادمة الحالية"
 msgid "Unlock cell"
 msgstr "إلغاء قفل الخلية"
 
+msgid "Enter a cell"
+msgstr "إدخال خلية"
+
+msgid "Type"
+msgstr "النوع"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "رقم القناة (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "قفل هذه الخلية"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. رقم قناة وليس ترددًا بالميغاهرتز؛ لا يلزم أن تظهر الخلية في قائمة الخلايا المجاورة."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "يؤدي التطبيق إلى إعادة تشغيل حزمة الراديو (SFUN) ويقطع الخدمة الخلوية لفترة وجيزة. تُحفظ الإعدادات ويعيد الملحق تطبيقها بعد جاهزية AT عند تفعيل «التطبيق عند بدء التشغيل». يمكن لخطّاف ما قبل تشغيل الراديو في المنصة إعادة تطبيقها دون إعادة تشغيل. طبّق دون تحديد أي نطاق لاستعادة الوضع التلقائي."
 
@@ -1563,6 +1599,9 @@ msgstr "جارٍ قفل %s في الخلفية…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "تم قفل %s في الخلفية (إعادة تشغيل SFUN، حوالي 30 ثانية)؛ جارٍ قراءة الحالة…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "أدخل رقم قناة وPCI ضمن النطاقات أدناه"
 
 msgid "No serving-network data"
 msgstr "لا توجد بيانات عن الشبكة الخادمة"
@@ -1798,6 +1837,15 @@ msgstr "0 % لا يشحن البطارية أبدًا (يعمل الجهاز م�
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % تحافظ على صحة البطارية في جهاز يبقى موصولًا بالكهرباء."
 
+msgid "When the charger switches the device on"
+msgstr "عندما يشغّل الشاحن الجهاز"
+
+msgid "Charge only, until a key starts it"
+msgstr "الشحن فقط، حتى يشغّله زر"
+
+msgid "Start normally"
+msgstr "التشغيل بشكل عادي"
+
 msgid "Keep as is"
 msgstr "بدون تغيير"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "شريحة SIM المدمجة 1"
+
+msgid "Built-in SIM 2"
+msgstr "شريحة SIM المدمجة 2"
+
+msgid "Built-in SIM 3"
+msgstr "شريحة SIM المدمجة 3"
+
+msgid "External SIM"
+msgstr "شريحة SIM الخارجية"
+
+msgid "SIM card"
+msgstr "بطاقة SIM"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "تتشارك شريحة SIM المدمجة 3 مع SIM2، وتتشارك شريحة SIM الخارجية مع SIM1. تُوصَل البطاقة المختارة هنا قبل بدء تشغيل المودم، عند الإقلاع التالي؛ ومن دون اختيار تبقى البطاقات كما يضبطها محمّل الإقلاع."
+
+msgid "As the bootloader sets them"
+msgstr "كما يضبطها محمّل الإقلاع"
+
+msgid "Applying the radio setting…"
+msgstr "جارٍ تطبيق إعداد الراديو…"
+
+msgid "SIM settings are not available"
+msgstr "إعدادات SIM غير متاحة"
+
+msgid "Modem default"
+msgstr "افتراضي المودم"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "قيد الاستخدام"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "إطفاء راديو SIM%d"
+
+msgid "Radio"
+msgstr "الراديو"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "المودم: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "يُرسل إلى هذه الشريحة عند بدء تشغيل راديوها في المرة القادمة."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE وVoNR لكل شريحة، تُحفظ بعد إعادة التشغيل وتُرسل من جديد كلما بدأت تلك الشريحة. VoLTE مفعّل ما لم يُطفأ؛ ويبقى VoNR كما في المودم حتى يُضبط."
+
+msgid "All radios off (airplane mode)"
+msgstr "إطفاء كل أجهزة الراديو (وضع الطيران)"
+
+msgid "All radios on"
+msgstr "تشغيل كل أجهزة الراديو"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "لن تكون لأي شريحة مكالمات أو رسائل أو بيانات، حتى بعد إعادة التشغيل، إلى أن يُشغَّل راديو من جديد هنا أو بزر الراديو في لوحة المعلومات."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "يبقى راديو كل شريحة كما ضُبط هنا بعد إعادة التشغيل. الشريحة التي راديوها مطفأ ليس لها مكالمات أو رسائل أو بيانات، ولا ينتقل الجهاز إليها."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "حُفظ الإعداد، لكن الراديو لم يتبعه بعد."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "المستلم: رقم، مثل 10086 أو +86..."
@@ -2299,9 +2419,6 @@ msgstr "سيُعاد تشغيل الجهاز الآن. الإقلاع الافت
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "سيُعاد تشغيل الجهاز الآن ويغيب نحو دقيقة. إذا لم يبدأ النظام الجديد، يعود الجهاز إلى Android تلقائيًا بعد المحاولات الفاشلة."
-
-msgid "Restart"
-msgstr "إعادة التشغيل"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "جارٍ إعادة التشغيل… افتح هذه الصفحة مجددًا بعد نحو دقيقة."
@@ -2957,9 +3074,6 @@ msgstr "اكتشاف"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "قد يحتوي URL على رمز: يُرسل إلى الجهاز منفردًا، ولا يدخل أبدًا في سطر أوامر أو سجل."
 
-msgid "Type"
-msgstr "النوع"
-
 msgid "Share link"
 msgstr "رابط مشاركة"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "نواة معالج غير صالحة"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "عملية جهد CPU غير معروفة"
 
@@ -3433,17 +3553,32 @@ msgstr "طلب تحديث غير صالح"
 msgid "The backup tool gave no valid reply"
 msgstr "لم تعطِ أداة النسخ الاحتياطي ردًا صالحًا"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "تكامل بيانات الجوال غير متوفر في هذه المنصة"
+
+msgid "The SIM settings could not be read"
+msgstr "تعذّرت قراءة إعدادات SIM"
+
+msgid "Radio control is not provided by this platform"
+msgstr "لا توفّر هذه المنصة التحكم بالراديو"
+
+msgid "A SIM radio change is already running"
+msgstr "يجري بالفعل تغيير راديو SIM"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "لم يقبل المودم الإعداد؛ لم يُحفظ شيء"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "الطلب كبير جداً"
@@ -3598,15 +3733,15 @@ msgstr "عدد الأسطر من 1 إلى 1000"
 msgid "The log could not be read"
 msgstr "تعذّرت قراءة السجل"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "راديو هذه الشريحة مطفأ في إعداداتها"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "لم يعمل الراديو"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "تكامل بيانات الجوال غير متوفر في هذه المنصة"
+msgid "The radio did not follow its setting"
+msgstr "لم يتبع الراديو إعداده"
 
 msgid "The data roaming setting could not be saved"
 msgstr "تعذّر حفظ إعداد تجوال البيانات"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "تعذّر تبديل نواة المعالج"
+
+msgid "Invalid low latency setting"
+msgstr "إعداد زمن انتقال منخفض غير صالح"
+
+msgid "The low latency setting could not be applied"
+msgstr "تعذّر تطبيق إعداد زمن الانتقال المنخفض"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "تعذّرت قراءة إزاحة جهد CPU"
 
@@ -3643,9 +3787,6 @@ msgstr "تعذّر إيقاف إزاحة جهد CPU"
 
 msgid "The stress test could not be started"
 msgstr "تعذّر بدء اختبار الإجهاد"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "محوّل دور USB غير قابل للتنفيذ"

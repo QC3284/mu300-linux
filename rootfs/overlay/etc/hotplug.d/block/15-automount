@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# The TF card (mmcblk1) carries the Linux rootfs and the OS area: never probe, mount
+# or automount it from a block hotplug event.
+# The same lock the block probe takes (/opt/mu300/bin/mu300-block-*.guard): a block event handled here must not race
+# the probe in sbuf_read (sipc_core), which wedges rpcd. The lock is released when this script exits.
+LOCK=${MU300_BLOCK_LOCK:-/run/mu300-block.lock}
+if [ -e "$LOCK" ] || : >> "$LOCK" 2>/dev/null; then
+    exec 9>>"$LOCK" 2>/dev/null || true
+    if command -v flock >/dev/null 2>&1; then flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true
+    elif [ -x /opt/mu300/busybox-bin/flock ]; then /opt/mu300/busybox-bin/flock -w "${MU300_BLOCK_LOCK_WAIT:-20}" 9 2>/dev/null || true; fi
+fi
+
+case "${DEVNAME:-}" in mmcblk1*) exit 0 ;; esac
+
+
+# Copyright (C) 2015 OpenWrt.org
+
+# 0 yes blockdevice handles this - 1 no it is not there
+blkdev=`dirname $DEVPATH`
+basename=`basename $blkdev`
+device=`basename $DEVPATH`
+skip=`block info | grep -vE '(f2fs|kernel|squashfs|ubifs)' | sed 's/\(.*\): .*/\1/' | grep -q $device ; echo $?`
+path=$DEVPATH
+
+if [ $basename != "block" ] && [ -z "${device##sd*}" ] && [ $skip -eq 1 ]; then
+	mntpnt=$device
+	case "$ACTION" in
+		add)
+			mkdir -p /mnt/$mntpnt
+			chmod 777 /mnt/$mntpnt
+			# Try to be gentle on solid state devices
+			mount -o rw,noatime,discard /dev/$device /mnt/$mntpnt
+			;;
+		remove)
+			# Once the device is removed, the /dev entry disappear. We need mountpoint
+			mountpoint=`mount |grep /dev/$device | sed 's/.* on \(.*\) type.*/\1/'`
+			umount -l $mountpoint
+			;;
+	esac
+fi

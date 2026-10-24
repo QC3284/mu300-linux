@@ -13,6 +13,9 @@ msgstr "Matkapuhelinverkko"
 msgid "Dual SIM"
 msgstr "Dual SIM"
 
+msgid "SIM settings"
+msgstr "SIM-asetukset"
+
 msgid "Network locks"
 msgstr "Verkkolukitukset"
 
@@ -463,6 +466,18 @@ msgstr "Hardware max"
 msgid "Frequencies in MHz."
 msgstr "Frequencies in MHz."
 
+msgid "Highlighted cores are online. A core taken offline stays offline, also after a reboot, until it is brought back. CPU0 always stays online."
+msgstr "Korostetut ytimet ovat käytössä. Pois kytketty ydin pysyy pois käytöstä myös uudelleenkäynnistyksen jälkeen, kunnes se kytketään takaisin. CPU0 on aina käytössä."
+
+msgid "Low latency: on"
+msgstr "Matala viive: päällä"
+
+msgid "Low latency: off"
+msgstr "Matala viive: pois"
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "Matala viive pitää CPU0:n poissa lepotiloistaan, kuten ZTE:n U30 Air -laiteohjelmisto: Wi-Fi-viiveet lyhenevät huomattavasti ja laite kuluttaa enemmän virtaa. Oletuksena pois."
+
 msgid "Thermal"
 msgstr "Lämpötila"
 
@@ -763,6 +778,12 @@ msgstr "Poista tallennettu arvo"
 msgid "Presets"
 msgstr "Esiasetukset"
 
+msgid "Form (URL-encoded)"
+msgstr "Lomake (URL-koodattu)"
+
+msgid "Plain text"
+msgstr "Pelkkä teksti"
+
 msgid "Received messages are sent on as they reach the SMS pool. A failed delivery is retried after 30 s, then after twice as long each time (an hour at most), ten times in all."
 msgstr "Vastaanotetut viestit lähetetään edelleen heti, kun ne saapuvat SMS-pooliin. Epäonnistunut toimitus yritetään uudelleen 30 s kuluttua ja sen jälkeen aina kaksinkertaisen ajan päästä (enintään tunti), yhteensä kymmenen kertaa."
 
@@ -801,12 +822,6 @@ msgstr "Osoite (http:// tai https://)"
 
 msgid "Body"
 msgstr "Sisältö"
-
-msgid "Form (URL-encoded)"
-msgstr "Lomake (URL-koodattu)"
-
-msgid "Plain text"
-msgstr "Pelkkä teksti"
 
 msgid "Fields: sender, time, text, device, message (the template filled in)"
 msgstr "Kentät: sender, time, text, device, message (täytetty pohja)"
@@ -924,6 +939,9 @@ msgstr "Ei vielä toimituksia"
 
 msgid "Test started with the saved settings; the result appears in the delivery log."
 msgstr "Testi käynnistettiin tallennetuilla asetuksilla; tulos näkyy toimituslokissa."
+
+msgid "Automatic without 2G (152)"
+msgstr "Automaattinen ilman 2G:tä (152)"
 
 msgid "4G only"
 msgstr "Vain 4G"
@@ -1087,8 +1105,8 @@ msgstr "Wi-Fi-tukiasema"
 msgid "Restart modem"
 msgstr "Käynnistä modeemi uudelleen"
 
-msgid "Restart device"
-msgstr "Käynnistä laite uudelleen"
+msgid "Power off or restart"
+msgstr "Sammuta tai käynnistä uudelleen"
 
 msgid "Switch to Android"
 msgstr "Vaihda Androidiin"
@@ -1123,14 +1141,14 @@ msgstr "Muodostetaan datayhteyttä…"
 msgid "Turn off cellular radio"
 msgstr "Sammuta matkapuhelinradio"
 
-msgid "Cellular connectivity will be interrupted."
-msgstr "Matkapuhelinyhteys katkeaa."
+msgid "This SIM will have no calls, SMS or data, and its radio stays off after a reboot until you turn it on again."
+msgstr "Tällä SIM-kortilla ei ole puheluita, tekstiviestejä eikä dataa, ja sen radio pysyy pois päältä myös uudelleenkäynnistyksen jälkeen, kunnes kytket sen taas päälle."
 
 msgid "Turn on cellular radio"
 msgstr "Kytke matkapuhelinradio päälle"
 
-msgid "The SFUN power-on sequence will run (up to about 1 minute)."
-msgstr "SFUN-käynnistysjakso suoritetaan (enintään noin 1 minuutti)."
+msgid "The radio of the SIM in use comes on and stays on after a reboot (up to about 1 minute)."
+msgstr "Käytössä olevan SIM-kortin radio kytkeytyy päälle ja pysyy päällä uudelleenkäynnistyksen jälkeen (enintään noin 1 minuutti)."
 
 msgid "Turn data roaming off"
 msgstr "Poista datavierailu käytöstä"
@@ -1147,11 +1165,14 @@ msgstr "Mobiilidataa käytetään myös verkkovierailuverkoissa, mikä voi maksa
 msgid "Cellular connectivity may stop for 1–2 minutes."
 msgstr "Matkapuhelinyhteys voi katketa 1–2 minuutiksi."
 
-msgid "Restart the entire device"
-msgstr "Käynnistä koko laite uudelleen"
-
 msgid "All connections will be interrupted."
 msgstr "Kaikki yhteydet katkeavat."
+
+msgid "Power off"
+msgstr "Sammuta"
+
+msgid "Restart"
+msgstr "Käynnistä uudelleen"
 
 msgid "The next boot will enter Android and reboot now. This management page and cellular sharing will disconnect."
 msgstr "Seuraava käynnistys siirtyy Androidiin, ja laite käynnistyy uudelleen nyt. Tämä hallintasivu ja matkapuhelinyhteyden jakaminen katkeavat."
@@ -1477,6 +1498,21 @@ msgstr "Lukitse nykyinen palveleva solu"
 msgid "Unlock cell"
 msgstr "Poista solulukitus"
 
+msgid "Enter a cell"
+msgstr "Syötä solu"
+
+msgid "Type"
+msgstr "Tyyppi"
+
+msgid "Channel number (EARFCN / NR-ARFCN)"
+msgstr "Kanavanumero (EARFCN / NR-ARFCN)"
+
+msgid "Lock this cell"
+msgstr "Lukitse tämä solu"
+
+msgid "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. A channel number, not a frequency in MHz; the cell need not be in the neighbor list."
+msgstr "LTE: EARFCN 0–262143, PCI 0–503; NR: NR-ARFCN 1–3279165, PCI 0–1007. Kanavanumero, ei taajuus megahertseinä; solun ei tarvitse olla naapurisolujen luettelossa."
+
 msgid "Applying restarts the radio stack (SFUN) and briefly interrupts cellular service. Settings are saved and replayed by the plugin after AT is ready when Apply at startup is enabled. A platform pre-radio hook can replay without a restart. Apply with no bands selected to restore automatic mode."
 msgstr "Käyttöönotto käynnistää radiopinon uudelleen (SFUN) ja katkaisee matkapuhelinpalvelun hetkeksi. Asetukset tallennetaan, ja laajennus ottaa ne uudelleen käyttöön AT:n ollessa valmis, kun Käytä käynnistyksessä on käytössä. Alustan radiota edeltävä koukku voi ottaa ne käyttöön ilman uudelleenkäynnistystä. Palauta automaattinen tila käyttämällä ilman valittuja kaistoja."
 
@@ -1563,6 +1599,9 @@ msgstr "Lukitaan %s taustalla…"
 
 msgid "Locked %s in the background (SFUN restart, about 30 seconds); reading the status back…"
 msgstr "%s lukittu taustalla (SFUN-uudelleenkäynnistys, noin 30 sekuntia); luetaan tila takaisin…"
+
+msgid "Enter a channel number and a PCI in the ranges below"
+msgstr "Syötä kanavanumero ja PCI alla olevien rajojen sisällä"
 
 msgid "No serving-network data"
 msgstr "Ei palvelevan verkon tietoja"
@@ -1798,6 +1837,15 @@ msgstr "0 % ei koskaan lataa akkua (laite toimii laturin varassa), 100 % lataa s
 msgid "80 % keeps the battery healthier on a device that stays plugged in."
 msgstr "80 % säästää akkua laitteessa, joka pysyy verkossa."
 
+msgid "When the charger switches the device on"
+msgstr "Kun laturi käynnistää laitteen"
+
+msgid "Charge only, until a key starts it"
+msgstr "Vain lataus, kunnes näppäin käynnistää sen"
+
+msgid "Start normally"
+msgstr "Käynnistä normaalisti"
+
 msgid "Keep as is"
 msgstr "Jätä ennalleen"
 
@@ -1996,6 +2044,78 @@ msgstr "Switch to SIM%d"
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM%d at next boot"
 msgstr "Use SIM%d at next boot"
+
+msgid "Built-in SIM 1"
+msgstr "Sisäänrakennettu SIM 1"
+
+msgid "Built-in SIM 2"
+msgstr "Sisäänrakennettu SIM 2"
+
+msgid "Built-in SIM 3"
+msgstr "Sisäänrakennettu SIM 3"
+
+msgid "External SIM"
+msgstr "Ulkoinen SIM"
+
+msgid "SIM card"
+msgstr "SIM-kortti"
+
+msgid "Built-in SIM 3 shares SIM2, the external SIM shares SIM1. The card chosen here is switched in before the modem starts, at the next boot; without a choice the cards stay as the bootloader sets them."
+msgstr "Sisäänrakennettu SIM 3 jakaa SIM2:n ja ulkoinen SIM jakaa SIM1:n. Tässä valittu kortti kytketään ennen modeemin käynnistymistä seuraavalla käynnistyskerralla; ilman valintaa kortit jäävät käynnistyslataimen asettamiksi."
+
+msgid "As the bootloader sets them"
+msgstr "Käynnistyslataimen asettamina"
+
+msgid "Applying the radio setting…"
+msgstr "Radioasetusta otetaan käyttöön…"
+
+msgid "SIM settings are not available"
+msgstr "SIM-asetukset eivät ole käytettävissä"
+
+msgid "Modem default"
+msgstr "Modeemin oletus"
+
+msgid "SIM%d"
+msgstr "SIM%d"
+
+msgid "in use"
+msgstr "käytössä"
+
+msgid "Turn off the radio of SIM%d"
+msgstr "Kytke SIM%d:n radio pois"
+
+msgid "Radio"
+msgstr "Radio"
+
+msgid "VoLTE"
+msgstr "VoLTE"
+
+msgid "VoNR"
+msgstr "VoNR"
+
+msgid "Modem: %s"
+msgstr "Modeemi: %s"
+
+msgid "Sent to this SIM when its radio next starts."
+msgstr "Lähetetään tälle SIM-kortille, kun sen radio seuraavan kerran käynnistyy."
+
+msgid "VoLTE and VoNR for each SIM, kept across reboots and sent again whenever that SIM starts. VoLTE is on unless switched off; VoNR stays as the modem has it until set."
+msgstr "VoLTE ja VoNR kullekin SIM-kortille; säilyvät uudelleenkäynnistyksen yli ja lähetetään uudelleen aina, kun SIM käynnistyy. VoLTE on päällä, ellei sitä kytketä pois; VoNR pysyy modeemin asetuksen mukaisena, kunnes se asetetaan."
+
+msgid "All radios off (airplane mode)"
+msgstr "Kaikki radiot pois (lentotila)"
+
+msgid "All radios on"
+msgstr "Kaikki radiot päälle"
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "Millään SIM-kortilla ei ole puheluita, tekstiviestejä eikä dataa, ei myöskään uudelleenkäynnistyksen jälkeen, ennen kuin radio kytketään taas päälle täällä tai kojelaudan radiopainikkeella."
+
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "Kunkin SIM-kortin radio pysyy uudelleenkäynnistyksen jälkeen täällä asetetun mukaisena. SIM-kortilla, jonka radio on pois päältä, ei ole puheluita, tekstiviestejä eikä dataa, eikä laite vaihda siihen."
+
+msgid "The setting is saved, but the radio did not follow it yet."
+msgstr "Asetus on tallennettu, mutta radio ei ole vielä seurannut sitä."
 
 msgid "Recipient: number, e.g. 10086 or +86..."
 msgstr "Vastaanottaja: numero, esim. 10086 tai +86..."
@@ -2299,9 +2419,6 @@ msgstr "Laite käynnistyy nyt uudelleen. Oletuskäynnistys on Android, joten lai
 
 msgid "The device restarts now and is away for about a minute. If the new system does not start, the device goes back to Android by itself after the failed attempts."
 msgstr "Laite käynnistyy nyt uudelleen ja on poissa noin minuutin. Jos uusi järjestelmä ei käynnisty, laite palaa itsestään Androidiin epäonnistuneiden yritysten jälkeen."
-
-msgid "Restart"
-msgstr "Käynnistä uudelleen"
 
 msgid "Restarting… open this page again in about a minute."
 msgstr "Käynnistetään uudelleen… avaa tämä sivu uudelleen noin minuutin kuluttua."
@@ -2957,9 +3074,6 @@ msgstr "Tunnista"
 msgid "The URL may hold a token: it goes to the device on its own, never into a command line or a log."
 msgstr "URL voi sisältää tunnuksen: se menee laitteelle erikseen, ei koskaan komentoriville tai lokiin."
 
-msgid "Type"
-msgstr "Tyyppi"
-
 msgid "Share link"
 msgstr "Jakolinkki"
 
@@ -3397,6 +3511,12 @@ msgstr "The CPU adapter gave no valid reply"
 msgid "Invalid CPU profile"
 msgstr "Invalid CPU profile"
 
+msgid "Invalid CPU core"
+msgstr "Virheellinen suoritinydin"
+
+msgid "Unknown CPU operation"
+msgstr "Unknown CPU operation"
+
 msgid "Unknown CPU voltage operation"
 msgstr "Tuntematon CPU-jännitetoiminto"
 
@@ -3433,17 +3553,32 @@ msgstr "Virheellinen päivityspyyntö"
 msgid "The backup tool gave no valid reply"
 msgstr "Varmuuskopiotyökalu ei antanut kelvollista vastausta"
 
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Mobiilidatan integraatiota ei ole tällä alustalla"
+
+msgid "The SIM settings could not be read"
+msgstr "SIM-asetuksia ei voitu lukea"
+
+msgid "Radio control is not provided by this platform"
+msgstr "Tämä alusta ei tarjoa radion ohjausta"
+
+msgid "A SIM radio change is already running"
+msgstr "SIM-radion muutos on jo käynnissä"
+
 # Source-language fallback for untranslated new controls.
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-# Source-language fallback for untranslated new controls.
-msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
-msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Modeemi ei ottanut asetusta vastaan; mitään ei tallennettu"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
 msgstr "SIM control failed"
+
+# Source-language fallback for untranslated new controls.
+msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
+msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
 msgid "Request too large"
 msgstr "Pyyntö on liian suuri"
@@ -3598,15 +3733,15 @@ msgstr "Rivien määrä on 1-1000"
 msgid "The log could not be read"
 msgstr "Lokia ei voitu lukea"
 
+msgid "The radio of this SIM is switched off in its settings"
+msgstr "Tämän SIM-kortin radio on kytketty pois sen asetuksissa"
+
 # Source-language fallback for untranslated new controls.
 msgid "Use SIM control or reboot for managed dual-SIM radio"
 msgstr "Use SIM control or reboot for managed dual-SIM radio"
 
-msgid "Radio did not come up"
-msgstr "Radio ei käynnistynyt"
-
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Mobiilidatan integraatiota ei ole tällä alustalla"
+msgid "The radio did not follow its setting"
+msgstr "Radio ei seurannut asetustaan"
 
 msgid "The data roaming setting could not be saved"
 msgstr "Datavierailun asetusta ei voitu tallentaa"
@@ -3632,6 +3767,15 @@ msgstr "The CPU profile could not be read"
 msgid "The CPU profile could not be set"
 msgstr "The CPU profile could not be set"
 
+msgid "The CPU core could not be switched"
+msgstr "Suoritinydintä ei voitu vaihtaa"
+
+msgid "Invalid low latency setting"
+msgstr "Virheellinen matalan viiveen asetus"
+
+msgid "The low latency setting could not be applied"
+msgstr "Matalan viiveen asetusta ei voitu ottaa käyttöön"
+
 msgid "The CPU voltage offset could not be read"
 msgstr "CPU:n jännitesiirtymää ei voitu lukea"
 
@@ -3643,9 +3787,6 @@ msgstr "CPU:n jännitesiirtymää ei voitu poistaa käytöstä"
 
 msgid "The stress test could not be started"
 msgstr "Kuormitustestiä ei voitu käynnistää"
-
-msgid "Unknown CPU operation"
-msgstr "Unknown CPU operation"
 
 msgid "USB role adapter is not executable"
 msgstr "USB-roolisovitin ei ole suoritettava"
