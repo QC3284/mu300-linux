@@ -11,7 +11,7 @@ on:
       base_rootfs_url:
         description: 'ImmortalWrt rootfs tarball to repack (our release asset)'
         required: false
-        default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-immortalwrt-25.12.2-rootfs.tar.gz'
+        default: 'https://github.com/QC3284/mu300-linux/releases/latest/download/mu300-openwrt-rootfs.tar.gz'
       base_rootfs_sha256:
         description: 'Expected sha256 of that tarball'
         required: false
@@ -19,7 +19,7 @@ on:
       base_zip_url:
         description: 'Release package that carries the installer payload'
         required: false
-        default: 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-linux-immortalwrt-tf-7.2.zip'
+        default: 'https://github.com/QC3284/mu300-linux/releases/latest/download/mu300-linux-immortalwrt-tf-7.2.zip'
       tag:
         description: 'Release tag to publish this build under (empty: do not publish)'
         required: false
@@ -52,12 +52,13 @@ jobs:
       - name: Fetch the base rootfs (our build, with the reference feature layer)
         env:
           URL: ${{ inputs.base_rootfs_url || 'https://github.com/QC3284/mu300-linux/releases/download/v2026.10.17.5/mu300-immortalwrt-25.12.2-rootfs.tar.gz' }}
-          SHA: ${{ inputs.base_rootfs_sha256 || 'fc28516902671c442ba6fc3c70e0f49a0f1e93903ed8614b681578f8241a4bb6' }}
+          SHA: ${{ inputs.base_rootfs_sha256 || '' }}
         run: |
           set -eu
           mkdir -p openwrt
           curl -fsSL "$URL" -o openwrt/mu300-immortalwrt-base.tar.gz
-          echo "$SHA  openwrt/mu300-immortalwrt-base.tar.gz" | sha256sum -c -
+          echo "base rootfs sha256: $(sha256sum openwrt/mu300-immortalwrt-base.tar.gz | cut -d" " -f1)"
+          [ -z "$SHA" ] || echo "$SHA  openwrt/mu300-immortalwrt-base.tar.gz" | sha256sum -c -
           echo "  mu300-api files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'opt/mu300/bin/mu300-api$')"
           echo "  panel views: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'view/mu300/.*\.js$')"
           echo "  mu300 services: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c 'etc/init.d/mu300-')"
