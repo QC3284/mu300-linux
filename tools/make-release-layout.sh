@@ -27,6 +27,12 @@ echo '== rootfs asset =='
 mkdir -p "$OUT/r"
 tar -xzf "$ROOTFS" -C "$OUT/r"
 printf 'sdcard\ngpt-root\n' > "$OUT/r/features"
+# Two entries that do not belong on this device: the attended-sysupgrade page and the stock Terminal (ours is
+# admin/system/terminal). Removing them here makes it deterministic, not first-boot dependent.
+rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" \
+      "$OUT/r/usr/share/luci/menu.d/luci-app-ttyd.json"
+# Two entries that do not belong: the attended-sysupgrade page and the stock Terminal (ours is admin/system/terminal).
+rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" "$OUT/r/usr/share/luci/menu.d/luci-app-ttyd.json"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     python3 "$TREE/tools/image-manifest.py" make "$OUT/r" openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz" || true

@@ -2,13 +2,13 @@
 'require view';
 'require dom';
 'require mu300.common as M';
+'require fs';
 
 /* Every value from the backend goes into E() inside an array: LuCI's E() takes a lone string as HTML, an array's
  * strings as text. */
 /* System > Packages after an update: what mu300-update wrote down of the packages installed on the device, and what
  * the first boot's mu300-user-packages made of them (mu300dash packages_get/packages_act, unisoc-modem/packages).
  * Retry and Repair DNS run in the background; the page looks again a few seconds later. */
-var fs = require('fs');
 
 return view.extend({
 	load: function() { return L.resolveDefault(M.callPackagesGet(), {}); },
