@@ -1024,10 +1024,28 @@ m_backup_job() { reply_obj "$(printf '{"from":0}' | "$APIB" job.status 2>/dev/nu
 # (mobile-data voice, FINDINGS 184). get asks the card in use what
 # it has now (two short reads); set sends the choice to the card in use and reads it back, or saves it for the other
 # card's next start. Nothing a caller sends reaches the command but the fixed words checked here.
+# simcard_from_file: the card identity the flash keeps (/etc/unisoc-modem/sim.json, written by
+# unisoc-modem/cell): imei, imsi, iccid. Used when this build's mobile-data has no voice subcommand; the model and
+# firmware are then unknown, which is the truth: nothing asked the modem for them.
+simcard_from_file() {
+    _f=${MU300_SIM_IDENT:-/etc/unisoc-modem/sim.json}
+    [ -s "$_f" ] || return 1
+    _g() { jsonfilter -e "@.$1" < "$_f" 2>/dev/null; }
+    _i=$(_g imei); _s=$(_g imsi); _c=$(_g iccid)
+    [ -n "$_i$_s$_c" ] || return 1
+    printf '{"imei":%s,"imsi":%s,"iccid":%s,"model":"unknown","fw":"unknown"}\n' \
+        "$(json_str "$_i")" "$(json_str "$_s")" "$(json_str "$_c")"
+}
+
 m_simcard_get() {
-    local v s1 r
+    local v s1 r rc
     [ -x "$MOBILE_DATA" ] || { refuse 'Mobile data integration is not provided by this platform'; return; }
-    v=$(json_obj "$("$MOBILE_DATA" voice --json --read 2>/dev/null)") || { refuse 'The SIM settings could not be read'; return; }
+    v=$(json_obj "$("$MOBILE_DATA" voice --json --read 2>/dev/null)"); rc=$?
+    if [ "$rc" != 0 ] || [ -z "$v" ]; then
+        # A mobile-data without the voice subcommand (usage, rc=2) must not fail the SIM page: the identity on
+        # flash still answers imei/imsi/iccid, and model/fw are reported as unknown.
+        v=$(simcard_from_file) || { refuse 'The SIM settings could not be read'; return; }
+    fi
     # whether this device has a second card at all (the selector's own account, files only)
     s1=0
     [ "$(printf '%s' "$("$SIMCTL" status --json 2>/dev/null)" | jsonfilter -e '@.slot1_supported' 2>/dev/null)" != 1 ] || s1=1
