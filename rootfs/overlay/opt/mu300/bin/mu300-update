@@ -433,6 +433,17 @@ installed_systems() {
     done
 }
 
+# The theme variant this image was built for: aurora unless the build said otherwise. Releases of the other
+# theme are invisible to this device (they carry a -<theme> asset suffix instead of the plain names).
+DEVICE_THEME=$(cat /etc/mu300/image-theme 2>/dev/null | head -n1 | tr -d ' \r\n')
+case $DEVICE_THEME in aurora|argon) ;; *) DEVICE_THEME=aurora ;; esac
+# theme_asset NAME: the asset name for this device's theme (aurora keeps the plain name)
+theme_asset() { [ "$DEVICE_THEME" = aurora ] && printf '%s\n' "$1" || printf '%s-%s\n' "$1" "$DEVICE_THEME"; }
+# release_has_theme TAG: does that release publish this theme's rootfs asset?
+release_has_theme() {
+    _a=$(fetch_stdout "$(api_base)/releases/tags/$1" 2>/dev/null) || return 1
+    printf '%s' "$_a" | grep -q "\"$(theme_asset mu300-openwrt-rootfs.tar.gz)\""
+}
 latest_release() {
     fetch_stdout "${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases/latest" \
         | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
