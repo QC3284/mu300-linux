@@ -1,0 +1,10 @@
+# ImmortalWrt 25.12.2 feeds, on the USTC mirror (verified: all seven URLs answer 206 with a valid .adb).
+# Only the host differs from the file the image ships; the release path, the arch path and the kmods hash are the
+# ones the image was built against. SJTU redirects (302) and Tsinghua does not mirror ImmortalWrt at this path (404).
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/targets/armsr/armv8/packages/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/packages/aarch64_generic/base/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/targets/armsr/armv8/kmods/6.12.103-1-22bb9c5fbf961290730647aa15ad8277/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/packages/aarch64_generic/luci/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/packages/aarch64_generic/packages/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/packages/aarch64_generic/routing/packages.adb
+https://mirrors.ustc.edu.cn/immortalwrt/releases/25.12.2/packages/aarch64_generic/telephony/packages.adb
