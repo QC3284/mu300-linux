@@ -37,7 +37,7 @@ on:
     paths: ['.github/workflows/immortalwrt.yml', 'tools/ci-repack-module.py', 'tools/ci-postbuild.sh']
 
 permissions:
-  contents: read
+  contents: write   # the Publish step creates/updates the release
 
 jobs:
   image:
@@ -81,7 +81,7 @@ jobs:
           sudo chroot "$R" /bin/sh -c "apk update && apk add luci-theme-argon luci-app-argon-config"
           rm -f "$R/etc/resolv.conf"
           ln -sfn /tmp/resolv.conf "$R/etc/resolv.conf"
-          tar --owner=0 --group=0 -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
+          tar --owner=0 --group=0 --exclude=./lib/apk/exec --exclude=./tmp/* -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
           rm -rf "$R"
           echo "argon files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c luci-static/argon || true)"
       - name: Post-build pass (SSH, password, dropbear off, ownership)
