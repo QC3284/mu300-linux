@@ -93,7 +93,12 @@ if ! [ -s /dev/__properties__/property_info ]; then
     mkdir -p /dev/__properties__
     mount --bind $A/dev-properties /dev/__properties__
 fi
-mark vendor-props
+mark vendor-pre perms
+# The ownership pass must run BEFORE the first vendor daemon (cp_diskserver): when it ran after, cp_diskserver's first
+# start failed on the wrong ownership, modem_control then took the write lock with no server and went D, and the boot
+# waited on it. Same pass, moved in front.
+[ -d $A/vendor ] && { sh /opt/mu300/bin/ueventd-perms.sh >/dev/null 2>&1 || true; chmod 755 $A $A/vendor $A/vendor/bin $A/vendor/etc 2>/dev/null || true; }
+mark vendor-pre-perms-done
 # Android's by-name links: the eMMC's partitions, found by type - its number follows probe order (FINDINGS 31l). The
 # disk of type MMC, else the first mmcblk disk that is not a card; never a card, which can carry the same GPT names.
 # --- emmc begin
@@ -145,4 +150,18 @@ mount --bind /run/mu300-cmdline.android $A/proc/cmdline
 mark vendor-chroot-ready
 # sprd_modem_loader only accepts a task whose comm is exactly "modem_control": android-run execs it directly, as the
 # vendor account where there is one
-exec /opt/mu300/bin/android-run modem_control
+# modem_control is started ASYNC and watched with a bounded wait: nothing in the boot path may block on it. The
+# loader's write lock (ioctl 0x4d03 = _IOW('M',3)) is only granted once the CP runs, and the CP needs cp_diskserver;
+# if that order ever breaks again the boot must continue instead of wedging.
+MU300_MODEM_WAIT=${MU300_MODEM_WAIT:-25}
+( /opt/mu300/bin/android-run modem_control >>/var/log/modem-control.log 2>&1 ) &
+MC=$!
+n=0
+while [ $n -lt "$MU300_MODEM_WAIT" ]; do
+    [ -e /dev/stty_nr1 ] && { mark vendor-modem-up; break; }
+    kill -0 "$MC" 2>/dev/null || { mark "vendor-modem-exited"; break; }
+    n=$((n + 1)); sleep 1
+done
+[ -e /dev/stty_nr1 ] || mark "vendor-modem-timeout"
+mark vendor-modem-watch-end
+exit 0
