@@ -4032,3 +4032,6 @@ msgstr "此檔案比已安裝的版本舊：需要確認"
 
 msgid "The release source was not changed"
 msgstr "發行來源未變更"
+
+msgid "Packages this image shipped with"
+msgstr "本映像自帶的軟體套件"

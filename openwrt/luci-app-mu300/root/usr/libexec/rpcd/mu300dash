@@ -153,11 +153,24 @@ json_obj() {
 # json_file FILE: the JSON object in FILE, or null
 json_file() { { [ -s "$1" ] && json_obj "$(cat "$1")"; } || echo null; }
 # refuse MESSAGE [DETAIL]: the fixed error reply
+# refuse_code TEXT: a stable identifier the view can translate, so the panel is not stuck with English backend text.
+refuse_code() {
+    case $1 in
+        'The SIM settings could not be read') echo sim_read_failed ;;
+        'Invalid packages operation') echo packages_op_invalid ;;
+        'The packages adapter gave no valid reply') echo packages_adapter_invalid ;;
+        'Mobile data integration is not provided by this platform') echo mobile_data_absent ;;
+        'The data usage adapter gave no valid reply') echo traffic_adapter_invalid ;;
+        'The USB adapter (device-usb) gave no valid reply') echo usb_adapter_invalid ;;
+        'Invalid operation') echo operation_invalid ;;
+        *) printf 'backend_%s' "$(printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' '_' | cut -c1-40)" ;;
+    esac
+}
 refuse() {
     if [ -n "${2:-}" ]; then
-        printf '{"ok":0,"error":%s,"detail":%s}\n' "$(json_str "$1")" "$(json_str "$2")"
+        printf '{"ok":0,"error":%s,"code":%s,"detail":%s}\n' "$(json_str "$1")" "$(json_str "$(refuse_code "$1")")" "$(json_str "$2")"
     else
-        printf '{"ok":0,"error":%s}\n' "$(json_str "$1")"
+        printf '{"ok":0,"error":%s,"code":%s}\n' "$(json_str "$1")" "$(json_str "$(refuse_code "$1")")"
     fi
 }
 # reply_obj TEXT MESSAGE: an adapter's JSON object, or the fixed error
@@ -903,7 +916,19 @@ m_cpu_voltage_set() {
 # The Settings page's card of the packages installed before an update: mu300-user-packages through the adapter,
 # which checks the operation again and starts retry and repair-dns in the background itself
 PKGA=${MU300_PKG_ADAPTER:-$DASH/packages}
-m_packages_get() { reply_obj "$("$PKGA" get 2>/dev/null)" 'The packages adapter gave no valid reply'; }
+# packages_get: the adapter's state, plus the set this image shipped with (/etc/mu300/image-packages): a fresh
+# device has no user-package list yet and the page should still show something true.
+m_packages_get() {
+    _r=$("$PKGA" get 2>/dev/null)
+    _o=$(json_obj "$_r") || { refuse 'The packages adapter gave no valid reply'; return; }
+    _f=/etc/mu300/image-packages
+    if [ -s "$_f" ]; then
+        _l=$(grep -v '^[[:space:]]*#' "$_f" | awk 'NF' | awk '{printf "%s\"%s\"", sep, $0; sep=","}')
+        printf '%s' "$_o" | sed "s/}[[:space:]]*$/, \"image_packages\":[$_l]}/"
+    else
+        printf '%s\n' "$_o"
+    fi
+}
 m_packages_act() {
     local op
     inp '@.op'; op=$V

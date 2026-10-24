@@ -4018,3 +4018,6 @@ msgstr "此文件比已安装的版本旧：需要确认"
 
 msgid "The release source was not changed"
 msgstr "发布源未更改"
+
+msgid "Packages this image shipped with"
+msgstr "本镜像自带的软件包"
