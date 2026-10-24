@@ -89,6 +89,23 @@ jobs:
           tar --owner=0 --group=0 --exclude=./lib/apk/exec --exclude=./tmp/* -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
           sudo rm -rf "$R"
           echo "argon files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c luci-static/argon || true)"
+      - name: Stamp the release tag into the image
+        if: ${{ inputs.tag != '' }}
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          # image-version (and the manifest head that names it) must equal the release tag, or the update path refuses
+          # the image and a fingerprint of the installed build is useless.
+          R=$PWD/stamp-root
+          rm -rf "$R" && mkdir -p "$R"
+          tar -xzf openwrt/mu300-immortalwrt-base.tar.gz -C "$R"
+          printf '%s\n' "$TAG" > "$R/etc/mu300/image-version"
+          tar --owner=0 --group=0 -czf /tmp/stamp-stage.tar.gz -C "$R" .
+          python3 tools/image-manifest.py make /tmp/stamp-stage.tar.gz openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$R/etc/mu300/image-manifest.gz"
+          tar --owner=0 --group=0 --exclude=./lib/apk/exec -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
+          sudo rm -rf "$R" /tmp/stamp-stage.tar.gz
+          echo "image-version: $(tar xzOf openwrt/mu300-immortalwrt-base.tar.gz ./etc/mu300/image-version)"
       - name: Post-build pass (SSH, password, dropbear off, ownership)
         run: |
           set -eu
