@@ -480,30 +480,35 @@ const methods = {
 
 	getBlockDevices: {
 		call: function() {
-			// No raw fallback: an unguarded /sbin/block info can block in sbuf_read (sipc_core) and wedge rpcd,
-			// which is single threaded. Without the guard this object reports the condition instead.
-			if (!access('/opt/mu300/bin/mu300-block-info.guard'))
-				return { error: 'the block probe guard is missing (mu300-block-info.guard)' };
-			const block = popen('/opt/mu300/bin/mu300-block-info.guard info 2>/dev/null');
-
-			if (block) {
-				let result = {};
-
-				for (let line = block.read('line'); length(line); line = block.read('line')) {
-					let dev = match(line, /^\/dev\/([^:]+):/)?.[1];
-
-					if (dev) {
-						let e = result[dev] = {
-							dev: `/dev/${dev}`,
-							size: +readfile(`/sys/class/block/${dev}/size`) * 512
-						};
-
-						for (let m in match(line, / (\w+)="([^"]+)"/g))
-							e[lc(m[1])] = m[2];
-					}
+			// No /sbin/block on this SoC: the probe can block inside the kernel in sbuf_read (sipc_core) and cannot be
+			// killed (D state), so the data is assembled from the kernel own interfaces instead: /sys/class/block for the
+			// devices and sizes, /proc/mounts for the mounts, and the /dev/disk/by-* links for UUID and LABEL.
+			const result = {};
+			for (let name in lsdir('/sys/class/block') ?? []) {
+				if (name == '.' || name == '..')
+					continue;
+				const e = result[name] = {
+					dev: `/dev/${name}`,
+					size: (+readfile(`/sys/class/block/${name}/size`) || 0) * 512
+				};
+				if ((readfile(`/sys/class/block/${name}/ro`) ?? '').trim() == '1')
+					e.ro = true;
+			}
+			for (let link in glob('/dev/disk/by-uuid/*') ?? []) {
+				const b = basename(readlink(link) ?? '');
+				if (b && result[b]) result[b].uuid = basename(link);
+			}
+			for (let link in glob('/dev/disk/by-label/*') ?? []) {
+				const b = basename(readlink(link) ?? '');
+				if (b && result[b]) result[b].label = basename(link);
+			}
+			for (let line in split(readfile('/proc/mounts') ?? '', /\n/)) {
+				const m = match(line, /^(\/\S+)\s+(\S+)\s+(\S+)/);
+				if (m) {
+					const b = basename(m[1]);
+					if (result[b]) { result[b].mount = m[2]; result[b].type = m[3]; }
 				}
-
-				block.close();
+			}
 
 				const swaps = open('/proc/swaps', 'r');
 

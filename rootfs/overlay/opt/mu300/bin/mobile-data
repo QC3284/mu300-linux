@@ -418,7 +418,13 @@ PLUGIN_LOCK=${MU300_PLUGIN_LOCK:-/usr/libexec/unisoc-modem/lock}
 # 0, the service stays up) and the watchdog leaves the radio alone; rf-apply or the watchdog ends it when it says yes.
 SIM_RADIO_BIN=${MU300_SIM_RADIO_BIN:-/opt/mu300/bin/mu300-sim-radio}
 RF_HELD=/run/mu300/sim-radio-held
-rf_allowed() { [ ! -x "$SIM_RADIO_BIN" ] || "$SIM_RADIO_BIN" allowed "$SIM_SLOT" 2>/dev/null; }
+# Fail-open on purpose: a helper that cannot answer must not stop the dial (that turned into a WAN outage on a
+# device whose mu300-sim-radio had no state yet). Only an explicit "off" answer blocks.
+rf_allowed() {
+    [ -n "${SIM_RADIO_BIN:-}" ] && [ -x "$SIM_RADIO_BIN" ] || return 0
+    _a=$("$SIM_RADIO_BIN" allowed "$SIM_SLOT" 2>/dev/null) || return 0
+    case $_a in 0|no|off|false|disabled) return 1 ;; *) return 0 ;; esac
+}
 # wan_available: netifd's WAN made available again where mu300cell made it unavailable (a SIM radio switched off, an
 # empty slot: exit 7 or 6). netifd then starts it by itself - unless somebody took it down (ifdown: autostart off),
 # which is how the user's own choice stays as it was.
@@ -1088,7 +1094,8 @@ up_locked() {
     mark dial-radio-on-done
     # an empty slot: no dial over and over (FINDINGS 186)
     # (asked twice, 3 s apart: a card still starting must not count as none)
-    if [ "$(sim_state check)" = absent ] && { nap 3; [ "$(sim_state check)" = absent ]; }; then
+    if [ -n "${SIM_STATE_BIN:-}" ] && [ -x "$SIM_STATE_BIN" ] && [ "$(sim_state check)" = absent ] &&
+        { nap 3; [ "$(sim_state check)" = absent ]; }; then
         sim_hold
         led error
         [ "${MU300_NETIFD:-0}" != 1 ] || exit 6
