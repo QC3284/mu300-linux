@@ -1,0 +1,17 @@
+#!/bin/sh
+# 92-mu300-theme-consistency: LuCI must show the theme this image carries.
+#
+# /etc/config/luci (mediaurlbase) is carried across an update; after a variant switch the carried value points at the
+# other theme directory, which the new image does not have. The image marker decides, once, at boot.
+[ -f /etc/mu300/image-theme ] || exit 0
+T=$(head -n1 /etc/mu300/image-theme | tr -d " \r\n")
+case $T in aurora|argon) ;; *) exit 0 ;; esac
+[ -d "/www/luci-static/$T" ] || exit 0
+C=$(uci -q get luci.main.mediaurlbase 2>/dev/null)
+if [ "$C" != "/luci-static/$T" ]; then
+    uci -q set "luci.main.mediaurlbase=/luci-static/$T"
+    uci -q commit luci
+    rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache 2>/dev/null
+    echo "theme: luci.main.mediaurlbase -> /luci-static/$T (the image marker decides)"
+fi
+exit 0

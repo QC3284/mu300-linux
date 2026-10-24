@@ -98,7 +98,11 @@ jobs:
           tar -xzf openwrt/mu300-immortalwrt-base.tar.gz -C "$R"
           rm -f "$R/etc/resolv.conf"   # the image ships a symlink to /tmp/resolv.conf
           cp /etc/resolv.conf "$R/etc/resolv.conf"
-          sudo chroot "$R" /bin/sh -c "apk update && apk add luci-theme-argon luci-app-argon-config"
+          # the theme, its settings page and the Chinese translation of that page (the user asked for all three)
+          sudo chroot "$R" /bin/sh -c "apk update && apk add luci-theme-argon luci-app-argon-config luci-i18n-argon-config-zh-cn"
+          # LuCI must open on the theme this image carries; the boot-time guard (92-mu300-theme-consistency) keeps it so
+          sudo sed -i "s#option mediaurlbase .*#option mediaurlbase '/luci-static/argon'#" "$R/etc/config/luci" 2>/dev/null || true
+          echo "mediaurlbase: $(sudo grep -m1 mediaurlbase "$R/etc/config/luci" || echo n/a)"
           rm -f "$R/etc/resolv.conf"
           ln -sfn /tmp/resolv.conf "$R/etc/resolv.conf"
           tar --owner=0 --group=0 --exclude=./lib/apk/exec --exclude=./tmp/* -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
