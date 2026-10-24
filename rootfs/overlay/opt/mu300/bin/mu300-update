@@ -435,6 +435,18 @@ installed_systems() {
 
 # helpers the theme filter needs (the .16 script had neither)
 api_base() { printf '%s\n' "${MU300_API_URL:-https://api.github.com/repos/$REPO}"; }
+# The release LIST is what the panel needs first, and on mobile data api.github.com is often unreachable while the
+# gh-proxy passes. MU300_API_MIRROR prefixes the API root (e.g. https://gh-proxy.com/https://api.github.com); with it
+# set, every API read goes through the mirror and falls back to the direct API unless MU300_MIRROR_FALLBACK=0.
+api_get() {
+    _ap=$1
+    _am=${MU300_API_MIRROR:-}
+    if [ -n "$_am" ]; then
+        _aj=$(fetch_stdout "$_am/repos/$REPO$_ap" 2>/dev/null) && [ -n "$_aj" ] && { printf '%s\n' "$_aj"; return 0; }
+        [ "${MU300_MIRROR_FALLBACK:-1}" = 0 ] && return 1
+    fi
+    fetch_stdout "$(api_base)$_ap"
+}
 warn() { printf '%s\n' "$*" >&2; }
 # The theme variant this image was built for. Releases of the other theme are invisible to this device: they carry
 # a -<theme> asset suffix instead of the plain names.
@@ -442,13 +454,13 @@ DEVICE_THEME=$(cat /etc/mu300/image-theme 2>/dev/null | head -n1 | tr -d ' \r\n'
 case $DEVICE_THEME in aurora|argon) ;; *) DEVICE_THEME=aurora ;; esac
 theme_asset() { [ "$DEVICE_THEME" = aurora ] && printf '%s\n' "$1" || printf '%s-%s\n' "$1" "$DEVICE_THEME"; }
 release_has_theme() {
-    _a=$(fetch_stdout "$(api_base)/releases/tags/$1" 2>/dev/null) || return 1
+    _a=$(api_get "/releases/tags/$1" 2>/dev/null) || return 1
     printf '%s' "$_a" | grep -q "\"$(theme_asset mu300-openwrt-rootfs.tar.gz)\""
 }
 # latest_release: the newest release that publishes THIS device's theme. /releases/latest cannot be used: the two
 # variants share a tag space, so the newer release of the other theme would be offered here.
 latest_release() {
-    fetch_stdout "$(api_base)/releases?per_page=30" 2>/dev/null |
+    api_get "/releases?per_page=30" 2>/dev/null |
         sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
         sort -u |
         while read -r _t; do [ -n "$_t" ] && release_has_theme "$_t" && printf '%s\n' "$_t"; done |

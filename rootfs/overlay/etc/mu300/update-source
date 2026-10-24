@@ -3,4 +3,6 @@
 # github.com for that run; the setting stays, so the next run tries the mirror again.
 MU300_DOWNLOAD_URL=https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download
 MU300_API_URL=https://api.github.com/repos/QC3284/mu300-linux
+# the same proxy for the API reads (the release list): on mobile data api.github.com is often unreachable
+MU300_API_MIRROR=https://gh-proxy.com/https://api.github.com
 MU300_MIRROR_FALLBACK=1
