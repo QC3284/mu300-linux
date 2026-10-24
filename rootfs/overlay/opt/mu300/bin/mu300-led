@@ -100,6 +100,7 @@ level() {  # level NAME: its brightness when lit (ZTE lights the F50's Wi-Fi LED
     case $DEVICE:$1 in f50:keyboard-backlight) echo 48 ;; *) cat "$LEDS/$1/max_brightness" 2>/dev/null ;; esac
 }
 write() {  # write NAME 0|1|blink: the LED itself (blink: the timer trigger, 0.5 s on, 0.5 s off; steady without one)
+    # a 0/1 write must disarm the timer trigger, or a blink from boot survives into the steady state
     if [ "$2" = blink ]; then
         if [ -w "$LEDS/$1/trigger" ] && echo timer > "$LEDS/$1/trigger" 2>/dev/null; then
             echo 500 > "$LEDS/$1/delay_on" 2>/dev/null
@@ -367,16 +368,12 @@ case "$1 ${2:-}" in
             old=$(cat "$l/brightness" 2>/dev/null)
             echo "$n"; write "$n" 1; sleep 2; echo "${old:-0}" > "$l/brightness" 2>/dev/null
         done ;;
-    "boot")   # boot indication: one slow blink a second until the WAN is up (or two minutes), then the usual
-              # steady power light. Runs in the background from mu300-hw, so the boot itself is not held up.
-        n=0
-        while [ ! -e "${MU300_WAN_UP:-/run/mu300/wan-up}" ] && [ "$n" -lt 120 ]; do
-            n=$((n + 1))
-            write "$POWER" 1; nap 1
-            write "$POWER" 0; nap 1
-        done
-        write "$POWER" 1
-        if awake; then show_all; fi ;;
+    "boot")   # booting: the ImmortalWrt look - a 0.5 s on / 0.5 s off blink on the blue channel,
+              # armed through the kernel timer trigger so it keeps blinking while userspace is busy. The first
+              # real state (data on/5g/error, power off, alarm) writes 0/1 through set_led and ends it.
+        # the spec's target is the BLUE channel of the PMIC RGB (white is its green channel on this board).
+        _b=blue; has_led "$_b" || _b=$POWER
+        write "$_b" blink ;;
     *) sed -n '2,24s/^# \{0,1\}//p' "$0" >&2; exit 2 ;;
 esac
 exit 0
