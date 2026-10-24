@@ -82,7 +82,7 @@ jobs:
           rm -f "$R/etc/resolv.conf"
           ln -sfn /tmp/resolv.conf "$R/etc/resolv.conf"
           tar --owner=0 --group=0 --exclude=./lib/apk/exec --exclude=./tmp/* -czf openwrt/mu300-immortalwrt-base.tar.gz -C "$R" .
-          rm -rf "$R"
+          sudo rm -rf "$R"
           echo "argon files: $(tar tzf openwrt/mu300-immortalwrt-base.tar.gz | grep -c luci-static/argon || true)"
       - name: Post-build pass (SSH, password, dropbear off, ownership)
         run: |
