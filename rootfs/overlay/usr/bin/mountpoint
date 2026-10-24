@@ -1,0 +1,11 @@
+#!/bin/sh
+# mountpoint [-q] PATH: 0 when PATH is a mount point. Shipped because the image busybox has no mountpoint applet,
+# which made android-vendor-start mute checks fail (the retry then hit "Resource busy" and the script exited 0
+# without exec of the daemon).
+q=
+[ "$1" = -q ] && { q=1; shift; }
+[ -n "$1" ] || exit 2
+p=${1%/}; [ -n "$p" ] || p=/
+if grep -qs " ${p} " /proc/mounts || grep -qs "^${p} " /proc/mounts; then exit 0; fi
+[ -z "$q" ] && echo "mountpoint: $1 is not a mountpoint" >&2
+exit 1

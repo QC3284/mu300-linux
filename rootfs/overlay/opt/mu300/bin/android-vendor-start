@@ -4,7 +4,10 @@
 set -e
 A=/opt/mu300/android
 # boot timeline marks (bootmark never fails; the guard covers an image without it)
-mark() { [ -x /opt/mu300/bin/bootmark ] && /opt/mu300/bin/bootmark "$@" || true; }
+mark() {
+    { echo "android-vendor-start: $*" > /dev/kmsg; } 2>/dev/null || true   # visible even when bootmark is missing
+    [ -x /opt/mu300/bin/bootmark ] && /opt/mu300/bin/bootmark "$@" || true
+}
 # first thing the script says: proves it started at all (the wrapper experiment exited before this point)
 mark vendor-enter
 # /dev/block links for every eMMC partition, without a fork per partition: the path and PARTNAME are taken in the
