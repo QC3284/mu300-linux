@@ -50,6 +50,16 @@ jobs:
             elif patch -p1 -R -s -f --dry-run < "$p" >/dev/null 2>&1; then :
             else echo "patch does not apply: $p" >&2; exit 1; fi
           done
+      - name: Install the vendor port (ums9620 clk, ssphy, pmdomain, ...)
+        run: |
+          set -eu
+          cd "$src"
+          # The author tree keeps the drivers mainline does not have in upstream/port and installs them with
+          # install.py (it appends the Kconfig entries and Makefile lines too). Without this step the ums9620
+          # clock controller and the USB3 SS PHY do not exist, which is exactly what the probe dump showed.
+          python3 "$GITHUB_WORKSPACE/upstream/port/install.py" . 2>&1 | tail -12
+          grep -n "SPRD_UMS9620_CLK" drivers/clk/sprd/Kconfig drivers/clk/sprd/Makefile | head -4
+
       - name: Configure
         run: |
           set -eu
