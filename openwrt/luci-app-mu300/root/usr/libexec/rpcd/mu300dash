@@ -153,11 +153,24 @@ json_obj() {
 # json_file FILE: the JSON object in FILE, or null
 json_file() { { [ -s "$1" ] && json_obj "$(cat "$1")"; } || echo null; }
 # refuse MESSAGE [DETAIL]: the fixed error reply
+# refuse_code TEXT: a stable identifier the view can translate, so the panel is not stuck with English backend text.
+refuse_code() {
+    case $1 in
+        'The SIM settings could not be read') echo sim_read_failed ;;
+        'Invalid packages operation') echo packages_op_invalid ;;
+        'The packages adapter gave no valid reply') echo packages_adapter_invalid ;;
+        'Mobile data integration is not provided by this platform') echo mobile_data_absent ;;
+        'The data usage adapter gave no valid reply') echo traffic_adapter_invalid ;;
+        'The USB adapter (device-usb) gave no valid reply') echo usb_adapter_invalid ;;
+        'Invalid operation') echo operation_invalid ;;
+        *) printf 'backend_%s' "$(printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -cs 'a-z0-9' '_' | cut -c1-40)" ;;
+    esac
+}
 refuse() {
     if [ -n "${2:-}" ]; then
-        printf '{"ok":0,"error":%s,"detail":%s}\n' "$(json_str "$1")" "$(json_str "$2")"
+        printf '{"ok":0,"error":%s,"code":%s,"detail":%s}\n' "$(json_str "$1")" "$(json_str "$(refuse_code "$1")")" "$(json_str "$2")"
     else
-        printf '{"ok":0,"error":%s}\n' "$(json_str "$1")"
+        printf '{"ok":0,"error":%s,"code":%s}\n' "$(json_str "$1")" "$(json_str "$(refuse_code "$1")")"
     fi
 }
 # reply_obj TEXT MESSAGE: an adapter's JSON object, or the fixed error
