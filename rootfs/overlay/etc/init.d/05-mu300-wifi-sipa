@@ -1,0 +1,20 @@
+#!/bin/sh /etc/rc.common
+# The Wi-Fi (SC2355) and SIPA drivers are loaded HERE, after switch_root, not from the initramfs: putting them in
+# the initramfs order broke the handover (same signature as the SS PHY - fine until switch-root, then death).
+# Every insmod result goes to /dev/pmsg0 so one boot says whether they came up.
+START=05
+
+stage() { echo "mu300-stage: wifi-sipa-$* uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)" > /dev/pmsg0 2>/dev/null || true; }
+
+boot() {
+	[ -d /lib/modules/7.2.8/extra ] || return 0
+	cd /lib/modules/7.2.8/extra || return 0
+	stage start
+	for m in sipa-core sipa-dele sipa_eth sipa-sys mac80211 sprd_wlan_combo; do
+		[ -f "$m.ko" ] || continue
+		if insmod "./$m.ko" 2>/tmp/insmod-$m.err; then stage "ok $m"; else stage "fail $m $(head -c 100 /tmp/insmod-$m.err | tr "\n" " ")"; fi
+	done
+	stage done
+}
+
+start() { boot; }
