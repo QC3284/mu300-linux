@@ -114,6 +114,28 @@ jobs:
           make O="$out" ARCH=arm64 -j"$(nproc)" Image modules
           ls -l "$out/arch/arm64/boot/Image"
           strings "$out/arch/arm64/boot/Image" | sed -n 's/^Linux version \([^ ]*\) .*/built kernel: \1/p' | head -1
+      - name: Build the out-of-tree modules (upstream/modules, our own build)
+        run: |
+          set -eu
+          cd "$src"
+          # The Spreadtrum wireless/Bluetooth/modem-data modules are not in .config: they are vendored sources under
+          # upstream/modules and are built against THIS kernel, so their ABI matches by construction (no borrowed .ko).
+          M=$GITHUB_WORKSPACE/upstream/modules
+          mkdir -p "$GITHUB_WORKSPACE/dist-oot"
+          # wcn_bsp first: it exports the symbols wlan/bt need, and its kinclude/Module.symvers is fed back in
+          make -C "$O" M="$M/wcn_bsp" ARCH=arm64 modules 2>&1 | tail -5
+          EXTRA="$M/wcn_bsp/kinclude/Module.symvers"
+          for m in sprd_wlan_combo sprdbt_tty sprd_pmic_wdt mu300_thermal; do
+            echo "--- $m"
+            make -C "$O" M="$M/$m" ARCH=arm64 KBUILD_EXTRA_SYMBOLS="$EXTRA" modules 2>&1 | tail -6
+            find "$M/$m" -name "*.ko" -exec cp {} "$GITHUB_WORKSPACE/dist-oot/" \;
+          done
+          # sprd_modem carries the SIPA stack (sipa_v3, sipa_sys, sipa_delegate) and the loader/sipc/seth pieces
+          echo "--- sprd_modem"
+          make -C "$O" M="$M/sprd_modem" ARCH=arm64 KBUILD_EXTRA_SYMBOLS="$EXTRA" modules 2>&1 | tail -10
+          find "$M/sprd_modem" -name "*.ko" -exec cp {} "$GITHUB_WORKSPACE/dist-oot/" \;
+          echo "built modules: $(ls "$GITHUB_WORKSPACE/dist-oot"/*.ko 2>/dev/null | wc -l)"
+          ls "$GITHUB_WORKSPACE/dist-oot" | head -20
       - name: Package the kernel bundle inputs
         run: |
           set -eu
@@ -121,6 +143,7 @@ jobs:
           cp "$out/arch/arm64/boot/Image" dist/Image
           find "$out" -name '*.ko' -exec cp {} dist/modules/ \;
           echo "modules: $(ls dist/modules/*.ko | wc -l)"
+          mkdir -p dist/oot && cp "$GITHUB_WORKSPACE/dist-oot"/*.ko dist/oot/ 2>/dev/null || true
           cp "$out/.config" dist/config-effective
           sha256sum dist/Image | tee dist/Image.sha256
       - uses: actions/upload-artifact@v4
