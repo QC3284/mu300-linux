@@ -76,6 +76,7 @@ jobs:
           R=$PWD/theme-root
           rm -rf "$R" && mkdir -p "$R"
           tar -xzf openwrt/mu300-immortalwrt-base.tar.gz -C "$R"
+          rm -f "$R/etc/resolv.conf"   # the image ships a symlink to /tmp/resolv.conf
           cp /etc/resolv.conf "$R/etc/resolv.conf"
           sudo chroot "$R" /bin/sh -c "apk update && apk add luci-theme-argon luci-app-argon-config"
           rm -f "$R/etc/resolv.conf"
