@@ -5,9 +5,14 @@
 # This fills it in once, from the Android partition that is already on the device, and says so on /dev/kmsg.
 START=08
 
+# /run is the tmpfs: the guard state must start empty on every boot, otherwise a lock or a try-count baked into the
+# image (or left by the previous boot) blocks the modem forever.
+boot_reset() { rm -f "${MU300_RUN:-/run}/mu300/modem.lock" "${MU300_RUN:-/run}/mu300/modem-tries" "${MU300_RUN:-/run}/mu300/modem-timeout" 2>/dev/null || true; }
+
 stage() { { echo "mu300-vendor-import: $*" > /dev/kmsg; echo "mu300-stage: vendor-$* uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)" > /dev/pmsg0; } 2>/dev/null || true; }
 
 boot() {
+	boot_reset
 	[ -d /opt/mu300/android/vendor ] && return 0
 	[ -x /opt/mu300/bin/mu300-vendor-from-device.sh ] || { stage "no-extractor"; return 0; }
 	stage "start"
