@@ -4032,3 +4032,87 @@ msgstr "此檔案比已安裝的版本舊：需要確認"
 
 msgid "The release source was not changed"
 msgstr "發行來源未變更"
+
+msgid "An update puts the system of the new release in place and carries over what is yours: the settings, the accounts and their passwords, the device\'s keys and the home directories. Packages you installed yourself are written down and installed again at the first start, once the device is online. The previous version stays on the device until you remove it, so you can go back."
+msgstr ""
+
+msgid "Counted on %s, both ways, as the operator counts it (a VPN\'s overhead included)."
+msgstr ""
+
+msgid "Downloads are tens of MB per engine: on mobile data they count towards your plan. Offline, upload the engine\'s tarball from the release page of the VPN module."
+msgstr ""
+
+msgid "Each SIM\'s radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr ""
+
+msgid "Extra headers (one "Name: value" per line)"
+msgstr ""
+
+msgid "Finds the VPN server\'s own address before the tunnel is up (directly, on the engine\'s own connection)."
+msgstr ""
+
+msgid "It is installed from this system\'s package feed."
+msgstr ""
+
+msgid "Keep this device\'s login password"
+msgstr ""
+
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE\'s U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr ""
+
+msgid "LuCI\'s own translations come from OpenWrt. This panel\'s translations other than Turkish and Chinese are machine (AI) translations; corrections are welcome."
+msgstr ""
+
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard\'s radio button."
+msgstr ""
+
+msgid "Packages this image shipped with"
+msgstr ""
+
+msgid "The URL usually holds your account token: it is stored on the device readable by root only, and never shown again. The subscription is fetched over the device\'s own connection: through the tunnel when the VPN is up; with the kill switch up and the tunnel down it cannot be fetched."
+msgstr ""
+
+msgid "The control panel\'s recent calls, of this boot and the one before: when, which page call or AT command, how long it took and how it ended (ok, error, busy, killed). No values, replies or messages are kept. Useful when the panel was stuck."
+msgstr ""
+
+msgid "The kernel\'s thermal zones, read only. A zone with trip points throttles the cooling devices bound to it at its passive trip; a cooling state of 0 is no throttling."
+msgstr ""
+
+msgid "The next restart, and the ones after it, start Android instead of Linux. Linux is started again from Android (the Magisk module\'s Action button, or mu300-linux)."
+msgstr ""
+
+msgid "The resolver the device\'s and the LAN\'s lookups go to, through the tunnel. Nothing goes to the carrier\'s resolver."
+msgstr ""
+
+msgid "The second SIM\'s modem channels did not come up at the last boot."
+msgstr ""
+
+msgid "The uploaded file is checked against the SHA256SUMS of the VPN module\'s latest release, downloaded over HTTPS. When that is not possible (offline, an older release), it is installed only if you allow an unverified file: it then runs as root with no check."
+msgstr ""
+
+msgid "The wiki\'s Updating page lists exactly what is kept."
+msgstr ""
+
+msgid "This changes the SIM\'s PIN lock or enters a PIN: wrong PINs block the SIM until its PUK is entered."
+msgstr ""
+
+msgid "This command changes the modem\'s state."
+msgstr ""
+
+msgid "This is a network or frequency scan: it takes one to three minutes, holds the modem\'s AT channel all that time, and mobile data may pause meanwhile. It runs in the background; the reply appears here when it is done."
+msgstr ""
+
+msgid "WRONG: it does not match the project\'s release key"
+msgstr ""
+
+msgid "Yes: Tailscale\'s own connections go through the tunnel"
+msgstr ""
+
+msgid "checked with the project\'s key"
+msgstr ""
+
+msgid "mihomo\'s mode (rule, global, direct), the engines\' log levels, dae\'s groups and routing are part of each profile\'s own config: VPN > Profiles, Show / edit the config."
+msgstr ""
+
+msgid "signed with the project\'s release key"
+msgstr ""

@@ -1,7 +1,7 @@
 #!/bin/sh
-# The feed default is AU; this device ships for TR. Only fills a missing value, never overrides a choice.
+# The feed default is AU and this device keeps it; only a missing value is filled, a choice is never overridden.
 for r in $(uci -q show wireless 2>/dev/null | sed -n 's/^wireless\.\([^.=]*\)=wifi-device$/\1/p'); do
-    [ -n "$(uci -q get "wireless.$r.country")" ] || uci -q set "wireless.$r.country=TR"
+    [ -n "$(uci -q get "wireless.$r.country")" ] || uci -q set "wireless.$r.country=AU"
 done
 uci -q commit wireless 2>/dev/null || true
 exit 0
