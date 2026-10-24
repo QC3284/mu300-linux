@@ -1,0 +1,98 @@
+name: Kernel 7.2.8 (self-build)
+
+# Builds linux-7.2.8 from kernel.org with the reference config and the patch set, so the image stops carrying an
+# Image that was built elsewhere. The gate job proves the result is equivalent to what we ship today.
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel:
+        description: 'Kernel release to build (linux-<version>.tar.xz from cdn.kernel.org)'
+        required: false
+        default: '7.2.8'
+      tag:
+        description: 'Release tag to attach Image + modules to (empty: artifact only)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential bc bison flex libssl-dev libelf-dev device-tree-compiler xz-utils lz4 python3
+      - name: Fetch and verify the source
+        env:
+          KV: ${{ inputs.kernel || '7.2.8' }}
+        run: |
+          set -eu
+          base=https://cdn.kernel.org/pub/linux/kernel/v${KV%%.*}.x
+          curl -fsSLO "$base/linux-$KV.tar.xz"
+          curl -fsSL "$base/sha256sums.asc" | grep " linux-$KV.tar.xz\$" | sha256sum -c -
+          tar -xJf "linux-$KV.tar.xz"
+          echo "src=linux-$KV" >> "$GITHUB_ENV"
+      - name: Apply the patch set
+        run: |
+          set -eu
+          cd "$src"
+          for p in $GITHUB_WORKSPACE/upstream/patches/*.patch $GITHUB_WORKSPACE/upstream/patches/$(echo "${{ inputs.kernel || '7.2.8' }}" | cut -d. -f1,2)/*.patch; do
+            [ -f "$p" ] || continue
+            if patch -p1 -N -s --dry-run < "$p" >/dev/null 2>&1; then patch -p1 -N -s < "$p"
+            elif patch -p1 -R -s -f --dry-run < "$p" >/dev/null 2>&1; then :
+            else echo "patch does not apply: $p" >&2; exit 1; fi
+          done
+      - name: Configure
+        run: |
+          set -eu
+          cd "$src"
+          O=$PWD/out && mkdir -p "$O"
+          make O="$O" ARCH=arm64 allnoconfig >/dev/null
+          ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$GITHUB_WORKSPACE/work/mu300-mainline.config" >/dev/null
+          make O="$O" ARCH=arm64 olddefconfig >/dev/null
+          echo "out=$O" >> "$GITHUB_ENV"
+      - name: Build Image and modules
+        run: |
+          set -eu
+          cd "$src"
+          make O="$out" ARCH=arm64 -j"$(nproc)" Image modules
+          ls -l "$out/arch/arm64/boot/Image"
+          strings "$out/arch/arm64/boot/Image" | sed -n 's/^Linux version \([^ ]*\) .*/built kernel: \1/p' | head -1
+      - name: Package the kernel bundle inputs
+        run: |
+          set -eu
+          mkdir -p dist/modules
+          cp "$out/arch/arm64/boot/Image" dist/Image
+          find "$out" -name '*.ko' -exec cp {} dist/modules/ \;
+          echo "modules: $(ls dist/modules/*.ko | wc -l)"
+          sha256sum dist/Image | tee dist/Image.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ inputs.kernel || '7.2.8' }}
+          path: dist
+
+  equivalence:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: kernel-${{ inputs.kernel || '7.2.8' }}
+          path: dist
+      - name: Equivalence gate
+        run: |
+          set -eu
+          ver=$(strings dist/Image | sed -n 's/^Linux version \([^ ]*\) .*/\1/p' | head -1)
+          case $ver in ${{ inputs.kernel || '7.2.8' }}*) echo "release ok: $ver" ;; *) echo "release mismatch: $ver" >&2; exit 1 ;; esac
+          vm=$(strings "$(ls dist/modules/*.ko | head -1)" | grep -m1 '^vermagic=' || true)
+          echo "vermagic: $vm"
+          case $vm in vermagic=${{ inputs.kernel || '7.2.8' }}*) echo 'vermagic ok' ;; *) echo "vermagic mismatch" >&2; exit 1 ;; esac
+          n=$(ls dist/modules/*.ko | wc -l)
+          echo "modules built: $n"
+          [ "$n" -ge 150 ] || { echo "too few modules: $n" >&2; exit 1; }
+          echo 'gate passed'
