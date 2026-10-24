@@ -444,9 +444,33 @@ release_has_theme() {
     _a=$(fetch_stdout "$(api_base)/releases/tags/$1" 2>/dev/null) || return 1
     printf '%s' "$_a" | grep -q "\"$(theme_asset mu300-openwrt-rootfs.tar.gz)\""
 }
+# latest_release: the newest release that publishes THIS device's theme.
+# /releases/latest cannot be used: the two theme variants are separate releases in one tag space, so the newer
+# argon release would be offered to an aurora device (and the other way round). The list is fetched, every tag whose
+# assets lack this theme's rootfs asset is dropped, and the highest tag_key among the rest wins.
 latest_release() {
-    fetch_stdout "${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases/latest" \
-        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+    fetch_stdout "$(api_base)/releases?per_page=30" 2>/dev/null |
+        sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+        sort -u |
+        while read -r _t; do
+            [ -n "$_t" ] || continue
+            release_has_theme "$_t" && printf '%s\n' "$_t"
+        done |
+        while read -r _t; do _k=$(tag_key "$_t" 2>/dev/null) || continue; printf '%s %s\n' "$_k" "$_t"; done |
+        sort -n | tail -n1 | cut -d' ' -f2
+}
+# theme_ok TARBALL: does the image inside match this device's theme? The features file and the manifest head both
+# carry it (the packager writes theme=<aurora|argon>); a release of the other theme is refused like a bad signature.
+theme_ok() {
+    _tf=$(untar -xzOf "$1" ./features 2>/dev/null | sed -n 's/^theme=//p' | head -n1)
+    if [ -n "$_tf" ]; then
+        [ "$_tf" = "$DEVICE_THEME" ] && return 0
+        printf 'this release is the %s variant and this device is %s\n' "$_tf" "$DEVICE_THEME" >&2
+        return 1
+    fi
+    # no features line (an image from before the theme split): its manifest head is the next witness
+    _tm=$(untar -xzOf "$1" ./etc/mu300/image-manifest.gz 2>/dev/null | gzip -dc 2>/dev/null | sed -n '1s/.*theme=\([a-z]*\).*/\1/p')
+    [ -z "$_tm" ] || [ "$_tm" = "$DEVICE_THEME" ]
 }
 
 mounted_disk() {
@@ -3860,6 +3884,10 @@ sums_trusted() {
     fi
     # one copy is judged and pinned: its hash is taken first, so nothing can be put in its place in between
     SUMS_PIN=$(sha_of "$STAGE/SHA256SUMS") || return 1
+    # the theme of the image that is about to be applied must be this device's, refused the same way as a bad signature
+    if [ -n "${STAGE:-}" ] && [ -f "$STAGE/mu300-openwrt.tar.gz" ]; then
+        theme_ok "$STAGE/mu300-openwrt.tar.gz" || { warn "refusing release $1: wrong theme"; return 1; }
+    fi
     sums_verdict "$1" "$(sig_state "$STAGE/SHA256SUMS" "$STAGE/SHA256SUMS.sig")" "release $1" "$STAGE/SHA256SUMS" || { SUMS_PIN=; return 1; }
     [ "$(sha_of "$STAGE/SHA256SUMS")" = "$SUMS_PIN" ] || { SUMS_PIN=; echo "SHA256SUMS of $1 changed while it was checked" >&2; return 1; }
     SUMS_OK=$1
