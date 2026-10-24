@@ -11,6 +11,14 @@
 #!/bin/bash
 set -eu
 ROOTFS=${1:?rootfs tar}
+# Pin the input: with MU300_ROOTFS_SHA256 set, only that exact tarball may be packed, so a stale build in the
+# same directory cannot slip into a release (it did once: the module was cut with the p4 rootfs).
+PIN=${MU300_ROOTFS_SHA256:-}
+if [ -n "$PIN" ]; then
+    got=$(sha256sum "$ROOTFS" | cut -d" " -f1)
+    [ "$got" = "$PIN" ] || { echo "rootfs mismatch: $ROOTFS is $got, pinned $PIN" >&2; exit 1; }
+    echo "rootfs pinned: $PIN"
+fi
 OUT=${2:?outdir}
 TAG="$MU300_TAG"   # sets image-version + manifest head to the release tag
 TREE=${3:-/tmp/sync-wt}
