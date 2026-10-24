@@ -31,6 +31,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PAGE = 4096
 BOOT_CMDLINE = b'loglevel=5'
+# MU300_EXTRA_CMDLINE appends to the image command line for test builds (sdhci.debug_quirks=..., initcall_blacklist=...).
+# The kernel this builder boots may force its own CONFIG_CMDLINE, so the option is there for tests that need both lines.
+import os as _os
+_extra = _os.environ.get('MU300_EXTRA_CMDLINE', '').strip()
+if _extra and len(BOOT_CMDLINE) + 1 + len(_extra) < 1500:
+    BOOT_CMDLINE = BOOT_CMDLINE + b' ' + _extra.encode()
 MISC_BC_OFFSET = 0x800
 # persistent init log lives at 48 MiB inside boot_b (8 MiB); the image must end before it
 PERSIST_LOG_OFFSET = 48 << 20
