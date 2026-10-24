@@ -152,6 +152,16 @@ jobs:
           path: |
             build/out/*.zip
             build/out/SHA256SUMS
+      - name: Sign the release (when a key is configured)
+        if: ${{ inputs.tag != '' }}
+        env:
+          MU300_RELEASE_KEY: ${{ secrets.MU300_RELEASE_KEY }}
+        run: |
+          set -eu
+          if [ -z "${MU300_RELEASE_KEY:-}" ]; then echo "no signing key configured; publishing unsigned" >&2; exit 0; fi
+          cd build/out
+          sh ../../tools/sign-release.sh SHA256SUMS ../../rootfs/overlay/opt/mu300/lib/release.pub
+          cat SHA256SUMS.sig | head -1
       - name: Publish (when a tag was given)
         if: ${{ inputs.tag != '' }}
         env:
@@ -163,7 +173,8 @@ jobs:
           # One plain numeric tag per variant; the theme shows in the asset names only, because mu300-update tag_ok
           # accepts vYYYY.MM.DD[.N] and would refuse a suffix.
           cd build/out
+          SIG=$( [ -f SHA256SUMS.sig ] && echo 1 || true )
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
             --title "ImmortalWrt image $TAG ($THEME theme)" \
             --notes "Theme variant: $THEME." 
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber *.zip SHA256SUMS
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber *.zip SHA256SUMS ${SIG:+SHA256SUMS.sig}
