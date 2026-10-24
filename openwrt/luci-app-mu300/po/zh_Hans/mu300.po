@@ -4019,86 +4019,86 @@ msgstr "此文件比已安装的版本旧：需要确认"
 msgid "The release source was not changed"
 msgstr "发布源未更改"
 
-msgid "An update puts the system of the new release in place and carries over what is yours: the settings, the accounts and their passwords, the device\'s keys and the home directories. Packages you installed yourself are written down and installed again at the first start, once the device is online. The previous version stays on the device until you remove it, so you can go back."
-msgstr ""
+msgid "An update puts the system of the new release in place and carries over what is yours: the settings, the accounts and their passwords, the device's keys and the home directories. Packages you installed yourself are written down and installed again at the first start, once the device is online. The previous version stays on the device until you remove it, so you can go back."
+msgstr "更新会把新版本的系统放到位，并保留属于你的东西：设置、账户及其密码、设备的密钥和主目录。你自己安装的软件包会被记录下来，并在设备联网后的首次启动时重新安装。旧版本会留在设备上直到你删除它，因此可以回退。"
 
-msgid "Counted on %s, both ways, as the operator counts it (a VPN\'s overhead included)."
-msgstr ""
+msgid "Counted on %s, both ways, as the operator counts it (a VPN's overhead included)."
+msgstr "按 %s 双向统计，按运营商的方式计（含 VPN 的开销）。"
 
-msgid "Downloads are tens of MB per engine: on mobile data they count towards your plan. Offline, upload the engine\'s tarball from the release page of the VPN module."
-msgstr ""
+msgid "Downloads are tens of MB per engine: on mobile data they count towards your plan. Offline, upload the engine's tarball from the release page of the VPN module."
+msgstr "每个引擎的下载量是数十 MB：使用移动数据时会算进你的流量。离线时，请从 VPN 模块发布页上传引擎的压缩包。"
 
-msgid "Each SIM\'s radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
-msgstr ""
+msgid "Each SIM's radio stays as set here after a reboot. A SIM whose radio is off has no calls, SMS or data, and the device does not switch to it."
+msgstr "每张 SIM 的无线电设置会保持到重启之后。无线电关闭的 SIM 不能通话、收发短信或使用数据，设备也不会切换到它。"
 
-msgid "Extra headers (one "Name: value" per line)"
-msgstr ""
+msgid "Extra headers (one \"Name: value\" per line)"
+msgstr "额外请求头（每行一个 \"Name: value\"）"
 
-msgid "Finds the VPN server\'s own address before the tunnel is up (directly, on the engine\'s own connection)."
-msgstr ""
+msgid "Finds the VPN server's own address before the tunnel is up (directly, on the engine's own connection)."
+msgstr "在隧道建立前找到 VPN 服务器自身的地址（直接获取，使用引擎自己的连接）。"
 
-msgid "It is installed from this system\'s package feed."
-msgstr ""
+msgid "It is installed from this system's package feed."
+msgstr "它从本系统的软件源安装。"
 
-msgid "Keep this device\'s login password"
-msgstr ""
+msgid "Keep this device's login password"
+msgstr "保留本设备的登录密码"
 
-msgid "Low latency keeps CPU0 out of its idle states, as ZTE\'s U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
-msgstr ""
+msgid "Low latency keeps CPU0 out of its idle states, as ZTE's U30 Air firmware does: Wi-Fi delays are much shorter, and the device draws more power. Off by default."
+msgstr "低延迟会让 CPU0 不进入空闲状态，与中兴 U30 Air 固件的做法相同：Wi-Fi 延迟明显缩短，但耗电增加。默认关闭。"
 
-msgid "LuCI\'s own translations come from OpenWrt. This panel\'s translations other than Turkish and Chinese are machine (AI) translations; corrections are welcome."
-msgstr ""
+msgid "LuCI's own translations come from OpenWrt. This panel's translations other than Turkish and Chinese are machine (AI) translations; corrections are welcome."
+msgstr "LuCI 自身的翻译来自 OpenWrt。本面板除土耳其语和中文以外的翻译是机器（AI）翻译；欢迎指正。"
 
-msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard\'s radio button."
-msgstr ""
+msgid "No SIM will have calls, SMS or data, also after a reboot, until a radio is turned on again here or with the dashboard's radio button."
+msgstr "在重新打开无线电之前（在此处或通过仪表盘的无线电按钮），任何 SIM 都无法通话、收发短信或使用数据，重启后也一样。"
 
 msgid "Packages this image shipped with"
-msgstr ""
+msgstr "本镜像自带的软件包"
 
-msgid "The URL usually holds your account token: it is stored on the device readable by root only, and never shown again. The subscription is fetched over the device\'s own connection: through the tunnel when the VPN is up; with the kill switch up and the tunnel down it cannot be fetched."
-msgstr ""
+msgid "The URL usually holds your account token: it is stored on the device readable by root only, and never shown again. The subscription is fetched over the device's own connection: through the tunnel when the VPN is up; with the kill switch up and the tunnel down it cannot be fetched."
+msgstr "该 URL 通常包含你的账户令牌：它只以 root 可读的方式保存在设备上，之后不会再显示。订阅通过设备自身的连接获取：VPN 已连接时走隧道；启用断网保护而隧道断开时无法获取。"
 
-msgid "The control panel\'s recent calls, of this boot and the one before: when, which page call or AT command, how long it took and how it ended (ok, error, busy, killed). No values, replies or messages are kept. Useful when the panel was stuck."
-msgstr ""
+msgid "The control panel's recent calls, of this boot and the one before: when, which page call or AT command, how long it took and how it ended (ok, error, busy, killed). No values, replies or messages are kept. Useful when the panel was stuck."
+msgstr "控制面板最近的调用，包括本次和上一次启动：时间、哪个页面调用或 AT 命令、耗时以及结果（正常、错误、忙、被终止）。不保存参数、回复或消息内容。面板卡住时很有用。"
 
-msgid "The kernel\'s thermal zones, read only. A zone with trip points throttles the cooling devices bound to it at its passive trip; a cooling state of 0 is no throttling."
-msgstr ""
+msgid "The kernel's thermal zones, read only. A zone with trip points throttles the cooling devices bound to it at its passive trip; a cooling state of 0 is no throttling."
+msgstr "内核的热区，只读。带触发点的热区会在被动触发点限制绑定到它的降温设备；降温状态为 0 表示不限制。"
 
-msgid "The next restart, and the ones after it, start Android instead of Linux. Linux is started again from Android (the Magisk module\'s Action button, or mu300-linux)."
-msgstr ""
+msgid "The next restart, and the ones after it, start Android instead of Linux. Linux is started again from Android (the Magisk module's Action button, or mu300-linux)."
+msgstr "下次重启及之后的重启都会启动 Android 而不是 Linux。可以从 Android 再次启动 Linux（Magisk 模块的 Action 按钮，或 mu300-linux）。"
 
-msgid "The resolver the device\'s and the LAN\'s lookups go to, through the tunnel. Nothing goes to the carrier\'s resolver."
-msgstr ""
+msgid "The resolver the device's and the LAN's lookups go to, through the tunnel. Nothing goes to the carrier's resolver."
+msgstr "设备与局域网查询所使用的解析器，经由隧道。不会使用运营商的解析器。"
 
-msgid "The second SIM\'s modem channels did not come up at the last boot."
-msgstr ""
+msgid "The second SIM's modem channels did not come up at the last boot."
+msgstr "第二张 SIM 的调制解调器通道在最近一次启动时未能建立。"
 
-msgid "The uploaded file is checked against the SHA256SUMS of the VPN module\'s latest release, downloaded over HTTPS. When that is not possible (offline, an older release), it is installed only if you allow an unverified file: it then runs as root with no check."
-msgstr ""
+msgid "The uploaded file is checked against the SHA256SUMS of the VPN module's latest release, downloaded over HTTPS. When that is not possible (offline, an older release), it is installed only if you allow an unverified file: it then runs as root with no check."
+msgstr "上传的文件会与通过 HTTPS 下载的 VPN 模块最新发布版 SHA256SUMS 校验。无法校验时（离线、较旧的版本），只有在你允许未验证文件的情况下才会安装：它将以 root 运行且不做检查。"
 
-msgid "The wiki\'s Updating page lists exactly what is kept."
-msgstr ""
+msgid "The wiki's Updating page lists exactly what is kept."
+msgstr "wiki 的 Updating 页面列出了具体保留的内容。"
 
-msgid "This changes the SIM\'s PIN lock or enters a PIN: wrong PINs block the SIM until its PUK is entered."
-msgstr ""
+msgid "This changes the SIM's PIN lock or enters a PIN: wrong PINs block the SIM until its PUK is entered."
+msgstr "这会更改 SIM 的 PIN 锁定或输入 PIN：多次输错会锁住 SIM，直到输入 PUK。"
 
-msgid "This command changes the modem\'s state."
-msgstr ""
+msgid "This command changes the modem's state."
+msgstr "此命令会更改调制解调器的状态。"
 
-msgid "This is a network or frequency scan: it takes one to three minutes, holds the modem\'s AT channel all that time, and mobile data may pause meanwhile. It runs in the background; the reply appears here when it is done."
-msgstr ""
+msgid "This is a network or frequency scan: it takes one to three minutes, holds the modem's AT channel all that time, and mobile data may pause meanwhile. It runs in the background; the reply appears here when it is done."
+msgstr "这是一次网络或频点扫描：需要一到三分钟，期间一直占用调制解调器的 AT 通道，移动数据可能会暂停。它在后台运行，完成后结果显示在这里。"
 
-msgid "WRONG: it does not match the project\'s release key"
-msgstr ""
+msgid "WRONG: it does not match the project's release key"
+msgstr "错误：与项目的发布密钥不匹配"
 
-msgid "Yes: Tailscale\'s own connections go through the tunnel"
-msgstr ""
+msgid "Yes: Tailscale's own connections go through the tunnel"
+msgstr "是：Tailscale 自身的连接也走隧道"
 
-msgid "checked with the project\'s key"
-msgstr ""
+msgid "checked with the project's key"
+msgstr "已用项目的密钥校验"
 
-msgid "mihomo\'s mode (rule, global, direct), the engines\' log levels, dae\'s groups and routing are part of each profile\'s own config: VPN > Profiles, Show / edit the config."
-msgstr ""
+msgid "mihomo's mode (rule, global, direct), the engines' log levels, dae's groups and routing are part of each profile's own config: VPN > Profiles, Show / edit the config."
+msgstr "mihomo 的模式（规则、全局、直连）、各引擎的日志级别、dae 的分组与路由都属于每个配置自己的配置：VPN > 配置，显示/编辑配置。"
 
-msgid "signed with the project\'s release key"
-msgstr ""
+msgid "signed with the project's release key"
+msgstr "已用项目的发布密钥签名"
