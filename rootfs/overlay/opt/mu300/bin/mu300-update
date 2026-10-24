@@ -481,12 +481,38 @@ release_has_theme() {
 # latest_release: the newest release that publishes THIS device's theme. /releases/latest cannot be used: the two
 # variants share a tag space, so the newer release of the other theme would be offered here.
 latest_release() {
+    # 1. the static index (no API at all)
+    _lr=$(latest_index) || _lr=
+    if [ -n "$_lr" ] && theme_published "$_lr"; then printf '%s\n' "$_lr"; return 0; fi
+    # 2. the API list, where it is reachable
     api_get "/releases?per_page=30" 2>/dev/null |
         sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
         sort -u |
         while read -r _t; do [ -n "$_t" ] && release_has_theme "$_t" && printf '%s\n' "$_t"; done |
         while read -r _t; do _k=$(tag_key "$_t" 2>/dev/null) || continue; printf '%s %s\n' "$_k" "$_t"; done |
         sort -n | tail -n1 | cut -d' ' -f2
+}
+# --- the static index: the release list without the API -------------------------------------------------------
+# On mobile data api.github.com answers 403 from the origin and no proxy fixes that. Every release therefore publishes
+# two tiny assets beside SHA256SUMS - latest-aurora and latest-argon, each one line "mu300-latest 1 <tag>" - reachable
+# through releases/latest/download/<name>, which is a DOWNLOAD path and works through the mirrors.
+chain_base() { fetch_chain | sed -n "$((FETCH_CHAIN_INDEX + 1))p"; }
+latest_index() {   # latest_index: the tag the index names for this device's theme (empty when there is none)
+    _li=$(chain_base); [ -n "$_li" ] || return 1
+    _iu=$(printf '%s\n' "$_li" | sed 's#/releases/download$#/releases/latest/download#')
+    case $_iu in */releases/latest/download) ;; *) return 1 ;; esac
+    _it=$(fetch_stdout "$_iu/latest-$DEVICE_THEME" 2>/dev/null | sed -n 's/^mu300-latest [0-9][0-9]*[[:space:]]*//p' | head -n1)
+    [ -n "$_it" ] || return 1
+    tag_ok "$_it" >/dev/null 2>&1 || return 1
+    printf '%s\n' "$_it"
+}
+theme_published() {   # theme_published TAG: this theme's rootfs asset answers on the download chain
+    _tb=$(chain_base); [ -n "$_tb" ] || return 1
+    _tu="$_tb/$1/$(theme_asset mu300-openwrt-rootfs.tar.gz)"
+    _tc=000
+    have curl && _tc=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 15 --max-time 45 --range 0-0 "$_tu" 2>/dev/null || echo 000)
+    case $_tc in 200|206|302) return 0 ;; esac
+    return 1
 }
 # theme_ok TARBALL: the features line (and, for older images, the manifest head) must name this device's theme.
 theme_ok() {
