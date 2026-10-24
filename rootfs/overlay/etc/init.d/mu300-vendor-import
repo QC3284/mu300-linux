@@ -1,0 +1,21 @@
+#!/bin/sh /etc/rc.common
+# The Android vendor tree (/opt/mu300/android) is what android-vendor-start chroots into: modem_control, the
+# modem image, the property area. The INSTALLER normally populates it from the device's own Android /vendor, but a
+# rootfs-only update (mu300-update) never runs the installer, so it can be missing and the modem then stays silent.
+# This fills it in once, from the Android partition that is already on the device, and says so on /dev/kmsg.
+START=08
+
+stage() { { echo "mu300-vendor-import: $*" > /dev/kmsg; echo "mu300-stage: vendor-$* uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)" > /dev/pmsg0; } 2>/dev/null || true; }
+
+boot() {
+	[ -d /opt/mu300/android/vendor ] && return 0
+	[ -x /opt/mu300/bin/mu300-vendor-from-device.sh ] || { stage "no-extractor"; return 0; }
+	stage "start"
+	if sh /opt/mu300/bin/mu300-vendor-from-device.sh / openwrt >>/tmp/mu300-vendor-import.log 2>&1; then
+		stage "done"
+	else
+		stage "failed rc=$? (see /tmp/mu300-vendor-import.log)"
+	fi
+}
+
+start() { boot; }
