@@ -480,64 +480,45 @@ const methods = {
 
 	getBlockDevices: {
 		call: function() {
-			// No /sbin/block on this SoC: the probe can block inside the kernel in sbuf_read (sipc_core) and cannot be
-			// killed (D state), so the data is assembled from the kernel own interfaces instead: /sys/class/block for the
-			// devices and sizes, /proc/mounts for the mounts, and the /dev/disk/by-* links for UUID and LABEL.
+			// No /sbin/block on this SoC: the probe can stall in the kernel in sbuf_read (sipc_core), D state, unkillable,
+			// so the map is assembled from the kernel own interfaces instead.
 			const result = {};
 			for (let name in lsdir('/sys/class/block') ?? []) {
 				if (name == '.' || name == '..')
 					continue;
-				const e = result[name] = {
-					dev: `/dev/${name}`,
-					size: (+readfile(`/sys/class/block/${name}/size`) || 0) * 512
-				};
+				result[name] = { dev: `/dev/${name}`, size: (+readfile(`/sys/class/block/${name}/size`) || 0) * 512 };
 				if ((readfile(`/sys/class/block/${name}/ro`) ?? '').trim() == '1')
-					e.ro = true;
+					result[name].ro = true;
 			}
 			for (let link in glob('/dev/disk/by-uuid/*') ?? []) {
-				const b = basename(readlink(link) ?? '');
-				if (b && result[b]) result[b].uuid = basename(link);
+				const t = basename(readlink(link) ?? '');
+				if (t && result[t]) result[t].uuid = basename(link);
 			}
 			for (let link in glob('/dev/disk/by-label/*') ?? []) {
-				const b = basename(readlink(link) ?? '');
-				if (b && result[b]) result[b].label = basename(link);
+				const t = basename(readlink(link) ?? '');
+				if (t && result[t]) result[t].label = basename(link);
 			}
 			for (let line in split(readfile('/proc/mounts') ?? '', /\n/)) {
 				const m = match(line, /^(\/\S+)\s+(\S+)\s+(\S+)/);
 				if (m) {
-					const b = basename(m[1]);
-					if (result[b]) { result[b].mount = m[2]; result[b].type = m[3]; }
+					const t = basename(m[1]);
+					if (result[t]) { result[t].mount = m[2]; result[t].type = m[3]; }
 				}
 			}
-
-				const swaps = open('/proc/swaps', 'r');
-
-				if (swaps) {
-					for (let line = swaps.read('line'); length(line); line = swaps.read('line')) {
-						let m = match(line, /^(\/\S+)\s+\S+\s+(\d+)/);
-
-						if (m) {
-							let dev = replace(m[1], /\\(\d\d\d)/g, (_, n) => chr(int(n, 8)));
-
-							result[`swap:${m[1]}`] = {
-								dev,
-								type: 'swap',
-								size: +m[2] * 1024
-							};
-						}
+			const swaps = open('/proc/swaps', 'r');
+			if (swaps) {
+				for (let line = swaps.read('line'); length(line); line = swaps.read('line')) {
+					const m = match(line, /^(\/\S+)\s+\S+\s+(\d+)/);
+					if (m) {
+						const dev = replace(m[1], /\(\(\d\d\d)/g, (_, n) => chr(int(n, 8)));
+						result[`swap:${m[1]}`] = { dev, type: 'swap', size: +m[2] * 1024 };
 					}
-
-					swaps.close();
 				}
-
-				return result;
+				swaps.close();
 			}
-			else {
-				return { error: 'Unable to execute block utility' };
-			}
+			return result;
 		}
 	},
-
 	setBlockDetect: {
 		call: function() {
 			// The guard writes the file itself (temporary file, rename on success) so a timeout leaves /etc/config/fstab
