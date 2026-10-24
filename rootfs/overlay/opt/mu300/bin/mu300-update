@@ -39,7 +39,6 @@
 # boot_update). An mu300-update from before that installs the new system, which brings the new mu300-update: after
 # a reboot (the running system is still the old one until then), "mu300-update apply" updates the boot image too.
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin:/usr/sbin:/sbin"
-# Our fork, not the upstream: this default decides the release-notes link, the API base and every download URL.
 REPO=${MU300_REPO:-QC3284/mu300-linux}
 DISK=${MU300_DISK:-/mnt/mu300-disk}
 CONF=/etc/mu300
@@ -434,34 +433,29 @@ installed_systems() {
     done
 }
 
-# The theme variant this image was built for: aurora unless the build said otherwise. Releases of the other
-# theme are invisible to this device (they carry a -<theme> asset suffix instead of the plain names).
+# helpers the theme filter needs (the .16 script had neither)
+api_base() { printf '%s\n' "${MU300_API_URL:-https://api.github.com/repos/$REPO}"; }
+warn() { printf '%s\n' "$*" >&2; }
+# The theme variant this image was built for. Releases of the other theme are invisible to this device: they carry
+# a -<theme> asset suffix instead of the plain names.
 DEVICE_THEME=$(cat /etc/mu300/image-theme 2>/dev/null | head -n1 | tr -d ' \r\n')
 case $DEVICE_THEME in aurora|argon) ;; *) DEVICE_THEME=aurora ;; esac
-# theme_asset NAME: the asset name for this device's theme (aurora keeps the plain name)
 theme_asset() { [ "$DEVICE_THEME" = aurora ] && printf '%s\n' "$1" || printf '%s-%s\n' "$1" "$DEVICE_THEME"; }
-# release_has_theme TAG: does that release publish this theme's rootfs asset?
 release_has_theme() {
     _a=$(fetch_stdout "$(api_base)/releases/tags/$1" 2>/dev/null) || return 1
     printf '%s' "$_a" | grep -q "\"$(theme_asset mu300-openwrt-rootfs.tar.gz)\""
 }
-# latest_release: the newest release that publishes THIS device's theme.
-# /releases/latest cannot be used: the two theme variants are separate releases in one tag space, so the newer
-# argon release would be offered to an aurora device (and the other way round). The list is fetched, every tag whose
-# assets lack this theme's rootfs asset is dropped, and the highest tag_key among the rest wins.
+# latest_release: the newest release that publishes THIS device's theme. /releases/latest cannot be used: the two
+# variants share a tag space, so the newer release of the other theme would be offered here.
 latest_release() {
     fetch_stdout "$(api_base)/releases?per_page=30" 2>/dev/null |
         sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
         sort -u |
-        while read -r _t; do
-            [ -n "$_t" ] || continue
-            release_has_theme "$_t" && printf '%s\n' "$_t"
-        done |
+        while read -r _t; do [ -n "$_t" ] && release_has_theme "$_t" && printf '%s\n' "$_t"; done |
         while read -r _t; do _k=$(tag_key "$_t" 2>/dev/null) || continue; printf '%s %s\n' "$_k" "$_t"; done |
         sort -n | tail -n1 | cut -d' ' -f2
 }
-# theme_ok TARBALL: does the image inside match this device's theme? The features file and the manifest head both
-# carry it (the packager writes theme=<aurora|argon>); a release of the other theme is refused like a bad signature.
+# theme_ok TARBALL: the features line (and, for older images, the manifest head) must name this device's theme.
 theme_ok() {
     _tf=$(untar -xzOf "$1" ./features 2>/dev/null | sed -n 's/^theme=//p' | head -n1)
     if [ -n "$_tf" ]; then
@@ -469,7 +463,6 @@ theme_ok() {
         printf 'this release is the %s variant and this device is %s\n' "$_tf" "$DEVICE_THEME" >&2
         return 1
     fi
-    # no features line (an image from before the theme split): its manifest head is the next witness
     _tm=$(untar -xzOf "$1" ./etc/mu300/image-manifest.gz 2>/dev/null | gzip -dc 2>/dev/null | sed -n '1s/.*theme=\([a-z]*\).*/\1/p')
     [ -z "$_tm" ] || [ "$_tm" = "$DEVICE_THEME" ]
 }
@@ -3593,6 +3586,8 @@ apply() {
     done
     # (the release that was judged - signature, downgrade - is the one these files are: see payload_is)
     payload_is "$tag" $todo || die "nothing was changed"
+    # the rootfs-only path must move the boot tag too, or the panel keeps offering this very release as a kernel update
+    sync_boot_tag "$tag" $todo
     # the extras of the release: an installed one follows it (a release without it: r=2, the installed one stays)
     extras=
     for x in $(extras_to_fetch "$tag"); do
@@ -3885,7 +3880,7 @@ sums_trusted() {
     fi
     # one copy is judged and pinned: its hash is taken first, so nothing can be put in its place in between
     SUMS_PIN=$(sha_of "$STAGE/SHA256SUMS") || return 1
-    # the theme of the image that is about to be applied must be this device's, refused the same way as a bad signature
+    # the image about to be applied must be this device's theme, refused the same way as a bad signature
     if [ -n "${STAGE:-}" ] && [ -f "$STAGE/mu300-openwrt.tar.gz" ]; then
         theme_ok "$STAGE/mu300-openwrt.tar.gz" || { warn "refusing release $1: wrong theme"; return 1; }
     fi
@@ -3972,6 +3967,23 @@ payload_is() {
         return 1
     done
     return 0
+}
+# sync_boot_tag TAG OS...: the boot directory's installed.tag names the release whose kernel we ship, and the
+# panel compares it with the installed image-version to decide whether to offer an update. A rootfs-only update used to
+# leave it untouched (only a kernel apply wrote it), so the offer never went away after a rootfs update. Read the tag
+# from the image we are about to install and write it there when it differs - never going backwards.
+sync_boot_tag() {
+    _st=$1; shift
+    for _so in "$@"; do
+        _stag=$(untar -xzOf "$STAGE/$(rootfs_asset "$_so")" ./boot/installed.tag 2>/dev/null | head -n1 | tr -d ' \r\n')
+        [ -n "$_stag" ] || continue
+        _cur=$(cat "$BOOTDIR/installed.tag" 2>/dev/null | tr -d ' \r\n')
+        [ "$_stag" = "$_cur" ] && continue
+        newer "$_stag" "$_cur" || continue
+        mkdir -p "$BOOTDIR" 2>/dev/null || true
+        printf '%s\n' "$_stag" > "$BOOTDIR/installed.tag" 2>/dev/null &&
+            echo "boot tag: $_stag (the image says so; the panel's update offer follows it)" >&2 || true
+    done
 }
 # boot_downgrade_ok TAG: the same for a kernel or a boot image taken alone (boot, kernel)
 boot_downgrade_ok() {
