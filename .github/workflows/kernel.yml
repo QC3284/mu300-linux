@@ -13,6 +13,10 @@ on:
         description: 'Kernel release to build (linux-<version>.tar.xz from cdn.kernel.org)'
         required: false
         default: '7.2.8'
+      base_config:
+        description: 'mainline (allnoconfig + our fragments) or kano (the carried kernel own config)'
+        required: false
+        default: 'mainline'
       tag:
         description: 'Release tag to attach Image + modules to (empty: artifact only)'
         required: false
@@ -61,10 +65,19 @@ jobs:
           grep -n "SPRD_UMS9620_CLK" drivers/clk/sprd/Kconfig drivers/clk/sprd/Makefile | head -4
 
       - name: Configure
+        env:
+          BASE_CONFIG: ${{ inputs.base_config || 'mainline' }}
         run: |
           set -eu
           cd "$src"
           O=$PWD/out && mkdir -p "$O"
+          if [ "$BASE_CONFIG" = kano ]; then
+            # The carried kernel's own config: same struct module layout, so its prebuilt out-of-tree modules
+            # (sipa, sprd_wlan_combo) insert instead of failing the section-size check.
+            cp "$GITHUB_WORKSPACE/upstream/kano-7.2.8.config" "$O/.config"
+            make O="$O" ARCH=arm64 olddefconfig >/dev/null
+            echo "base config: kano"
+          else
           make O="$O" ARCH=arm64 allnoconfig >/dev/null
           CFG=""; for c in upstream/mu300-mainline.config work/mu300-mainline.config upstream/kernel/mu300-mainline.config; do [ -f "$GITHUB_WORKSPACE/$c" ] && { CFG="$GITHUB_WORKSPACE/$c"; break; }; done
           [ -n "$CFG" ] || { echo "no mainline config in this tree (upstream/mu300-mainline.config)" >&2; exit 1; }
@@ -78,6 +91,7 @@ jobs:
           CLK="$GITHUB_WORKSPACE/boot/kernel-fragments/clk.config"
           [ -f "$CLK" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLK" >/dev/null
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
+          fi
           echo "--- effective clock/PMIC config ---"
           grep -E 'CONFIG_(ARCH_SPRD|SPRD|SC27|COMMON_CLK|SPMI|REGULATOR)' "$O/.config" | grep -v '^#' | sort | head -40 || true
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
