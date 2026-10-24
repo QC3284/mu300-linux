@@ -63,11 +63,13 @@ jobs:
           USB="$GITHUB_WORKSPACE/boot/kernel-fragments/usb.config"
           [ -f "$USB" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$USB" >/dev/null
           # the clock/PMIC providers must be built in, or every consumer fails "can't get the clock"
+          CLKSOC="$GITHUB_WORKSPACE/boot/kernel-fragments/clk-soc.config"
+          [ -f "$CLKSOC" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLKSOC" >/dev/null
           CLK="$GITHUB_WORKSPACE/boot/kernel-fragments/clk.config"
           [ -f "$CLK" ] && ./scripts/kconfig/merge_config.sh -m -O "$O" "$O/.config" "$CLK" >/dev/null
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
           echo "--- effective clock/PMIC config ---"
-          grep -E 'CONFIG_(SPRD|SC27|COMMON_CLK|SPMI|REGULATOR)' "$O/.config" | grep -v '^#' | sort | head -40 || true
+          grep -E 'CONFIG_(ARCH_SPRD|SPRD|SC27|COMMON_CLK|SPMI|REGULATOR)' "$O/.config" | grep -v '^#' | sort | head -40 || true
           make O="$O" ARCH=arm64 olddefconfig >/dev/null
           echo "out=$O" >> "$GITHUB_ENV"
       - name: Build Image and modules
