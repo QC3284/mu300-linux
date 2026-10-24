@@ -368,9 +368,16 @@ case "$1 ${2:-}" in
             old=$(cat "$l/brightness" 2>/dev/null)
             echo "$n"; write "$n" 1; sleep 2; echo "${old:-0}" > "$l/brightness" 2>/dev/null
         done ;;
-    "boot")   # stock ImmortalWrt look: the power light comes on steady at boot and stays as the state
-              # colour (white 5G / blue 4G / red no service). No blink: OpenWrt does not blink the power LED.
-        write "$POWER" 1 ;;
+    "boot")   # the original two-phase white flash: a fast blink first, then a slow one; the first real
+              # state (data on/5g, error, power off) writes 0/1 through set_led, which disarms the timer.
+        _w=white; has_led "$_w" || _w=green; has_led "$_w" || _w=$POWER
+        if [ -w "$LEDS/$_w/trigger" ] && echo timer > "$LEDS/$_w/trigger" 2>/dev/null; then
+            echo 100 > "$LEDS/$_w/delay_on" 2>/dev/null
+            echo 100 > "$LEDS/$_w/delay_off" 2>/dev/null
+            nap 3
+            echo 500 > "$LEDS/$_w/delay_on" 2>/dev/null
+            echo 500 > "$LEDS/$_w/delay_off" 2>/dev/null
+        fi ;;
     "heartbeat")  # the diag pattern OpenWrt shows: the kernel heartbeat trigger when it is there, otherwise a 1 Hz
                   # short pulse on the same LED - the "still alive" look, not a boot indication
         _d=blue; has_led "$_d" || _d=$POWER
