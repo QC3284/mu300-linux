@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Boot log to the pmsg: the OpenWrt side of the boot had no voice at all, so a failure after switch_root left
+# nothing to read. Every stage writes one line to /dev/pmsg0 (the ramoops pmsg device, read from Android with
+# /sys/fs/pstore/pmsg-ramoops-0), and a dmesg tail goes with it so a driver timeout is captured in place.
+START=01
+
+stage() {
+	echo "mu300-stage: rootfs-$* uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)" > /dev/pmsg0 2>/dev/null || true
+}
+
+boot() {
+	stage "init-start"
+	( dmesg | tail -n 80 ) > /dev/pmsg0 2>/dev/null || true
+	stage "dmesg-early"
+	# the last stages of this rc run, so a hang in a later service still shows how far we got
+	( sleep 20; stage "20s"; dmesg | tail -n 120 > /dev/pmsg0 2>/dev/null || true; stage "dmesg-20s" ) &
+}
+
+start() { boot; }
