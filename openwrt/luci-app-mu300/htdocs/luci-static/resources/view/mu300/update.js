@@ -296,6 +296,18 @@ return view.extend({
 			var box = E('div', { 'id': pre ? 'mud-upd-beta' : 'mud-upd-latest', 'style': 'margin:10px 0' }, [
 				row(pre ? _('Pre-release') : _('Newest release'), [ rel.tag + (rel.published ? ' · ' + rel.published : '') + ' ',
 					E('a', { 'href': rel.url, 'target': '_blank', 'rel': 'noopener noreferrer' }, _('Release notes')) ]),
+				row(_('Theme'), [
+					E('button', { 'class': 'btn cbi-button cbi-button-action', 'click': function(ev) {
+						var other = (st.theme === 'argon') ? 'aurora' : 'argon';
+						if (!confirm(_('Switch to the %s variant? The whole system is replaced by that variant\'s image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme.').format(other)))
+							return;
+						M.callUpdateAct('theme_switch', rel.tag, '', '', '', '', '', 'theme', '', other).then(function(r) {
+							if (!r || r.ok !== 1) { M.toast(_('Failed: %s').format(M.errText(r)), { type: 'error', timeout: 8000 }); return; }
+							M.toast(_('Switching to the %s variant.').format(other));
+							window.setTimeout(function() { self.reload(); }, 4000);
+						});
+					} }, _('Switch to the %s variant').format((st.theme === 'argon') ? 'aurora' : 'argon')),
+					' ', E('span', { 'class': 'cbi-value-description' }, _('replaces the system (about 29 MB); now: %s').format(st.theme || '?')) ]),
 				row(_('Download'), M.fmtBytes(rel.download)),
 				row(_('Free space needed'), kb(rel.need_kb) + (disk.free_kb != null && rel.need_kb > disk.free_kb ? ' · ' + _('not enough: remove the previous version first') : ''))
 			]);

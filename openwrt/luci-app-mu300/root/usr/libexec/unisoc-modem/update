@@ -255,8 +255,9 @@ do_get() {
             LC_ALL=C tr -d '\000-\011\013-\037\177' | redact_log)")
         [ ! -e "$REPORT.new" ] || report_new=1
     fi
-    printf '{"ok":1,"status":%s,"check":%s,"check_age":%s,"upload":%s,"report":%s,"report_new":%d,"job":%s}\n' \
-        "$st" "$(json_or_null "$CHECK")" "$age" "$(upload_json)" "$report" "$report_new" "$(job_json)"
+    printf '{"ok":1,"status":%s,"check":%s,"check_age":%s,"upload":%s,"report":%s,"report_new":%d,"job":%s,"theme":"%s"}\n' \
+        "$st" "$(json_or_null "$CHECK")" "$age" "$(upload_json)" "$report" "$report_new" "$(job_json)" \
+        "$(head -n1 /etc/mu300/image-theme 2>/dev/null | tr -d ' \r')"
 }
 
 do_job() { printf '{"ok":1,"job":%s}\n' "$(job_json)"; }
@@ -268,8 +269,8 @@ systems_ok() {
 # has_flag FLAGS NAME
 has_flag() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }
 
-do_act() {  # do_act OP TAG SYSTEMS KERNEL SHA256 SIZE FLAGS CONFIRM URL
-    local op=${1:-} tag=${2:-} systems=${3:-} kernel=${4:-} sha=${5:-} size=${6:-} flags=${7:-} confirm=${8:-} url=${9:-}
+do_act() {  # do_act OP TAG SYSTEMS KERNEL SHA256 SIZE FLAGS CONFIRM URL THEME
+    local op=${1:-} tag=${2:-} systems=${3:-} kernel=${4:-} sha=${5:-} size=${6:-} flags=${7:-} confirm=${8:-} url=${9:-} theme=${10:-}
     local f offered need insp
     [ -x "$CMD" ] || error 'Updating is not available on this system'
     systems=$(printf '%s' "$systems" | tr ',' ' ')
@@ -281,6 +282,14 @@ do_act() {  # do_act OP TAG SYSTEMS KERNEL SHA256 SIZE FLAGS CONFIRM URL
     case $op in
         check)
             start_job check -- ;;
+        theme_switch)
+            # the variant switch: the other theme's image replaces the system. Its own tag is read from the release
+            # index, so nothing is passed but the theme, and --theme is what lets mu300-update take it.
+            case $theme in aurora|argon) ;; *) error 'Invalid theme' ;; esac
+            [ "$confirm" = theme ] || error 'This needs confirmation'
+            job_running && error 'An update task is already running'
+            lock_free
+            start_job theme_switch -- apply --theme "$theme" ;;
         apply)
             [ "$confirm" = apply ] || error 'This needs confirmation'
             # a release tag (docs/FINDINGS.md 125: vYYYY.MM.DD, and vYYYY.MM.DD.N after v2026.10.27)

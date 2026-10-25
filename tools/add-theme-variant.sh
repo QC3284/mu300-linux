@@ -16,9 +16,21 @@ ARCH=${MU300_ARCH:-aarch64_generic}
 case $THEME in aurora|argon) ;; *) echo "theme must be aurora or argon" >&2; exit 1 ;; esac
 if [ "$THEME" = argon ]; then
     command -v apk >/dev/null 2>&1 || { echo "apk-tools 3 is needed for the argon packages" >&2; exit 1; }
-    apk --root "$STAGE" --arch "$ARCH" --allow-untrusted --repository "$FEED" \
-        --keys-dir "$STAGE/etc/apk/keys" --initdb --no-scripts \
-        add luci-theme-argon luci-app-argon-config luci-i18n-argon-config-zh-cn
+    # MU300_APK_DIR holds the three .apk files already downloaded (the CI path: the v3 packages are fetched by name
+    # from the release tree, then installed here with apk 3 - no index needed, no repository round trip).
+    # Without it the feed is used, which needs an apk 3 that can read the v3 index.
+    if [ -n "${MU300_APK_DIR:-}" ]; then
+        _pkgs=$(ls "$MU300_APK_DIR"/luci-theme-argon-*.apk "$MU300_APK_DIR"/luci-app-argon-config-*.apk \
+                     "$MU300_APK_DIR"/luci-i18n-argon-config-zh-cn-*.apk 2>/dev/null) || {
+            echo "MU300_APK_DIR=$MU300_APK_DIR does not hold the three theme packages" >&2; exit 1; }
+        # shellcheck disable=SC2086
+        apk --root "$STAGE" --arch "$ARCH" --keys-dir "$STAGE/etc/apk/keys" --allow-untrusted \
+            --force-non-repository --no-scripts add $_pkgs
+    else
+        apk --root "$STAGE" --arch "$ARCH" --allow-untrusted --repository "$FEED" \
+            --keys-dir "$STAGE/etc/apk/keys" --initdb --no-scripts \
+            add luci-theme-argon luci-app-argon-config luci-i18n-argon-config-zh-cn
+    fi
 fi
 [ -d "$STAGE/www/luci-static/$THEME" ] || { echo "$STAGE has no /www/luci-static/$THEME" >&2; exit 1; }
 C="$STAGE/etc/config/luci"
