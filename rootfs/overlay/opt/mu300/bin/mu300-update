@@ -4194,6 +4194,8 @@ apply_options() {
             --from) _ao=1 ;;
             --unsigned) MU300_ALLOW_UNSIGNED=1; export MU300_ALLOW_UNSIGNED ;;
             --downgrade) MU300_ALLOW_DOWNGRADE=1; export MU300_ALLOW_DOWNGRADE ;;
+            # the variant switch: allow exactly one cross-theme apply, and only to the variant asked for
+            --theme) shift; case ${1:-} in aurora|argon) MU300_THEME_SWITCH=$1; export MU300_THEME_SWITCH; shift ;; *) echo "--theme needs aurora or argon" >&2; exit 2 ;; esac ;;
             # (--sha256=HASH: the file is the one with this SHA-256 - the one inspect was shown for - or nothing)
             --sha256=*) MU300_FROM_SHA=${_aa#--sha256=}; sha_ok "$MU300_FROM_SHA" || die "usage: mu300-update apply --from FILE --sha256=HASH" ;;
             # (a system's name or an option: one plain word, so that the list can be passed on as words)
