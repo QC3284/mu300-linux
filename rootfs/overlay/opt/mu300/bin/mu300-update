@@ -3579,7 +3579,11 @@ apply() {
     # $0 is usually the link in /usr/local/bin: the file it points to is replaced, never the link (a file there
     # would be kept by every later update, with usr/local, and hide the updater of the system)
     self=$(readlink -f "$0" 2>/dev/null || echo "$0")
-    if [ -z "${MU300_SELF_UPDATED:-}" ] && fetch_verified "$tag" mu300-update 2>/dev/null &&
+    # A variant switch is not handed over: the release's own updater is an older build that does not know --theme, so
+    # it would drop the flag and refuse the other theme. This updater keeps the run.
+    if [ -n "${MU300_THEME_SWITCH:-}" ]; then
+        printf 'variant switch: keeping this mu300-update (the release binary does not know --theme)\n'
+    elif [ -z "${MU300_SELF_UPDATED:-}" ] && fetch_verified "$tag" mu300-update 2>/dev/null &&
         ! cmp -s "$STAGE/mu300-update" "$self" && sh -n "$STAGE/mu300-update" && from_handover "$STAGE/mu300-update"; then
         printf 'continuing with the mu300-update of %s\n' "$tag"
         keepalive_stop

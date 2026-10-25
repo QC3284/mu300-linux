@@ -1,12 +1,26 @@
 #!/bin/sh
-# 92-mu300-theme-consistency: LuCI must show the theme this image carries.
+# 92-mu300-theme-consistency: the image marker is the truth about this device theme, and LuCI must show it.
 #
-# /etc/config/luci (mediaurlbase) is carried across an update; after a variant switch the carried value points at the
-# other theme directory, which the new image does not have. The image marker decides, once, at boot.
-[ -f /etc/mu300/image-theme ] || exit 0
-T=$(head -n1 /etc/mu300/image-theme | tr -d " \r\n")
-case $T in aurora|argon) ;; *) exit 0 ;; esac
-[ -d "/www/luci-static/$T" ] || exit 0
+# Two jobs, both once at boot:
+#   1. /etc/mu300/image-theme exists and says aurora or argon. A device updated from an image built before the marker
+#      (or one whose marker was carried empty) gets it written from the packager line at the root of the image:
+#      /features, which reads "theme=<name>" beside sdcard and gpt-root.
+#   2. LuCI opens on that theme: /etc/config/luci is a user file and is carried across updates, so after a variant
+#      switch mediaurlbase still points at the other theme directory, which the new image does not have.
+mkdir -p /etc/mu300 2>/dev/null || true
+T=$(head -n1 /etc/mu300/image-theme 2>/dev/null | tr -d " \r\n")
+case $T in aurora|argon) ;; *)
+    T=$(sed -n "s/^theme=//p" /features 2>/dev/null | head -n1 | tr -d " \r\n")
+    case $T in
+        aurora|argon)
+            printf "%s\n" "$T" > /etc/mu300/image-theme && \
+                echo "theme: /etc/mu300/image-theme was missing; written from /features ($T)" ;;
+        *)
+            echo "theme: no marker and no theme= line in /features; leaving the system as it is" >&2
+            exit 0 ;;
+    esac ;;
+esac
+[ -d "/www/luci-static/$T" ] || { echo "theme: $T has no /www/luci-static/$T in this image; mediaurlbase left alone" >&2; exit 0; }
 C=$(uci -q get luci.main.mediaurlbase 2>/dev/null)
 if [ "$C" != "/luci-static/$T" ]; then
     uci -q set "luci.main.mediaurlbase=/luci-static/$T"
