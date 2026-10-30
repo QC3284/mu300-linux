@@ -1154,6 +1154,14 @@ up_locked() {
             echo "the IPA delegate (sipa-dele) did not load; not activating the PDP context" >&2
             exit 1
         fi
+        # success must mean the module is there: a start that returned without one would still leave the
+        # downlink dead (upstream double-checks the same way; see /tmp/mu300-sipa-dele.log for the reason)
+        grep -q '^sipa_dele ' /proc/modules 2>/dev/null || {
+            radio_say "sipa-dele-start returned without a module in /proc/modules; no PDP context"
+            led error
+            echo "the IPA delegate load did not stick; not activating the PDP context" >&2
+            exit 1
+        }
         mark dial-sipa-dele
     fi
     # systemd has no way to pass an argument from a config file, so the APN can come from the environment too:

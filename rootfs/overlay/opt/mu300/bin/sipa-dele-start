@@ -23,6 +23,11 @@
 # system; and when the packet domain does not come up within MU300_DELE_WAIT seconds this refuses (exit 1) instead
 # of loading anyway: the dial stops there and its next attempt calls this again. Exit 0: loaded now, already loaded,
 # or a kernel without the module. Exit 1: not loaded, and the PDP context must not be activated.
+#
+# Newer kernels also publish the delegate's own readiness interface under /sys/bus/platform/drivers/sipa_delegate:
+# the kernel confirms the channel-120 handshake on a waitqueue, so the dmesg inference below is used only when
+# that interface is absent (an older sipa-dele.ko). With the interface, exit 1 also means the kernel says the
+# handshake is not done.
 set -u
 export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin:/usr/sbin:/sbin"
 
@@ -30,10 +35,34 @@ M=/lib/modules/$(uname -r)
 KO=$M/sipa-dele.ko
 [ -f "$KO" ] || KO=$M/extra/sipa-dele.ko   # the Ubuntu image keeps modules under extra/
 WAIT=${MU300_DELE_WAIT:-180}
+# Newer sipa-dele.ko modules publish a kernel-side readiness interface: the kernel itself confirms the
+# channel-120 handshake with the modem on a waitqueue, instead of the dmesg inference used below.
+SYSFS=${MU300_DELE_SYSFS:-/sys/bus/platform/drivers/sipa_delegate}
 
 log() { echo "sipa-dele-start: $*"; }
 
-grep -q '^sipa_dele ' /proc/modules && { log "already loaded"; exit 0; }
+# Exit 0: the delegate's channel and resource callbacks are ready. Exit 1: the kernel's interface says the
+# handshake is not done (or is answering garbage) - the PDP context must not be activated. Exit 2: this kernel
+# has no readiness interface (older sipa-dele.ko); nothing was read, the caller uses the dmesg confirmation.
+delegate_ready() {
+    local candidate node= count=0 state
+    for candidate in "$SYSFS"/*/sipa_dele_wait; do
+        [ -r "$candidate" ] || continue
+        node=$candidate; count=$((count + 1))
+    done
+    [ "$count" = 1 ] || { log 'no kernel readiness interface (older sipa-dele.ko); dmesg fallback applies'; return 2; }
+    # This read waits on a kernel waitqueue: it returns immediately when ready, or reports open failure /
+    # interruption / a pending-handshake timeout explicitly (see sipa_dele_ready for the status).
+    state=$(cat "$node") || { log "delegate handshake not ready (status: $(cat "${node%/*}/sipa_dele_ready" 2>/dev/null))"; return 1; }
+    [ "$state" = 1 ] || { log 'invalid delegate readiness response'; return 1; }
+    log 'delegate channel and resource callbacks ready'
+}
+
+if grep -q '^sipa_dele ' /proc/modules; then
+    log "already loaded"
+    delegate_ready || [ "$?" = 2 ] || exit 1
+    exit 0
+fi
 [ -f "$KO" ] || { log "no $KO (a kernel without the modem stack)"; exit 0; }
 
 # What counts as "the CP is talking" has to be the modem answering, not a log line on the way there.
@@ -84,14 +113,23 @@ while :; do
             exit 1
         fi
         log "loaded sipa-dele"
-        # Both halves of the handshake are pr_info, so this says immediately whether it took.
-        sleep 3
-        if dmesg | grep -q 'channel 5-120 send open msg'; then
-            log "channel open sent; handshake: $(dmesg | grep -c sipa_dele) sipa_dele messages so far"
-        else
-            log "no 'channel 5-120 send open msg' in dmesg - the delegate thread did not start"
-        fi
-        exit 0
+        delegate_ready
+        rc=$?
+        case $rc in
+            0) exit 0 ;;
+            2)
+                # No kernel readiness interface in this sipa-dele.ko: both halves of the handshake are
+                # pr_info, so the dmesg line says immediately whether it took.
+                sleep 3
+                if dmesg | grep -q 'channel 5-120 send open msg'; then
+                    log "channel open sent; handshake: $(dmesg | grep -c sipa_dele) sipa_dele messages so far"
+                else
+                    log "no 'channel 5-120 send open msg' in dmesg - the delegate thread did not start"
+                fi
+                exit 0
+                ;;
+            *) exit 1 ;;
+        esac
     fi
     [ $(( $(date +%s) - start + 2 )) -lt "$WAIT" ] || break
     sleep 2
