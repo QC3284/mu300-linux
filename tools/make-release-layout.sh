@@ -1,13 +1,15 @@
 #!/bin/bash
 # Build a release in the UPSTREAM layout so upstream's mu300-update can consume it:
 #   mu300-openwrt-rootfs.tar.gz   our rootfs, plus ./features (capability marker)
-#   mu300-kernel-7.2.tar.gz       kernel bundle (./Image + ./lib/modules + ./features) when an Image is available
+#   mu300-kernel-7.2.tar.gz       kernel bundle (./Image + ./ramdisk-generic.lz4 + ./modules + ./devices + ./features)
+#                                   when an Image (IMAGE_FILE) and a generic ramdisk (RAMDISK_GENERIC) are available
 #   mu300-update                  the updater script from this tree
 #   SHA256SUMS                    every asset
 # Mapping: our Magisk layout -> upstream layout
 #   mu300-immortalwrt-25.12.2-rootfs.tar.gz -> mu300-openwrt-rootfs.tar.gz (byte-identical payload + ./features)
-#   boot-linux.img                          -> stays a Magisk/installer asset; the kernel bundle needs ./Image,
-#                                              which is NOT derivable from the flashable image (open gap) 
+#   boot-linux.img                          -> stays a Magisk/installer asset; the kernel bundle needs ./Image
+#                                              (IMAGE_FILE) and ./ramdisk-generic.lz4 (RAMDISK_GENERIC, built with
+#                                              build-boot-image.py --generic-ramdisk)
 #!/bin/bash
 set -eu
 ROOTFS=${1:?rootfs tar}
@@ -53,11 +55,26 @@ echo '== updater asset =='
 cp "$TREE/rootfs/overlay/opt/mu300/bin/mu300-update" "$OUT/mu300-update"
 chmod 755 "$OUT/mu300-update"
 echo '== kernel bundle =='
-if [ -n "${IMAGE_FILE:-}" ] && [ -f "$IMAGE_FILE" ]; then
-    mkdir -p "$OUT/k/lib/modules" "$OUT/k/features.d"
+if [ -n "${IMAGE_FILE:-}" ]; then
+    [ -f "$IMAGE_FILE" ] || { echo "IMAGE_FILE $IMAGE_FILE does not exist" >&2; exit 1; }
+    # The updater's boot subcommand consumes the UPSTREAM bundle layout: ./Image, ./ramdisk-generic.lz4,
+    # ./kernel.release, a flat ./modules/, ./devices and ./features. The legacy layout (./lib/modules and a
+    # features file without sdcard) is not consumable: boot would refuse the bundle. The generic ramdisk is
+    # built separately with build-boot-image.py --generic-ramdisk; a bundle without it cannot boot-update.
+    [ -n "${RAMDISK_GENERIC:-}" ] && [ -f "$RAMDISK_GENERIC" ] || { echo "RAMDISK_GENERIC is required with IMAGE_FILE (build it with build-boot-image.py --generic-ramdisk)" >&2; exit 1; }
+    KREL=${KERNEL_RELEASE:-$(tar -tzf "$ROOTFS" | sed -n 's|^\./lib/modules/\([^/]\+\)/\?$|\1|p' | head -n1)}
+    [ -n "$KREL" ] || { echo "cannot derive kernel.release from $ROOTFS" >&2; exit 1; }
+    mkdir -p "$OUT/k/modules"
     cp "$IMAGE_FILE" "$OUT/k/Image"
-    tar -xzf "$ROOTFS" -C "$OUT/k" ./lib/modules/7.2.8 2>/dev/null || true
-    printf 'linux-slot\ngpt-root\n' > "$OUT/k/features"
+    cp "$RAMDISK_GENERIC" "$OUT/k/ramdisk-generic.lz4"
+    [ -f "$RAMDISK_GENERIC.json" ] && cp "$RAMDISK_GENERIC.json" "$OUT/k/ramdisk-generic.json" || true
+    printf '%s\n' "$KREL" > "$OUT/k/kernel.release"
+    tar -xzf "$ROOTFS" -C "$OUT/k" "./lib/modules/$KREL" 2>/dev/null || true
+    cp "$OUT/k/lib/modules/$KREL"/*.ko "$OUT/k/modules/" 2>/dev/null || true
+    cp "$OUT/k/lib/modules/$KREL"/modules.builtin "$OUT/k/lib/modules/$KREL"/modules.builtin.modinfo "$OUT/k/" 2>/dev/null || true
+    rm -rf "$OUT/k/lib"
+    printf '%s\n' "${MU300_DEVICES:-f50 u30air v50}" > "$OUT/k/devices"
+    printf 'sdcard\nlinux-slot\ngpt-root\n' > "$OUT/k/features"
     tar --owner=0 --group=0 -czf "$OUT/mu300-kernel-7.2.tar.gz" -C "$OUT/k" .
     rm -rf "$OUT/k"
     echo "  mu300-kernel-7.2.tar.gz $(stat -c%s "$OUT/mu300-kernel-7.2.tar.gz") B"
