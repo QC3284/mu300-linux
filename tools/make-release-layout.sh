@@ -67,7 +67,10 @@ if [ -n "${IMAGE_FILE:-}" ]; then
     mkdir -p "$OUT/k/modules"
     cp "$IMAGE_FILE" "$OUT/k/Image"
     cp "$RAMDISK_GENERIC" "$OUT/k/ramdisk-generic.lz4"
-    [ -f "$RAMDISK_GENERIC.json" ] && cp "$RAMDISK_GENERIC.json" "$OUT/k/ramdisk-generic.json" || true
+    # build-boot-image.py writes the manifest next to --out with the suffix swapped (with_suffix('.json')):
+    # ramdisk-generic.lz4 -> ramdisk-generic.json
+    GJSON="${RAMDISK_GENERIC%.lz4}.json"
+    [ -f "$GJSON" ] && cp "$GJSON" "$OUT/k/ramdisk-generic.json" || true
     printf '%s\n' "$KREL" > "$OUT/k/kernel.release"
     tar -xzf "$ROOTFS" -C "$OUT/k" "./lib/modules/$KREL" 2>/dev/null || true
     cp "$OUT/k/lib/modules/$KREL"/*.ko "$OUT/k/modules/" 2>/dev/null || true
