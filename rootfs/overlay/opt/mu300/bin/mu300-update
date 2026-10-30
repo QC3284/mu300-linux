@@ -3651,7 +3651,12 @@ apply() {
     # (the release that was judged - signature, downgrade - is the one these files are: see payload_is)
     payload_is "$tag" $todo || die "nothing was changed"
     # the rootfs-only path must move the boot tag too, or the panel keeps offering this very release as a kernel update
-    sync_boot_tag "$tag" $todo
+    # (retired in favor of the boot bundle mechanism: a rootfs-only apply should leave the boot tag alone, or the
+    # panel keeps offering the release as a kernel update it already covers; the old behavior stays available
+    # behind MU300_BOOT_TAG_SYNC=1 until the device test approves dropping it)
+    if [ "${MU300_BOOT_TAG_SYNC:-0}" = 1 ]; then
+        sync_boot_tag "$tag" $todo
+    fi
     # the extras of the release: an installed one follows it (a release without it: r=2, the installed one stays)
     extras=
     for x in $(extras_to_fetch "$tag"); do
