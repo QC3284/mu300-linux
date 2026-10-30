@@ -186,6 +186,11 @@ def main():
                                                 'that segment brings one)')
     ap.add_argument('--logdw', type=Path, help='tools/logdw build (static arm64; may be left out as --busybox)')
     ap.add_argument('--ueventd-perms', required=True, type=Path)
+    ap.add_argument('--extra-file', action='append', default=[], metavar='DEST=SRC',
+                    help='extra file for the segment (repeatable): in a generic ramdisk this is how init-support '
+                         'files that newer device segments carry (etc/mu300-storage.sh, '
+                         'etc/mu300-internal-ext4.sh) are guaranteed to be on every device segment; a later '
+                         'segment overrides an earlier file of the same name')
     ap.add_argument('--android-subset', type=Path, help='directory produced by android-vendor/extract-subset.sh')
     ap.add_argument('--append-ramdisk', type=Path,
                     help='another LZ4 legacy ramdisk segment to put behind this one (the ramdisk-generic.lz4 of a '
@@ -257,6 +262,18 @@ def main():
         if a.generic_ramdisk:
             ap.error('--device does not go into a generic ramdisk')
         files['etc/mu300-device'] = (a.device.encode() + b'\n', stat.S_IFREG | 0o644)
+    for spec in a.extra_file:
+        dest, _, src = spec.partition('=')
+        if not dest or not src:
+            ap.error('--extra-file wants DEST=SRC')
+        if dest.startswith('/') or '..' in dest.split('/'):
+            ap.error(f'--extra-file destination {dest} must be a relative in-segment path')
+        p = Path(src)
+        if not p.is_file():
+            sys.exit(f'extra file {p} does not exist')
+        files[dest] = (p.read_bytes(), stat.S_IFREG | (0o755 if os.access(p, os.X_OK) else 0o644))
+        for i in range(1, len(dest.split('/'))):
+            dirs.add('/'.join(dest.split('/')[:i]))
     if a.generic_ramdisk:
         # The kernel unpacks concatenated ramdisk segments in turn and a later file replaces an earlier one of the
         # same name, so this segment behind the device's own ramdisk updates everything that is not the device's.

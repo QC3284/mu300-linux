@@ -44,7 +44,12 @@ mkdir "$W/b" "$W/b/modules"
 python3 "$U/wrap-image.py" "$UO/Image" "$W/b/Image"
 python3 "$TOP/boot/build-boot-image.py" --generic-ramdisk --modules "$UO/modules" \
     --module-order "$U/module-order.txt" --busybox "$W/busybox" --logdw "$W/logdw" \
-    --ueventd-perms "$TOP/android-vendor/ueventd-perms.sh" --out "$W/b/ramdisk-generic.lz4" >/dev/null
+    --ueventd-perms "$TOP/android-vendor/ueventd-perms.sh" \
+    --extra-file etc/mu300-storage.sh="$TOP/boot/etc/mu300-storage.sh" \
+    --extra-file etc/mu300-internal-ext4.sh="$TOP/boot/etc/mu300-internal-ext4.sh" \
+    --out "$W/b/ramdisk-generic.lz4" >/dev/null
+# skew gate: the generic init must never reference files it does not itself carry (2026-10-30 kernel #73 test)
+python3 "$TOP/tools/check-generic-ramdisk.py" "$W/b/ramdisk-generic.lz4" || exit 1
 cp "$UO"/modules/*.ko "$W/b/modules/"
 for f in modules.builtin modules.builtin.modinfo; do [ ! -f "$UO/$f" ] || cp "$UO/$f" "$W/b/"; done
 cp "$UO/kernel.config" "$UO/modules.in-tree" "$W/b/"

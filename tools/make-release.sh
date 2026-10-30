@@ -116,7 +116,11 @@ cp "$IN/tools/pwcheck/mu300-pwcheck" "$K/"
 python3 "$TOP/boot/build-boot-image.py" --generic-ramdisk --modules "$IN/out/modules" --busybox "$IN/busybox" \
   --device-modules "u30air=$KOUT/modules-u30air" \
   --logdw "$IN/tools/logdw/logdw" --ueventd-perms "$TOP/android-vendor/ueventd-perms.sh" \
+  --extra-file etc/mu300-storage.sh="$TOP/boot/etc/mu300-storage.sh" \
+  --extra-file etc/mu300-internal-ext4.sh="$TOP/boot/etc/mu300-internal-ext4.sh" \
   --out "$K/ramdisk-generic.lz4" >/dev/null
+# skew gate: the generic init must never reference files it does not itself carry (2026-10-30 kernel #73 test)
+python3 "$TOP/tools/check-generic-ramdisk.py" "$K/ramdisk-generic.lz4" || exit 1
 tar -C "$K" -czf "$D/mu300-kernel.tar.gz" .
 rm -rf "$K"
 
