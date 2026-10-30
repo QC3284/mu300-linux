@@ -1,0 +1,135 @@
+# Sign the SHA256SUMS of a published release.
+#
+# The release key is a repository secret and secrets only reach a workflow's
+# steps, so the signature is made here: GitHub's release API cannot make an
+# OpenWrt usign signature. Run it after the release and its assets exist. It
+# adds one asset, SHA256SUMS.sig, and touches nothing else: the release, its
+# assets, the tag and this file stay as they are.
+#
+#   gh workflow run sign-release.yml -f tag=v2026.10.31.2
+#
+# The signature is checked twice before it is uploaded: once against the key id
+# the project's release key has, once with usign itself against the release.pub
+# that the tag carries, which is the key every device checks a release with.
+# Re-running it replaces SHA256SUMS.sig with the same bytes.
+name: Sign release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag whose SHA256SUMS to sign (e.g. v2026.10.31.2)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Check out the tag's own release key
+        uses: actions/checkout@v5
+        with:
+          # GATE 2 checks the signature with the release key the tag itself
+          # carries. main has no rootfs/ tree - the key was committed on the
+          # release branches - so check out the tag, not the default branch.
+          # A tag signed with a key the tag does not ship would make a release
+          # no device can trust.
+          ref: ${{ inputs.tag }}
+          sparse-checkout: rootfs/overlay/opt/mu300/lib
+          fetch-depth: 1
+
+      - name: Install usign
+        run: |
+          set -eux
+          ok=
+          if sudo apt-get update -qq && sudo apt-get install -y -qq usign; then
+            # An old package may know -c only for keys; this workflow makes the
+            # signature comment with it, so probe the exact behaviour used.
+            if usign -G -p /tmp/probe.pub -s /tmp/probe.sec -c probe >/dev/null 2>&1 &&
+               grep -q '^untrusted comment: probe$' /tmp/probe.sec; then
+              ok=packaged
+            fi
+          fi
+          if [ -z "$ok" ]; then
+            echo "no packaged usign that can carry a signature comment: building it from source"
+            sudo apt-get install -y -qq cmake gcc make git
+            rm -rf /tmp/usign-src /tmp/usign-build
+            git clone --quiet --depth 1 https://github.com/openwrt/usign /tmp/usign-src
+            cmake -S /tmp/usign-src -B /tmp/usign-build -DCMAKE_BUILD_TYPE=Release >/dev/null
+            cmake --build /tmp/usign-build -j2 >/dev/null
+            sudo install -m 0755 /tmp/usign-build/usign /usr/local/bin/usign
+          fi
+          rm -f /tmp/probe.pub /tmp/probe.sec
+
+      - name: Fetch SHA256SUMS, check it is this release's, write the key file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          MU300_RELEASE_KEY: ${{ secrets.MU300_RELEASE_KEY }}
+        run: |
+          set -eu
+          test -n "$MU300_RELEASE_KEY" || { echo "::error::MU300_RELEASE_KEY is not set in this repository"; exit 1; }
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir .
+          test -s SHA256SUMS
+          echo "SHA256SUMS: $(wc -c < SHA256SUMS) bytes, $(wc -l < SHA256SUMS) lines"
+          # The checksums must name this tag: a signature over another release's
+          # sums would be refused by every device (sums_verdict's tag check).
+          identity=$(awk '$2 == "mu300-release" { print $1 }' SHA256SUMS)
+          tag_hash=$(printf '%s\n' "$TAG" | sha256sum | cut -d' ' -f1)
+          test "$identity" = "$tag_hash" || { echo "::error::SHA256SUMS identifies $identity, not $TAG ($tag_hash)"; exit 1; }
+          echo "identity line: $identity (the checksums name $TAG)"
+          # The key arrives as a value, never as a file. It is expected to be
+          # the usign secret key file (comment line and base64) as stored in
+          # MU300_RELEASE_KEY, but a bare base64 body and the bare 104-byte key
+          # material are taken too, so a secret entered in another shape needs
+          # no new secret. Nothing here prints it.
+          umask 077
+          key_in=$RUNNER_TEMP/mu300-release-key.in
+          printf '%s' "$MU300_RELEASE_KEY" > "$key_in"
+          if grep -q '^untrusted comment' "$key_in"; then
+            printf '%s\n' "$(tr -d '\r' < "$key_in")" > key.sec
+          elif [ "$(wc -c < "$key_in")" -eq 104 ] && [ "$(head -c 2 "$key_in")" = "Ed" ]; then
+            { printf 'untrusted comment: private key\n'; openssl base64 -A -in "$key_in"; printf '\n'; } > key.sec
+          else
+            { printf 'untrusted comment: private key\n'; tr -d ' \t\r\n' < "$key_in" | openssl base64 -d -A | openssl base64 -A; printf '\n'; } > key.sec
+          fi
+          rm -f "$key_in"
+          # GATE 1: the secret is the project's release key and nothing else.
+          key_id=$(usign -F -s key.sec 2>/dev/null) || { echo "::error::MU300_RELEASE_KEY is not a usign secret key"; exit 1; }
+          echo "GATE 1: key id $key_id"
+          test "$key_id" = "e7dda0c39df07e04" || { echo "::error::MU300_RELEASE_KEY has key id $key_id, not the project release key e7dda0c39df07e04"; exit 1; }
+
+      - name: Sign SHA256SUMS
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          usign -S -m SHA256SUMS -s key.sec -x SHA256SUMS.sig -c "$TAG"
+          test -s SHA256SUMS.sig
+          echo "SHA256SUMS.sig: $(wc -c < SHA256SUMS.sig) bytes, $(head -1 SHA256SUMS.sig)"
+
+      - name: GATE 2 - the release key of this tag verifies the signature
+        run: |
+          set -eu
+          pub=rootfs/overlay/opt/mu300/lib/release.pub
+          test -s "$pub" || { echo "::error::$pub is missing from this tag"; exit 1; }
+          key_id=$(usign -F -p "$pub")
+          test "$key_id" = "e7dda0c39df07e04" || { echo "::error::the release key in this tag has key id $key_id, not e7dda0c39df07e04"; exit 1; }
+          usign -V -m SHA256SUMS -p "$pub" -x SHA256SUMS.sig
+          echo "GATE 2: signature verifies with the release key this tag ships"
+
+      - name: Upload SHA256SUMS.sig to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          gh release upload "$TAG" SHA256SUMS.sig --repo "$GITHUB_REPOSITORY" --clobber
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name == "SHA256SUMS.sig") | "SHA256SUMS.sig on the release: \(.size) bytes"'
+
+      - name: Remove the key file
+        if: always()
+        run: rm -f key.sec "$RUNNER_TEMP/mu300-release-key.in"
