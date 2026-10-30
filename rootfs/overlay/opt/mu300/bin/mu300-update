@@ -3220,6 +3220,21 @@ boot_room() {
     return 1
 }
 
+# boot_slot_is_this_image BODY ROFF KSZ RSZ IMAGE GENERIC: the image in the slot is already the one this bundle
+# would write - the same kernel, and a ramdisk that ends with the bundle's generic segment - although the files that
+# say so (written.sha256, installed.id) do not name it: an installer, or an image written by hand, left them behind.
+# Then the step has nothing to write; it writes the state down. Without this, a slot holding the whole ramdisk of an
+# installer was taken for the device segment and the generic segment was appended again - the image grew, and the
+# step wrote it although nothing had changed.
+boot_slot_is_this_image() {  # boot_slot_is_this_image BODY ROFF KSZ RSZ IMAGE GENERIC   (ROFF: where the ramdisk starts)
+    _bs_ksz=$(fsize "$5") _bs_gsz=$(fsize "$6")
+    [ "$_bs_ksz" = "$3" ] && [ "$4" -gt "$_bs_gsz" ] || return 1
+    # the kernel starts after the header page, the ramdisk after it padded to a page (bootimg_assemble); head|tail
+    # reads the range with no broken pipe to complain about
+    [ "$(head -c $((4096 + $3)) "$1" | tail -c "$3" | sha256sum | cut -d' ' -f1)" = "$(sha256sum < "$5" | cut -d' ' -f1)" ] || return 1
+    [ "$(head -c $(($2 + $4)) "$1" | tail -c "$_bs_gsz" | sha256sum | cut -d' ' -f1)" = "$(sha256sum < "$6" | cut -d' ' -f1)" ]
+}
+
 # boot_update TAG: the kernel step. However it ends, nothing of it stays on the partition but what it put in place:
 # the unpacked bundle and the images being made go, a set of modules kept for an image that was not written goes, and
 # so does the bundle it downloaded when it did not finish (a kernel update that failed for want of room left 200 MB of
@@ -3331,10 +3346,28 @@ boot_update_run() {
         printf 'boot: already up to date (%s)\n' "$tag"
         return 0
     fi
+    roff=$((4096 + (ksz + 4095) / 4096 * 4096))
     if [ "$cur" != "$(cat "$BOOTDIR/written.sha256" 2>/dev/null)" ] || [ ! -s "$BOOTDIR/device-ramdisk.lz4" ]; then
+        # the image in the slot is already this release's, but the files that say so are not the slot's: an
+        # installer, or an image written by hand, left them behind. Writing the image again would take its whole
+        # ramdisk for the device segment and add the generic segment twice; the state is written down instead.
+        if boot_slot_is_this_image "$tmp/body" "$roff" "$ksz" "$rsz" "$tmp/Image" "$tmp/ramdisk-generic.lz4"; then
+            head -c $((roff + rsz - $(fsize "$tmp/ramdisk-generic.lz4"))) "$tmp/body" |
+                tail -c $((rsz - $(fsize "$tmp/ramdisk-generic.lz4"))) > "$BOOTDIR/device-ramdisk.lz4.new"
+            [ "$(od -An -tx1 -N4 "$BOOTDIR/device-ramdisk.lz4.new" | tr -d ' \n')" = 02214c18 ] ||
+                { rm -f "$BOOTDIR/device-ramdisk.lz4.new"; echo "boot: the ramdisk in $bp is not LZ4 legacy, not touching it" >&2; return 1; }
+            mv "$BOOTDIR/device-ramdisk.lz4.new" "$BOOTDIR/device-ramdisk.lz4"
+            [ -z "$mods" ] || kernel_modules_into_systems "$tmp" || return 1
+            echo "$cur" > "$BOOTDIR/written.sha256"
+            echo "$id" > "$BOOTDIR/installed.id"
+            echo "$tag" > "$BOOTDIR/installed.tag"
+            kernel_choice > "$BOOTDIR/installed.kernel"
+            sync
+            printf 'boot: already up to date (%s)\n' "$tag"
+            return 0
+        fi
         # the image comes from an installer: its whole ramdisk becomes the device segment (its generic files are
         # replaced by the ones appended below)
-        roff=$((4096 + (ksz + 4095) / 4096 * 4096))
         head -c "$((roff + rsz))" "$tmp/body" | tail -c "$rsz" > "$BOOTDIR/device-ramdisk.lz4.new"
         [ "$(od -An -tx1 -N4 "$BOOTDIR/device-ramdisk.lz4.new" | tr -d ' \n')" = 02214c18 ] ||
             { rm -f "$BOOTDIR/device-ramdisk.lz4.new"; echo "boot: the ramdisk in $bp is not LZ4 legacy, not touching it" >&2; return 1; }
