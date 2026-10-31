@@ -1,7 +1,10 @@
 # Release source of this image: the fork that builds it, read through a mirror that is reachable from mainland
-# networks (the GitHub API itself is not, on mobile data). MU300_MIRROR_FALLBACK lets a failed mirror fall back to
-# github.com for that run; the setting stays, so the next run tries the mirror again.
-MU300_DOWNLOAD_URL=https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download,https://ghfast.top/https://github.com/QC3284/mu300-linux/releases/download
+# networks (the GitHub API itself is not, on mobile data). The download source is a comma-separated list, tried in
+# order, github.com last: ghfast serves the Range probes and the plain GETs the release check makes, gh-proxy
+# refuses the probes (000) while it serves the GETs, so both are kept and a mirror that cannot be reached is
+# stepped over. MU300_MIRROR_FALLBACK lets a failed mirror fall back to github.com for that run; the setting stays,
+# so the next run tries the mirrors again.
+MU300_DOWNLOAD_URL=https://ghfast.top/https://github.com/QC3284/mu300-linux/releases/download,https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download
 MU300_API_URL=https://api.github.com/repos/QC3284/mu300-linux
 # the same proxy for the API reads (the release list): on mobile data api.github.com is often unreachable
 MU300_API_MIRROR=https://gh-proxy.com/https://api.github.com
