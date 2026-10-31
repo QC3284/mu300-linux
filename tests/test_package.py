@@ -32,19 +32,19 @@ def manifest(**kw):
     return ''.join(f'{k}={v}\n' for k, v in m.items())
 
 
-def make_package(d, text=None, sums=None, kernel=KB, rootfs=ROOTFS):
+def make_package(d, text=None, sums=None, kernel=KB, rootfs=ROOTFS, rootfs_name='mu300-openwrt-rootfs.tar.gz'):
     """D laid out like an unpacked zip: mu300/manifest, mu300/SHA256SUMS, payload/"""
     (d / 'mu300').mkdir(parents=True, exist_ok=True)
     (d / 'payload').mkdir(exist_ok=True)
     (d / 'mu300/manifest').write_text(manifest() if text is None else text)
     if sums is None:
         sums = (f'{hashlib.sha256(KB).hexdigest()}  mu300-kernel-6.18.tar.gz\n'
-                f'{hashlib.sha256(ROOTFS).hexdigest()}  mu300-openwrt-rootfs.tar.gz\n')
+                f'{hashlib.sha256(ROOTFS).hexdigest()}  {rootfs_name}\n')
     (d / 'mu300/SHA256SUMS').write_text(sums)
     if kernel is not None:
         (d / 'payload/mu300-kernel-6.18.tar.gz').write_bytes(kernel)
     if rootfs is not None:
-        (d / 'payload/mu300-openwrt-rootfs.tar.gz').write_bytes(rootfs)
+        (d / f'payload/{rootfs_name}').write_bytes(rootfs)
     return d
 
 
@@ -272,6 +272,36 @@ class Window(unittest.TestCase):
                    dict(SYSTEM='ubuntu-26.04', OS='ubuntu', UBUNTU='26.04', ROOTFS_ASSET='mu300-ubuntu-26.04-rootfs.tar.gz',
                         KERNEL='5.4', KERNEL_ASSET='mu300-kernel.tar.gz')):
             self.assertIsNone(package.parse(manifest(**kw)), kw)
+
+    def test_the_asset_names_of_the_current_releases(self):
+        """Since v2026.10.31.2 the image is mu300-immortalwrt-rootfs.tar.gz: a release's zip whose manifest says so
+        is read, and the zips of the releases before the rename still are."""
+        new = dict(ROOTFS_ASSET='mu300-immortalwrt-rootfs.tar.gz')
+        for kw in (dict(new), dict(SYSTEM='openwrt-luci', OS='openwrt-luci', **new),
+                   dict(SYSTEM='immortalwrt', OS='immortalwrt', **new),
+                   dict(KERNEL='7.2', KERNEL_ASSET='mu300-kernel-7.2.tar.gz', **new)):
+            self.assertIsNotNone(package.parse(manifest(**kw)), kw)
+        self.assertIsNotNone(package.parse(manifest()))                    # a release before the rename
+        self.assertIsNotNone(package.parse(manifest(SYSTEM='openwrt-luci', OS='openwrt-luci',
+                                                    ROOTFS_ASSET='mu300-openwrt-luci-rootfs.tar.gz')))
+        for kw in (dict(ROOTFS_ASSET='mu300-openwrt-luci-rootfs.tar.gz'),
+                   dict(SYSTEM='openwrt-luci', OS='openwrt-luci', ROOTFS_ASSET='mu300-openwrt-rootfs.tar.gz'),
+                   dict(SYSTEM='immortalwrt', OS='immortalwrt', ROOTFS_ASSET='mu300-openwrt-rootfs.tar.gz'),
+                   dict(SYSTEM='immortalwrt')):
+            self.assertIsNone(package.parse(manifest(**kw)), kw)
+
+    def test_a_package_of_the_current_releases(self):
+        """'Install from package' for the .31.x zips: the system and kernel they hold, and their two files."""
+        make_package(self.tmp / 'new', text=manifest(ROOTFS_ASSET='mu300-immortalwrt-rootfs.tar.gz'),
+                     rootfs_name='mu300-immortalwrt-rootfs.tar.gz')
+        pkg = package.load(str(self.tmp), {'MU300_PACKAGE': str(self.tmp / 'new')})
+        self.assertEqual((pkg['system'], pkg['os'], pkg['kernel']), ('openwrt', 'openwrt', '6.18'))
+        self.assertEqual(sorted(pkg['files']), ['mu300-immortalwrt-rootfs.tar.gz', 'mu300-kernel-6.18.tar.gz'])
+        self.assertEqual(pkg['bytes'], len(KB) + len(ROOTFS))
+        c = model.Choices()
+        c.apply_package(pkg)
+        self.assertEqual((c.systems(), c.kernel, c.release), (['openwrt'], '6.18', 'v2026.10.27'))
+        self.assertEqual(model.download_plan(c, {}), ([], 0))
 
     def test_choices_and_answers(self):
         make_package(self.tmp / 'pkg')

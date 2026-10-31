@@ -11,10 +11,16 @@ import re
 
 from . import TOP
 
-SYSTEMS = {'openwrt': ('openwrt', '', 'mu300-openwrt-rootfs.tar.gz'),
-           'openwrt-luci': ('openwrt-luci', '', 'mu300-openwrt-luci-rootfs.tar.gz'),
-           'ubuntu-24.04': ('ubuntu', '24.04', 'mu300-ubuntu-rootfs.tar.gz'),
-           'ubuntu-26.04': ('ubuntu', '26.04', 'mu300-ubuntu-26.04-rootfs.tar.gz')}
+# The system a release's manifest names, and every (OS, UBUNTU, ROOTFS_ASSET) a release may put with it: the same
+# rows tools/package.sh and the zip's own installer accept. Since v2026.10.31.2 the image is
+# mu300-immortalwrt-rootfs.tar.gz; the names of the releases before it stay valid beside it.
+SYSTEMS = {'openwrt': (('openwrt', '', 'mu300-immortalwrt-rootfs.tar.gz'),
+                       ('openwrt', '', 'mu300-openwrt-rootfs.tar.gz')),
+           'openwrt-luci': (('openwrt-luci', '', 'mu300-immortalwrt-rootfs.tar.gz'),
+                            ('openwrt-luci', '', 'mu300-openwrt-luci-rootfs.tar.gz')),
+           'immortalwrt': (('immortalwrt', '', 'mu300-immortalwrt-rootfs.tar.gz'),),
+           'ubuntu-24.04': (('ubuntu', '24.04', 'mu300-ubuntu-rootfs.tar.gz'),),
+           'ubuntu-26.04': (('ubuntu', '26.04', 'mu300-ubuntu-26.04-rootfs.tar.gz'),)}
 KERNELS = {'5.4': 'mu300-kernel.tar.gz', '6.18': 'mu300-kernel-6.18.tar.gz', '7.2': 'mu300-kernel-7.2.tar.gz'}
 KEYS = ('TAG', 'SYSTEM', 'OS', 'UBUNTU', 'KERNEL', 'KERNEL_ASSET', 'ROOTFS_ASSET', 'SHA256_KERNEL', 'SHA256_ROOTFS')
 
@@ -38,7 +44,7 @@ def parse(text):
             m[k] = v.rstrip('\r')
     if not re.fullmatch(r'v[0-9][0-9A-Za-z._-]*', m['TAG']) or '..' in m['TAG']:
         return None
-    if SYSTEMS.get(m['SYSTEM']) != (m['OS'], m['UBUNTU'], m['ROOTFS_ASSET']):
+    if (m['OS'], m['UBUNTU'], m['ROOTFS_ASSET']) not in SYSTEMS.get(m['SYSTEM'], ()):
         return None
     if KERNELS.get(m['KERNEL']) != m['KERNEL_ASSET'] or (m['UBUNTU'] == '26.04' and m['KERNEL'] == '5.4'):
         return None
