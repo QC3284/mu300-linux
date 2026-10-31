@@ -64,6 +64,15 @@ if [ -f "$_uu" ]; then
     cp "$_uu" "$OUT/r/opt/mu300/bin/mu300-update"
     chmod 755 "$OUT/r/opt/mu300/bin/mu300-update"
 fi
+# The image carries this tree's release source, the file the updater reads before it asks anything: an image
+# relabelled from an older one would otherwise hand a fresh install the old chain (gh-proxy first, whose Range
+# probe the release check makes answers 000), and an update carries /etc/mu300 over from the installed system, so
+# the file an image carried is the one devices keep. Last in this group, before the manifest.
+_uc="$TREE/rootfs/overlay/etc/mu300/update-source"
+if [ -f "$_uc" ]; then
+    mkdir -p "$OUT/r/etc/mu300"
+    cp "$_uc" "$OUT/r/etc/mu300/update-source"
+fi
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
