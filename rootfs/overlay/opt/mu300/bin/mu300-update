@@ -547,21 +547,44 @@ latest_release() {
 # through releases/latest/download/<name>, which is a DOWNLOAD path and works through the mirrors.
 chain_base() { fetch_chain | sed -n "$((FETCH_CHAIN_INDEX + 1))p"; }
 latest_index() {   # latest_index: the tag the index names for this device's theme (empty when there is none)
-    _li=$(chain_base); [ -n "$_li" ] || return 1
-    _iu=$(printf '%s\n' "$_li" | sed 's#/releases/download$#/releases/latest/download#')
-    case $_iu in */releases/latest/download) ;; *) return 1 ;; esac
-    _it=$(fetch_stdout "$_iu/latest-$DEVICE_THEME" 2>/dev/null | sed -n 's/^mu300-latest [0-9][0-9]*[[:space:]]*//p' | head -n1)
-    [ -n "$_it" ] || return 1
-    tag_ok "$_it" >/dev/null 2>&1 || return 1
-    printf '%s\n' "$_it"
+    # The index is one small file of a release, so it comes from the same chain as the release files: a mirror
+    # this run cannot reach is stepped over (mirror_fell_back), github.com is the last resort; a mirror that
+    # ANSWERS - 404, 403 - is the source's answer, and no other mirror is asked.
+    while :; do
+        _li=$(chain_base); [ -n "$_li" ] || return 1
+        _iu=$(printf '%s\n' "$_li" | sed 's#/releases/download$#/releases/latest/download#')
+        case $_iu in */releases/latest/download) ;; *) return 1 ;; esac
+        _it=$(fetch_stdout "$_iu/latest-$DEVICE_THEME" 2>/dev/null); _isrc=$?
+        if [ "$_isrc" != 0 ]; then
+            [ "$_isrc" = "$FETCH_UNREACHABLE" ] && { mirror_fell_back || return 1; continue; }
+            return 1
+        fi
+        _it=$(printf '%s\n' "$_it" | sed -n 's/^mu300-latest [0-9][0-9]*[[:space:]]*//p' | head -n1)
+        [ -n "$_it" ] || return 1
+        tag_ok "$_it" >/dev/null 2>&1 || return 1
+        printf '%s\n' "$_it"
+        return 0
+    done
 }
 theme_published() {   # theme_published TAG: this theme's rootfs asset answers on the download chain
-    _tb=$(chain_base); [ -n "$_tb" ] || return 1
-    _tu="$_tb/$1/$(theme_asset mu300-immortalwrt-rootfs.tar.gz)"
-    _tc=000
-    have curl && _tc=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 15 --max-time 45 --range 0-0 "$_tu" 2>/dev/null || echo 000)
-    case $_tc in 200|206|302) return 0 ;; esac
-    return 1
+    # The probe is a release download, so it walks the chain the release files walk: a mirror this run cannot
+    # reach is stepped over (mirror_fell_back), github.com is the last resort - and a mirror that ANSWERS - 404,
+    # 403, 500 - is the source's answer about the release: no other mirror is asked, as with the files themselves.
+    have curl || return 1
+    while :; do
+        _tb=$(chain_base); [ -n "$_tb" ] || return 1
+        _tu="$_tb/$1/$(theme_asset mu300-immortalwrt-rootfs.tar.gz)"
+        _tc= _trc=0
+        _tc=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 15 --max-time 45 --range 0-0 "$_tu" 2>/dev/null) || _trc=$?
+        # (curl prints 000 for a connection it could not make; the exit code tells that from an HTTP answer)
+        if [ "$_trc" != 0 ]; then
+            [ "$(fetch_unreachable_rc "$_trc" 0)" = "$FETCH_UNREACHABLE" ] || return 1
+            mirror_fell_back || return 1
+            continue
+        fi
+        case $_tc in 200|206|302) return 0 ;; esac
+        return 1
+    done
 }
 # theme_ok TARBALL: the features line (and, for older images, the manifest head) must name this device's theme.
 theme_ok() {
@@ -1992,9 +2015,10 @@ asset_kb() {
         _as=$(from_member "$2" 2>/dev/null | wc -c | tr -d ' ')
     else
         if [ -z "${ASSET_JSON+x}" ]; then
-            _aa=${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases/tags/$1
-            if have curl; then ASSET_JSON=$(curl -fsSL --connect-timeout 15 --max-time 30 "$_aa" 2>/dev/null) || ASSET_JSON=
-            else ASSET_JSON=$(wget -T 30 -qO- "$_aa" 2>/dev/null) || ASSET_JSON=; fi
+            # the same API read as the release list (api_get: MU300_API_MIRROR, then the direct API unless the
+            # source file forbids it); api.github.com itself is 403 on mobile data, and then the size has to come
+            # from the HEAD request below
+            ASSET_JSON=$(api_get "/releases/tags/$1" 2>/dev/null) || ASSET_JSON=
         fi
         _as=$(printf '%s\n' "$ASSET_JSON" | awk -v f="$2" '
             function val(s) { sub(/^[^:]*:[ \t]*/, "", s); sub(/[ \t]*,?[ \t\r]*$/, "", s); gsub(/^"|"$/, "", s); return s }
@@ -2004,7 +2028,9 @@ asset_kb() {
                   else if (L[i] ~ /^[ \t]*"size":/ && an == f) { print val(L[i]); exit }
               } }')
         if [ -z "$_as" ]; then
-            _au=${MU300_RELEASE_URL:-${MU300_DOWNLOAD_URL:-https://github.com/$REPO/releases/download}/$1}/$2
+            # the chain entry this run is on, as fetch_base picks it: MU300_DOWNLOAD_URL may be a list of mirrors,
+            # and joining a list into one URL is no URL at all
+            _au=$(fetch_base "$1")/$2
             # (OpenWrt's wget, uclient-fetch, does not print the headers: the image's busybox does)
             _ab=${MU300_BIN:-/opt/mu300/bin}/busybox
             if have curl; then _as=$(curl -fsIL --connect-timeout 30 --max-time 60 "$_au" 2>/dev/null)
@@ -3965,12 +3991,19 @@ source_conf() {
     [ -O "$SOURCE_CONF" ] || { echo "$SOURCE_CONF is not ours: ignored" >&2; return 0; }
     while IFS='=' read -r _sk _sv; do
         case $_sk in
-            MU300_API_URL|MU300_DOWNLOAD_URL)
+            MU300_API_URL)
                 printf '%s\n' "$_sv" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || continue
-                case $_sk in
-                    MU300_API_URL) [ -n "${MU300_API_URL:-}" ] || MU300_API_URL=$_sv ;;
-                    MU300_DOWNLOAD_URL) [ -n "${MU300_DOWNLOAD_URL:-}" ] || MU300_DOWNLOAD_URL=$_sv ;;
-                esac ;;
+                [ -n "${MU300_API_URL:-}" ] || MU300_API_URL=$_sv ;;
+            # The download source may be a COMMA-SEPARATED LIST of mirrors (fetch_chain tries them in order,
+            # github.com last), so every entry is checked and the line is kept as it is written: a list the reader
+            # dropped is no chain at all - the shipped gh-proxy-then-ghfast line fell back to github.com direct.
+            MU300_DOWNLOAD_URL)
+                _sok=1
+                for _se in $(printf '%s\n' "$_sv" | tr ',' ' '); do
+                    printf '%s\n' "$_se" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || { _sok=; break; }
+                done
+                [ -n "$_sok" ] || continue
+                [ -n "${MU300_DOWNLOAD_URL:-}" ] || MU300_DOWNLOAD_URL=$_sv ;;
             # the one line of this file that is not an address: it decides whether a run whose mirror cannot be
             # reached takes the release from github.com (the default) or fails as it did before there was a mirror
             MU300_MIRROR_FALLBACK) case $_sv in 0|1) MIRROR_FALLBACK=$_sv ;; esac ;;
@@ -4553,8 +4586,12 @@ releases_json() {
     # (no answer to the first question: offline, without waiting for a second one - on the U30 Air without a route
     # each question took 24 s)
     tag_ok "$_latest" || { echo '{"ok":0,"why":"offline"}'; return 1; }
-    _all=$(fetch_stdout "${MU300_API_URL:-https://api.github.com/repos/$REPO}/releases?per_page=10") || _all=
-    if ! tag_ok "$_latest" || [ -z "$_all" ]; then echo '{"ok":0,"why":"offline"}'; return 1; fi
+    # The list is read through api_get (MU300_API_MIRROR, then the direct API unless the source file forbids it).
+    # Where it does not answer at all - on mobile data api.github.com is 403 whatever the route - the static index
+    # has still named the newest release of this theme, and that one is answered below: no file sizes (asset_kb's
+    # 16 MiB default covers the page and apply's room count) and no pre-release. "offline" there was wrong: the
+    # index had just answered.
+    _all=$(api_get "/releases?per_page=10" 2>/dev/null) || _all=
     RELEASES=$(printf '%s\n' "$_all" | awk '
         function val(s) { sub(/^[^:]*:[ \t]*/, "", s); sub(/[ \t]*,?[ \t\r]*$/, "", s); gsub(/^"|"$/, "", s); return s }
         function flush() { if (tag != "") { print "R", tag, pre, draft, pub, title; printf "%s", files } tag = ""; files = "" }
@@ -4572,6 +4609,8 @@ releases_json() {
         }
         { gsub(/,"/, ",\n\""); gsub(/\{"/, "{\n\""); n = split($0, L, "\n"); for (i = 1; i <= n; i++) line(L[i]) }
         END { flush() }')
+    # the API did not answer, the index did: the index's one release is the list
+    if [ -z "$_all" ]; then RELEASES=$(printf 'R %s\n' "$_latest"); fi
     _beta=
     for _bt in $(printf '%s\n' "$RELEASES" | awk '$1 == "R" && $3 == "true" && $4 == "false" { print $2 }'); do
         tag_ok "$_bt" && { [ -z "$_beta" ] || newer "$_bt" "$_beta"; } && _beta=$_bt
@@ -4600,7 +4639,16 @@ source_file_value() {
     # (the first line, as source_conf takes it: a file with two lines of this name is hand-edited, and the reader
     #  and the writer have to agree on which one is in force)
     _fv=$(sed -n "s/^[[:space:]]*$1=//p" "$SOURCE_CONF" 2>/dev/null | head -n1)
-    printf '%s\n' "$_fv" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || return 0
+    case $1 in
+        # the download source may be a list of mirrors: every entry a plain http(s) address, shown as written
+        MU300_DOWNLOAD_URL)
+            _fok=1
+            for _fe in $(printf '%s\n' "$_fv" | tr ',' ' '); do
+                printf '%s\n' "$_fe" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || { _fok=; break; }
+            done
+            [ -n "$_fok" ] || return 0 ;;
+        *) printf '%s\n' "$_fv" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || return 0 ;;
+    esac
     printf '%s\n' "$_fv"
 }
 # source_state NAME: where NAME's value comes from, and the value, as "origin value" - env (this process's

@@ -1062,7 +1062,8 @@ class Status(test_update.Lock):
     def test_without_an_answer_it_says_offline(self):
         self.fill()
         for shell in self.each_shell():
-            for listing, latest in (('', 'v2026.11.02'), (self.github(True, []), ''), ('<html>rate limit</html>', '')):
+            # (the API answering nothing while the index answers: test_the_index_answers_the_list_when_the_api_does_not)
+            for listing, latest in ((self.github(True, []), ''), ('<html>rate limit</html>', '')):
                 (self.tmp / 'list.json').write_text(listing)
                 code = (f'. "{UPDATE}"; latest_release() {{ echo "{latest}"; }}; '
                         f'fetch_stdout() {{ [ -s "{self.tmp}/list.json" ] && cat "{self.tmp}/list.json"; }}; releases_json; echo "rc=$?"')
@@ -1403,6 +1404,100 @@ class Status(test_update.Lock):
             'lock_holder', 'size_kb', 'status_json', 'release_json', 'releases_json', 'progress',
             'mirror_fell_back_inherited']))
 
+    def test_the_index_answers_the_list_when_the_api_does_not(self):
+        # the release list is read through the API; on mobile data api.github.com answers 403 whatever the route -
+        # and the static index has already named the newest release of this theme. Answering "offline" there was
+        # wrong (the page showed no release at all), so the index's own release is the answer: no file sizes (the
+        # page and apply's room count take asset_kb's 16 MiB default) and no pre-release.
+        self.fill()
+        for shell in self.each_shell():
+            for listing in ('', '<html>rate limit</html>'):
+                (self.tmp / 'list.json').write_text(listing)
+                code = (f'. "{UPDATE}"; latest_release() {{ echo "v2026.11.02"; }}; '
+                        f'fetch_stdout() {{ [ -s "{self.tmp}/list.json" ] && cat "{self.tmp}/list.json"; return 1; }}; releases_json')
+                r = self.sh(shell, code, MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root)
+                o = json.loads(r.stdout)
+                self.assertEqual((o['ok'], o['latest']['tag'], o['latest']['files'], o['latest']['download'], o['beta']),
+                                 (1, 'v2026.11.02', [], 0, None), r.stderr)
+
+    def test_the_probe_and_the_index_step_over_a_mirror_that_is_not_there(self):
+        # the range probe and the static index are a release download too, so a first mirror the device cannot
+        # reach is stepped over: a gh-proxy-first chain still names the release the second mirror serves (2026-10-31:
+        # the probe answered 000 and the check fell back to the API, which answers 403)
+        conf = self.tmp / 'update-source'
+        dead = 'https://dead.example/releases/download'
+        live = 'https://live.example/releases/download'
+        conf.write_text(f'MU300_DOWNLOAD_URL={dead},{live}\n')
+        conf.chmod(0o600)
+        self.stub('sleep', ':')
+        self.stub('curl', 'u=; range=; for a in "$@"; do [ "$a" = --range ] && range=1; u=$a; done\n'
+                          'printf "%s\n" "$u" >> "$STUBLOG/urls"\n'
+                          f'case $u in *dead.example*) exit 7 ;;'
+                          f' *live.example*/latest-aurora) printf "mu300-latest 1 v2026.11.02\n" ;;'
+                          f' *live.example*/mu300-immortalwrt-rootfs.tar.gz) [ -n "$range" ] && printf 206 ;;'
+                          ' *) exit 22 ;; esac')
+        code = 'source_conf; echo "latest=[$(latest_release)]"; theme_published v2026.11.02; echo "probe=$?"'
+        for shell in self.each_shell():
+            (self.tmp / 'urls').unlink(missing_ok=True)
+            # a routed interface: the VPN kill switch is not what this test is about (it would stop the retries)
+            r = self.up(shell, code, MU300_SOURCE_CONF=conf, MU300_FETCH_DELAY=0,
+                        MU300_KS_ROUTE='1.1.1.1 via 192.0.2.1 dev eth0 src 192.0.2.2')
+            self.assertEqual(r.stdout, 'latest=[v2026.11.02]\nprobe=0\n', r.stderr)
+            # three steps, each inside its own subshell and each starting from the top of the chain: the index,
+            # latest_release's own theme check, and the probe this test asks for
+            self.assertEqual(r.stderr.count('mirror unreachable: trying the next one'), 3, r.stderr)
+            urls = (self.tmp / 'urls').read_text().split()
+            self.assertTrue(any(u.startswith(dead) for u in urls), urls)
+            self.assertTrue(any(u.startswith(live) for u in urls), urls)
+            self.assertFalse(any('github.com' in u for u in urls), urls)
+
+    def test_an_answer_of_a_mirror_is_not_a_mirror_that_is_not_there(self):
+        # an HTTP error is the source's answer, not its absence: the index and the probe stop there, and the next
+        # mirror is not asked (as with the release files: a 404 for a release a proxy does serve, a 403 for one it does not)
+        conf = self.tmp / 'update-source'
+        conf.write_text('MU300_DOWNLOAD_URL=https://proxy.example/releases/download\n')
+        conf.chmod(0o600)
+        self.stub('curl', 'for a in "$@"; do u=$a; done\nprintf "%s\n" "$u" >> "$STUBLOG/urls"\nexit 22')
+        code = 'source_conf; latest_index; echo "index=$?"; theme_published v2026.11.02; echo "probe=$?"'
+        for shell in self.each_shell():
+            (self.tmp / 'urls').unlink(missing_ok=True)
+            r = self.up(shell, code, MU300_SOURCE_CONF=conf, MU300_FETCH_DELAY=0)
+            self.assertEqual(r.stdout, 'index=1\nprobe=1\n', r.stderr)
+            self.assertEqual(r.stderr.count('mirror unreachable'), 0, r.stderr)
+            self.assertEqual(len((self.tmp / 'urls').read_text().split()), 2, 'one try each, no retry and no step')
+
+    def test_the_shipped_source_tries_the_working_mirror_first(self):
+        # measured on the device: gh-proxy refuses the Range probe the check makes (000 in 0.7 s) while it serves
+        # plain GETs; ghfast serves both. The image's chain therefore names ghfast first - and source_conf reads the
+        # list (it took one URL once and dropped the line, so the shipped chain never was a chain at all).
+        src = (TOP / 'rootfs' / 'overlay' / 'etc' / 'mu300' / 'update-source').read_text()
+        line = next(l for l in src.splitlines() if l.startswith('MU300_DOWNLOAD_URL='))
+        urls = line.split('=', 1)[1].split(',')
+        self.assertEqual([u.split('/')[2] for u in urls], ['ghfast.top', 'gh-proxy.com'], line)
+        conf = self.tmp / 'update-source'
+        conf.write_text(src)
+        conf.chmod(0o600)
+        code = 'source_conf; echo "[${MU300_DOWNLOAD_URL:-}]"; echo "first=[$(fetch_base v2026.11.02)]"'
+        for shell in self.each_shell():
+            r = self.up(shell, code, MU300_SOURCE_CONF=conf)
+            self.assertEqual(r.stdout.splitlines()[0], '[' + ','.join(urls) + ']', r.stderr)
+            self.assertEqual(r.stdout.splitlines()[1], f'first=[{urls[0]}/v2026.11.02]')
+
+    def test_the_source_file_reads_a_list_of_mirrors(self):
+        # mirrors are a comma-separated list tried in order (fetch_chain, github.com last): the file is read as one,
+        # every entry a plain http(s) address; one bad entry and the file names no source at all, as before
+        conf = self.tmp / 'update-source'
+        a = 'https://ghfast.top/https://github.com/QC3284/mu300-linux/releases/download'
+        b = 'https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download'
+        conf.write_text(f'MU300_DOWNLOAD_URL={a},{b}\n')
+        conf.chmod(0o600)
+        code = 'source_conf; echo "[${MU300_DOWNLOAD_URL:-}]"; fetch_chain'
+        for shell in self.each_shell():
+            r = self.up(shell, code, MU300_SOURCE_CONF=conf)
+            self.assertEqual(r.stdout, f'[{a},{b}]\n{a}\n{b}\nhttps://github.com/QC3284/mu300-linux/releases/download\n', r.stderr)
+            conf.write_text(f'MU300_DOWNLOAD_URL={a},file:///etc\n')
+            self.assertEqual(self.up(shell, 'source_conf; echo "[${MU300_DOWNLOAD_URL:-}]"', MU300_SOURCE_CONF=conf).stdout, '[]\n')
+            conf.write_text(f'MU300_DOWNLOAD_URL={a},{b}\n')
 
 # (Status borrows Lock's holder of the lock, not its tests: those run in test_update)
 for _name in dir(test_update.Lock):
