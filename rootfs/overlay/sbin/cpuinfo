@@ -10,34 +10,35 @@ cpu_arch="$(awk -F ': ' '/model name/ {print $2}' "$CPUINFO_PATH" | head -n1)"
 if [ -n "$cpu_arch" ]; then
 	cpu_cores="x $(grep -c '^processor' "$CPUINFO_PATH")"
 else
-	# arm64: name the cores from implementer/part (e.g. 0xd0b=Cortex-A76, 0xd05=Cortex-A55)
+	# arm64 (user-picked format, 2026-10-31): "UMS9620 (T760) · 4×A55 + 4×A76" — chip name + core counts, no freq/temp
 	cpu_arch="$(awk '
 		/^CPU part/ {
 			gsub(/[ 	]/, "", $0)
 			split($0, a, ":")
 			p = a[2]
-			if (p == "0xd0b") n = "Cortex-A76"
-			else if (p == "0xd05") n = "Cortex-A55"
-			else if (p == "0xd0d") n = "Cortex-A77"
-			else if (p == "0xd46") n = "Cortex-A510"
-			else if (p == "0xd47") n = "Cortex-A715"
-			else if (p == "0xd48") n = "Cortex-A720"
-			else n = "0x" p
+			if (p == "0xd0b") n = "A76"
+			else if (p == "0xd05") n = "A55"
+			else if (p == "0xd0d") n = "A77"
+			else if (p == "0xd46") n = "A510"
+			else if (p == "0xd47") n = "A715"
+			else if (p == "0xd48") n = "A720"
+			else n = (p ~ /^0x/ ? p : "0x" p)
 			cnt[n]++
 		}
 		END {
 			s = ""
-			if (cnt["Cortex-A55"]) s = s "Cortex-A55 x" cnt["Cortex-A55"]
-			if (cnt["Cortex-A76"]) s = s (s ? ", " : "") "Cortex-A76 x" cnt["Cortex-A76"]
-			if (cnt["Cortex-A77"]) s = s (s ? ", " : "") "Cortex-A77 x" cnt["Cortex-A77"]
-			if (cnt["Cortex-A510"]) s = s (s ? ", " : "") "Cortex-A510 x" cnt["Cortex-A510"]
-			if (cnt["Cortex-A715"]) s = s (s ? ", " : "") "Cortex-A715 x" cnt["Cortex-A715"]
-			if (cnt["Cortex-A720"]) s = s (s ? ", " : "") "Cortex-A720 x" cnt["Cortex-A720"]
+			if (cnt["A55"]) s = s cnt["A55"] "×A55"
+			if (cnt["A76"]) s = s (s ? " + " : "") cnt["A76"] "×A76"
+			if (cnt["A77"]) s = s (s ? " + " : "") cnt["A77"] "×A77"
+			if (cnt["A510"]) s = s (s ? " + " : "") cnt["A510"] "×A510"
+			if (cnt["A715"]) s = s (s ? " + " : "") cnt["A715"] "×A715"
+			if (cnt["A720"]) s = s (s ? " + " : "") cnt["A720"] "×A720"
 			for (n in cnt)
-				if (n !~ /^Cortex-/) s = s (s ? ", " : "") n " x" cnt[n]
-			print (s ? s : "?")
+				if (n !~ /^A/) s = s (s ? " + " : "") cnt[n] "×" n
+			print "UMS9620 (T760) · " (s ? s : "?")
 		}' "$CPUINFO_PATH")"
 	cpu_cores=""
+	is_arm=1
 fi
 
 case "$DISTRIB_TARGET" in
@@ -77,8 +78,10 @@ if [ -n "$cpu_temp" ]; then
 fi
 
 out="$cpu_arch"
-[ -z "$cpu_cores" ] || out="$out $cpu_cores"
-[ -z "$details" ] || out="$out ($details)"
+if [ -z "$is_arm" ]; then
+	[ -z "$cpu_cores" ] || out="$out $cpu_cores"
+	[ -z "$details" ] || out="$out ($details)"
+fi
 echo -n "$out"
 
 exit 0
