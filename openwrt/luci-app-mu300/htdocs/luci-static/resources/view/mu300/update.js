@@ -219,7 +219,10 @@ return view.extend({
 		/* someone else's mu300-update (a shell, the toolkit): the updater's own lock is what decides */
 		var foreign = !running && lock.held;
 		var off = running || foreign;
-		var me = systems.filter(function(s) { return s.name === st.running; })[0] || {};
+		/* a system is a directory on the Linux partition and an image in it: status "running" names the image, which
+		 * need not be the directory's (a legacy openwrt directory that boots an immortalwrt image) */
+		var mine = function(s) { return s.name === st.running || s.image === st.running; };
+		var me = systems.filter(mine)[0] || {};
 
 		this.jobBox = E('div', { 'id': 'mud-upd-jobbox' });
 		var cards = [ this.jobBox ];
@@ -244,7 +247,8 @@ return view.extend({
 		var inst = E('section', { 'class': 'mud-card', 'id': 'mud-upd-status' }, [ E('h3', {}, _('Installed')) ]);
 		inst.appendChild(row(_('This system'), (st.running || '--') + ' · ' + (me.release || st.installed || '--')));
 		systems.forEach(function(s) {
-			if (s.name !== st.running) inst.appendChild(row(_('Also on this device'), s.name + (s.ubuntu ? ' ' + s.ubuntu : '') + ' · ' + s.release));
+			if (mine(s)) return;
+			inst.appendChild(row(_('Also on this device'), s.name + (s.image && s.image !== s.name ? ' (' + s.image + ')' : '') + (s.ubuntu ? ' ' + s.ubuntu : '') + ' · ' + s.release));
 		});
 		inst.appendChild(row(_('Kernel'), (kernel.running || '--') + ' · ' + _('choice %s').format(kernel.choice || '--')));
 		inst.appendChild(row(_('Boot image'), kernel.boot || _('from the installer')));

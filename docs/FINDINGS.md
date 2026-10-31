@@ -10924,3 +10924,22 @@ Android up, `su -c mu300-linux`: `/run/mu300-root-dev` `mmcblk0@61698211840`, Op
 set up (nobody here has one); the partition here was made by hand to cover our own region.
 `tools/android-import-hotspot.sh` (no caller left) still mounts the old fixed offset and writes into the
 filesystem's top level, not a system's: it predates the region and the systems' directories.
+
+**The image's name, not the directory's (2026-10-31): `immortalwrt`.** The releases named the OpenWrt images after the
+directory a device installed them to (`openwrt`, `openwrt-luci`), and `mu300-update` derived the identity the same way
+(`running_os`: a directory that is /). An image is not its mount path: our device's system lives in the legacy `openwrt`
+directory, and the delta block compares the installed image's manifest with the new image's - so identity now comes from
+the installed system's own `etc/mu300/image-manifest.gz` head (`image_identity`), `running_os` is that image name
+(`running_dir` is the directory, for paths), and an image is only an incremental update of the same image name
+(`delta_manifest`); a system from before images carried a manifest falls back to the directory, as before. The OpenWrt
+images are one image again, and its name is `immortalwrt`: the release asset is `mu300-immortalwrt-rootfs.tar.gz`
+(`tools/make-release-layout.sh`, `tools/image-manifest.py`), every openwrt-family system takes it (`rootfs_asset`), and
+the Magisk zips and the installers keep installing into the `openwrt` / `openwrt-luci` directories they always did -
+the identity is in the manifest. An update from .25.4 (`openwrt-luci` image, `openwrt` directory) to .31.2 is therefore
+not a delta: it unpacks the image whole and carries the user's files over as an `openwrt-luci` image (old's own manifest,
+else `image-manifests/openwrt-luci.gz`, both kept); from then on `immortalwrt` to `immortalwrt` is a delta.
+`image-manifests/immortalwrt.gz` is added, made of the .31.2 image's manifest (`image-manifest.py union`). v2026.10.31.2
+is re-cut under the same tag: the tag, the kernel bundle, `latest-aurora`/`latest-argon` and the signed
+`sha256("v2026.10.31.2\n")` identity line do not change.
+
+

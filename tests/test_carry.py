@@ -264,14 +264,19 @@ class Tool(unittest.TestCase):
     def test_the_shipped_unions_are_whole(self):
         # one per image, each naming the releases it holds; a release's manifest comes out with the image's own files
         d = TOP / 'rootfs/overlay/opt/mu300/lib/image-manifests'
-        self.assertEqual(sorted(p.name for p in d.iterdir()), ['openwrt-luci.gz', 'openwrt.gz', 'ubuntu-24.04.gz', 'ubuntu-26.04.gz'])
+        self.assertEqual(sorted(p.name for p in d.iterdir()),
+                         ['immortalwrt.gz', 'openwrt-luci.gz', 'openwrt.gz', 'ubuntu-24.04.gz', 'ubuntu-26.04.gz'])
         for p in d.iterdir():
             lines = gzip.open(p, 'rt', errors='surrogateescape').read().split('\n')
             self.assertEqual(lines[0], f'mu300-image-manifests 1 {p.name[:-3]}')
             tags = lines[1].split(' ')[1:]
             # (every release before the carry block: one published before this is merged must be added, or a device on
-            # it updates the old way - tools/image-manifest.py legacy and union, FINDINGS 85)
-            self.assertIn('v2026.10.27', tags)
+            # it updates the old way - tools/image-manifest.py legacy and union, FINDINGS 85. immortalwrt is the name the
+            # image has from v2026.10.31.2 on: that one release is all its union can hold)
+            if p.name == 'immortalwrt.gz':
+                self.assertEqual(tags, ['v2026.10.31.2'])
+            else:
+                self.assertIn('v2026.10.27', tags)
             self.assertEqual(tags, sorted(tags))
             body = [l for l in lines[2:] if l]
             self.assertTrue(all(re.match(r'^[0-9,-]+ [fdlcbp] [0-7]+ \d+ \d+ \d+ ([0-9a-f]{64}|-) .', l) for l in body), p.name)

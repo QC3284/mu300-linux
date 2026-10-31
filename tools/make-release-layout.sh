@@ -1,12 +1,13 @@
 #!/bin/bash
 # Build a release in the UPSTREAM layout so upstream's mu300-update can consume it:
-#   mu300-openwrt-rootfs.tar.gz   our rootfs, plus ./features (capability marker)
+#   mu300-immortalwrt-rootfs.tar.gz   our rootfs, plus ./features (capability marker)
 #   mu300-kernel-7.2.tar.gz       kernel bundle (./Image + ./ramdisk-generic.lz4 + ./modules + ./devices + ./features)
 #                                   when an Image (IMAGE_FILE) and a generic ramdisk (RAMDISK_GENERIC) are available
 #   mu300-update                  the updater script from this tree
 #   SHA256SUMS                    every asset
 # Mapping: our Magisk layout -> upstream layout
-#   mu300-immortalwrt-25.12.2-rootfs.tar.gz -> mu300-openwrt-rootfs.tar.gz (byte-identical payload + ./features)
+#   mu300-immortalwrt-<ver>-rootfs.tar.gz -> mu300-immortalwrt-rootfs.tar.gz (byte-identical payload + ./features;
+#   the asset name is the image's identity, immortalwrt, which the installed image's own manifest head says too)
 #   boot-linux.img                          -> stays a Magisk/installer asset; the kernel bundle needs ./Image
 #                                              (IMAGE_FILE) and ./ramdisk-generic.lz4 (RAMDISK_GENERIC, built with
 #                                              build-boot-image.py --generic-ramdisk)
@@ -41,16 +42,28 @@ rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" \
       "$OUT/r/usr/share/luci/menu.d/luci-app-ttyd.json"
 # Two entries that do not belong: the attended-sysupgrade page and the stock Terminal (ours is admin/system/terminal).
 rm -f "$OUT/r/usr/share/luci/menu.d/luci-app-attendedsysupgrade.json" "$OUT/r/usr/share/luci/menu.d/luci-app-ttyd.json"
+# The image carries the union manifest of its own image name (opt/mu300/lib/image-manifests, tools/image-manifest.py
+# union): the file an update uses to carry a system whose own image has no manifest. The tree's is the newest (it holds
+# every release of this image name, this one included: it is made from the image once the image is built, so building
+# this release a second time puts this release's lines into the image); the input image's other union files stay as
+# they are. An image built without it still updates; a system whose image has its own manifest - every release from
+# v2026.10.16 on - needs no union. It is copied before the manifest is made: the image carries its own manifest of
+# every file it holds, so a file that comes after that would be one its manifest does not know.
+_iu="$TREE/rootfs/overlay/opt/mu300/lib/image-manifests/immortalwrt.gz"
+if [ -f "$_iu" ]; then
+    mkdir -p "$OUT/r/opt/mu300/lib/image-manifests"
+    cp "$_iu" "$OUT/r/opt/mu300/lib/image-manifests/immortalwrt.gz"
+fi
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
-    python3 "$TREE/tools/image-manifest.py" make "$OUT/manifest-stage.tar.gz" openwrt-luci "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz"
+    python3 "$TREE/tools/image-manifest.py" make "$OUT/manifest-stage.tar.gz" immortalwrt "$TAG" 2>/dev/null | gzip -9 > "$OUT/r/etc/mu300/image-manifest.gz"
     rm -f "$OUT/manifest-stage.tar.gz"
 fi
 chmod 644 "$OUT/r/features"
-tar --owner=0 --group=0 -czf "$OUT/mu300-openwrt-rootfs.tar.gz" -C "$OUT/r" .
+tar --owner=0 --group=0 -czf "$OUT/mu300-immortalwrt-rootfs.tar.gz" -C "$OUT/r" .
 rm -rf "$OUT/r"
-echo "  mu300-openwrt-rootfs.tar.gz $(stat -c%s "$OUT/mu300-openwrt-rootfs.tar.gz") B"
+echo "  mu300-immortalwrt-rootfs.tar.gz $(stat -c%s "$OUT/mu300-immortalwrt-rootfs.tar.gz") B"
 echo '== updater asset =='
 cp "$TREE/rootfs/overlay/opt/mu300/bin/mu300-update" "$OUT/mu300-update"
 chmod 755 "$OUT/mu300-update"
@@ -85,5 +98,5 @@ else
     echo '  SKIPPED: no Image file (see the mapping note: our boot-linux.img is a flashable image, not Image+ramdisk)'
 fi
 echo '== SHA256SUMS =='
-cd "$OUT" && sha256sum mu300-openwrt-rootfs.tar.gz mu300-update ${IMAGE_FILE:+mu300-kernel-7.2.tar.gz} 2>/dev/null | tee SHA256SUMS | sed 's/^/  /'
+cd "$OUT" && sha256sum mu300-immortalwrt-rootfs.tar.gz mu300-update ${IMAGE_FILE:+mu300-kernel-7.2.tar.gz} 2>/dev/null | tee SHA256SUMS | sed 's/^/  /'
 ls -l "$OUT" | sed 's/^/  /'

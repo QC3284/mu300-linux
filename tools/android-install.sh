@@ -6,7 +6,7 @@
 #                      that region; OFF/SIZE are then not used
 #   INTERNAL_EXISTS=0|1  with SD_MODE=1: an internal mu300root exists at OFF/SIZE and gets the root-on-sd marker
 #   FORMAT=0|1         create the ext4 filesystem (mu300root in the region, mu300sd on the card)
-#   OSES="ubuntu openwrt openwrt-luci"  systems to (re)install from $T/mu300-<os>.tar.gz
+#   OSES="ubuntu openwrt openwrt-luci immortalwrt"  systems to (re)install from $T/mu300-<os>.tar.gz
 #                      (plus mu300-vendor-<os>.tar.gz with the device's own vendor files for prebuilt images)
 #   WIPE_LEGACY=0|1    remove a first-generation Ubuntu that lives directly in the filesystem root
 #   UPDATE=0|1         keep everything of the user's in the systems being reinstalled (the carry block of the new
@@ -356,7 +356,7 @@ downgrade_check || exit 1
 DELTA_PARTS="./opt/mu300/bin/mu300-carry ./opt/mu300/bin/mu300-update ./usr/bin/busybox ./opt/mu300/bin/busybox ./etc/mu300/image-manifest.gz ./etc/mu300/image-version"
 # what an installation that was cut off left goes first, so that it is not counted against the room: a half-unpacked
 # <os>.new held 98 % of an F50's region until it was removed by hand
-for x in ubuntu openwrt openwrt-luci; do
+for x in ubuntu openwrt openwrt-luci immortalwrt; do
     for d in $M/$x.new $M/.mu300-delta-$x $M/$x.new.carry-log; do
         if [ -e $d ]; then
             stage_run "clean $x" 900 rm -rf $d || exit 1
@@ -1025,7 +1025,7 @@ esac
 # the boot image is the installer's now: a release tag left by an earlier mu300-update would describe another one
 rm -f $M/boot/installed.tag
 [ -n "$ssid" ] && say "hotspot: SSID $ssid imported (passphrase ${#psk} chars)"
-say "installed: $(ls -d $M/ubuntu $M/openwrt $M/openwrt-luci 2>/dev/null | sed "s|$M/||g" | tr '\n' ' ')boot-os=$BOOT_OS default-linux=$DEFAULT_LINUX"
+say "installed: $(ls -d $M/ubuntu $M/openwrt $M/openwrt-luci $M/immortalwrt 2>/dev/null | sed "s|$M/||g" | tr '\n' ' ')boot-os=$BOOT_OS default-linux=$DEFAULT_LINUX"
 sd_mark_internal
 # the card's dirty pages go out now, bounded like the other card stages (the unmount in sd_exit then has little
 # left to wait for); a timeout here is a failure like any other: the OK line never comes, nothing is armed

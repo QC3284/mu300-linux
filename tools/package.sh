@@ -36,8 +36,9 @@ package_load() {
     case $PKG_TAG in v[0-9]*) ;; *) _pok= ;; esac
     case $PKG_TAG in *[!0-9A-Za-z._-]*|*..*) _pok= ;; esac
     case $PKG_SYSTEM:$PKG_OS:$PKG_UBUNTU:$PKG_ROOTFS_ASSET in
-        openwrt:openwrt::mu300-openwrt-rootfs.tar.gz) ;;
-        openwrt-luci:openwrt-luci::mu300-openwrt-luci-rootfs.tar.gz) ;;
+        openwrt:openwrt::mu300-immortalwrt-rootfs.tar.gz|openwrt:openwrt::mu300-openwrt-rootfs.tar.gz) ;;
+        openwrt-luci:openwrt-luci::mu300-immortalwrt-rootfs.tar.gz|openwrt-luci:openwrt-luci::mu300-openwrt-luci-rootfs.tar.gz) ;;
+        immortalwrt:immortalwrt::mu300-immortalwrt-rootfs.tar.gz) ;;
         ubuntu-24.04:ubuntu:24.04:mu300-ubuntu-rootfs.tar.gz) ;;
         ubuntu-26.04:ubuntu:26.04:mu300-ubuntu-26.04-rootfs.tar.gz) ;;
         *) _pok= ;;

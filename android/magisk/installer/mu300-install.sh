@@ -199,7 +199,7 @@ conf_valid() {  # conf_valid KEY VALUE: VALUE is exactly one this installer know
     case $1 in
         MU300_STORAGE) case $2 in internal|sd) return 0 ;; esac ;;
         MU300_MODE) case $2 in update|wipe) return 0 ;; esac ;;
-        MU300_BOOT_OS) case $2 in ubuntu|openwrt|openwrt-luci) return 0 ;; esac ;;
+        MU300_BOOT_OS) case $2 in ubuntu|openwrt|openwrt-luci|immortalwrt) return 0 ;; esac ;;
         MU300_BOOT) case $2 in linux|android) return 0 ;; esac ;;
         MU300_BOOT_ATTEMPTS) case $2 in [1-6]) return 0 ;; esac ;;
         MU300_SD_ERASE|MU300_REGION_OVERWRITE|MU300_PASSWORD_RESET|MU300_DOWNGRADE) [ "$2" = yes ] && return 0 ;;
@@ -302,8 +302,11 @@ manifest_load() {  # the zip's manifest, read like the conf file: only these key
     case $TAG in v[0-9]*) ;; *) _ok= ;; esac
     case $TAG in *[!0-9A-Za-z._-]*|*..*) _ok= ;; esac
     case $SYSTEM:$OS:$UBUNTU:$ROOTFS_ASSET in
-        openwrt:openwrt::mu300-openwrt-rootfs.tar.gz) ;;
-        openwrt-luci:openwrt-luci::mu300-openwrt-luci-rootfs.tar.gz) ;;
+        # (the image the two OpenWrt systems install from is named immortalwrt; they keep their directories. The names
+        # of the releases before it are taken too, for an older zip this installer might be given)
+        openwrt:openwrt::mu300-immortalwrt-rootfs.tar.gz|openwrt:openwrt::mu300-openwrt-rootfs.tar.gz) ;;
+        openwrt-luci:openwrt-luci::mu300-immortalwrt-rootfs.tar.gz|openwrt-luci:openwrt-luci::mu300-openwrt-luci-rootfs.tar.gz) ;;
+        immortalwrt:immortalwrt::mu300-immortalwrt-rootfs.tar.gz) ;;
         ubuntu-24.04:ubuntu:24.04:mu300-ubuntu-rootfs.tar.gz) ;;
         ubuntu-26.04:ubuntu:26.04:mu300-ubuntu-26.04-rootfs.tar.gz) ;;
         *) _ok= ;;
@@ -392,7 +395,7 @@ mount_target() {  # mount_target DIR [ro|recover]: the Linux filesystem of the p
 # MOUNTED is cleared only after the helper said it unmounted; under set -e a bare failing call would end the
 # function before that line
 umount_target() { asw "$ANDROID_SH" "$W/android-mount-mu300root.sh" -u "$1" >/dev/null 2>&1 || return 1; MOUNTED=; }
-need_for() { case $1 in openwrt|openwrt-luci) echo $NEED_OPENWRT ;; ubuntu) echo $NEED_UBUNTU ;; *) echo $NEED_BOTH ;; esac; }
+need_for() { case $1 in openwrt|openwrt-luci|immortalwrt) echo $NEED_OPENWRT ;; ubuntu) echo $NEED_UBUNTU ;; *) echo $NEED_BOTH ;; esac; }
 no_room_inside() {  # the refusal when Linux does not fit inside, with the way out this device has
     if [ -n "$SD_DEV" ] && [ "$sd_ex" = foreign ]; then
         die "$(t 'There is too little free space inside for Linux, and the SD card ({1}) holds another Linux (ext4) filesystem, which the installer never formats. Copy off what you need and format the card elsewhere, or use another card.' "$SD_DEV")"
@@ -494,7 +497,7 @@ inspect_target() {  # which systems the existing filesystem holds, its Ubuntu re
     _how=ro
     if [ "${MU300_KEEP_PASSWORD:-}" = yes ] && [ -n "${ZIP_MU300_KEEP_PASSWORD:-}" ]; then _how=recover; fi
     mount_target "$W/mnt" "$_how" || die "$(t 'could not mount the existing Linux filesystem')"
-    for _os in ubuntu openwrt openwrt-luci; do [ -d "$W/mnt/$_os" ] && HAVE_SYSTEMS="$HAVE_SYSTEMS $_os"; done
+    for _os in ubuntu openwrt openwrt-luci immortalwrt; do [ -d "$W/mnt/$_os" ] && HAVE_SYSTEMS="$HAVE_SYSTEMS $_os"; done
     _u=root; [ "$OS" != ubuntu ] || _u=ubuntu
     if grep -q "^$_u:" "$W/mnt/$OS/etc/shadow" 2>/dev/null && [ ! -e "$W/mnt/$OS/etc/.mu300-accounts-from-image" ]; then
         HAVE_ACCOUNTS=1
@@ -945,7 +948,7 @@ pw_text() {
     # from the file this one replaces), or the first zip's note would be lost with its output. Not after a wipe
     # (HAVE_SYSTEMS is empty then), and never a block of this run's user.
     case $OS in ubuntu) _ou=root _os=openwrt ;; *) _ou=ubuntu _os=ubuntu ;; esac
-    case " $HAVE_SYSTEMS " in *" $_os "*|*" $_os-luci "*) ;; *) return 0 ;; esac
+    case " $HAVE_SYSTEMS " in *" $_os "*|*" $_os-luci "*|*" immortalwrt "*) ;; *) return 0 ;; esac
     [ -f "$PW_FILE" ] && [ ! -L "$PW_FILE" ] || return 0
     awk -v u="user: $_ou" '
         /^MU300 Linux / { if (keep) printf "\n%s", b; b = ""; keep = 0 }

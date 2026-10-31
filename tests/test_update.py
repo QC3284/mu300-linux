@@ -259,7 +259,9 @@ class Update(UpdateBase):
                 else:
                     osr.unlink(missing_ok=True)
                 self.assertEqual(self.up(shell, 'rootfs_asset ubuntu', **env).stdout.strip(), want, (ver, env))
-            self.assertEqual(self.up(shell, 'rootfs_asset openwrt').stdout.strip(), 'mu300-openwrt-rootfs.tar.gz')
+            # (what was two images, named after the directories, is one image named immortalwrt: the identity is the
+            # image's, in its manifest, and every openwrt-family system takes that asset)
+            self.assertEqual(self.up(shell, 'rootfs_asset openwrt').stdout.strip(), 'mu300-immortalwrt-rootfs.tar.gz')
 
     def test_os_kind(self):
         for shell in self.each_shell():
@@ -286,7 +288,7 @@ class Update(UpdateBase):
             for kind, pattern in (('ubuntu', r'ubuntu\) keep="([^"]*)"'), ('openwrt', r'openwrt\|openwrt-\*\) keep="([^"]*)"')):
                 self.assertEqual(re.search(pattern, ai).group(1), self.up(shell, f'keep_list {kind}').stdout.strip())
             self.assertEqual(self.up(shell, 'vendor_list openwrt-luci').stdout, self.up(shell, 'vendor_list openwrt').stdout)
-            self.assertEqual(self.up(shell, 'rootfs_asset openwrt-luci').stdout.strip(), 'mu300-openwrt-luci-rootfs.tar.gz')
+            self.assertEqual(self.up(shell, 'rootfs_asset openwrt-luci').stdout.strip(), 'mu300-immortalwrt-rootfs.tar.gz')
 
     def test_running_os_by_directory(self):
         (self.disk / 'openwrt-luci' / 'etc').mkdir(parents=True)
@@ -654,7 +656,7 @@ class FromStock(UpdateBase):
             for d in ('openwrt.old', 'openwrt.new'):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'
@@ -695,7 +697,7 @@ class FromStock(UpdateBase):
             for d in ('openwrt.old', 'openwrt.new'):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             cfg = self.disk / 'openwrt/etc/config'
@@ -751,7 +753,7 @@ class FromStock(UpdateBase):
                 (good / f).parent.mkdir(parents=True, exist_ok=True)
                 (good / f).write_bytes(data)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'

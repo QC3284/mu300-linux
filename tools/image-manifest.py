@@ -24,7 +24,8 @@ The format, one entry per line, sorted by path (bytewise):
   MODE  octal, permission bits only    SIZE  bytes of a file, length of a link's target, else 0
   HASH  sha256 of a file's content, of a link's target, else -
   PATH  relative to the root, no leading ./ ; a backslash is written \\\\ and a newline \\n
-under a first line "mu300-image-manifest 1 IMAGE TAG" (IMAGE: ubuntu-24.04, ubuntu-26.04, openwrt, openwrt-luci).
+under a first line "mu300-image-manifest 1 IMAGE TAG" (IMAGE: ubuntu-24.04, ubuntu-26.04, openwrt, openwrt-luci,
+immortalwrt).
 """
 import gzip
 import hashlib
@@ -35,7 +36,8 @@ import tarfile
 
 SELF = 'etc/mu300/image-manifest.gz'
 IMAGES = {'mu300-ubuntu-rootfs.tar.gz': 'ubuntu-24.04', 'mu300-ubuntu-26.04-rootfs.tar.gz': 'ubuntu-26.04',
-          'mu300-openwrt-rootfs.tar.gz': 'openwrt', 'mu300-openwrt-luci-rootfs.tar.gz': 'openwrt-luci'}
+          'mu300-openwrt-rootfs.tar.gz': 'openwrt', 'mu300-openwrt-luci-rootfs.tar.gz': 'openwrt-luci',
+          'mu300-immortalwrt-rootfs.tar.gz': 'immortalwrt'}
 TYPES = {tarfile.REGTYPE: 'f', tarfile.AREGTYPE: 'f', tarfile.LNKTYPE: 'f', tarfile.DIRTYPE: 'd', tarfile.SYMTYPE: 'l',
          tarfile.CHRTYPE: 'c', tarfile.BLKTYPE: 'b', tarfile.FIFOTYPE: 'p'}
 

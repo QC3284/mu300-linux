@@ -5,7 +5,7 @@
 
 | our Magisk layout | upstream layout asset | notes |
 |---|---|---|
-| `mu300-immortalwrt-<ver>-rootfs.tar.gz` | `mu300-openwrt-rootfs.tar.gz` | same tree + a `./features` marker (`sdcard`, `gpt-root`; **not** `linux-slot`, we install on slot b only) |
+| `mu300-immortalwrt-<ver>-rootfs.tar.gz` | `mu300-immortalwrt-rootfs.tar.gz` | same tree + a `./features` marker (`sdcard`, `gpt-root`; **not** `linux-slot`, we install on slot b only). The asset name is the image's identity, `immortalwrt`, as the image's own `etc/mu300/image-manifest.gz` head says; a system in a legacy `openwrt`/`openwrt-luci` directory takes it too (`mu300-update` `rootfs_asset`) |
 | `mu300-update` (from the tree) | `mu300-update` | the updater script itself, so a device can switch to it before changing anything |
 | `boot-linux.img` (64 MiB flashable) | **open gap**: `mu300-kernel-7.2.tar.gz` needs `./Image` + `./lib/modules/7.2.8` + `./features` | the kernel side is not derivable from the flashable image; a bundle needs the kernel build's `Image` and ramdisk segment. Until that exists, releases carry the rootfs + updater only, and the kernel is updated by the Magisk path. |
 | `SHA256SUMS` | `SHA256SUMS` | over every asset |
