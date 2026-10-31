@@ -10940,6 +10940,9 @@ not a delta: it unpacks the image whole and carries the user's files over as an 
 else `image-manifests/openwrt-luci.gz`, both kept); from then on `immortalwrt` to `immortalwrt` is a delta.
 `image-manifests/immortalwrt.gz` is added, made of the .31.2 image's manifest (`image-manifest.py union`). v2026.10.31.2
 is re-cut under the same tag: the tag, the kernel bundle, `latest-aurora`/`latest-argon` and the signed
-`sha256("v2026.10.31.2\n")` identity line do not change.
+`sha256("v2026.10.31.2\n")` identity line do not change. The image also carries this release's own updater now
+(`tools/make-release-layout.sh` copies `rootfs/overlay/opt/mu300/bin/mu300-update` into it before making its manifest,
+so image and `mu300-update` asset are the same file): a release image that was only relabelled from an older one kept
+that one's updater, and `apply` hands its run over to the release's updater but the next boot starts the image's.
 
 

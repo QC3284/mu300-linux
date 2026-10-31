@@ -54,6 +54,16 @@ if [ -f "$_iu" ]; then
     mkdir -p "$OUT/r/opt/mu300/lib/image-manifests"
     cp "$_iu" "$OUT/r/opt/mu300/lib/image-manifests/immortalwrt.gz"
 fi
+# The image carries the updater of this release, the same file as the mu300-update asset: the updater an installed
+# system runs is the image's (apply hands its run over to the release's, but what the next boot starts is the image's),
+# so an image relabelled from an older one would send devices back to the updater of that older release. It comes before
+# the manifest for the same reason as the union above: the image's manifest lists every file it holds.
+_uu="$TREE/rootfs/overlay/opt/mu300/bin/mu300-update"
+if [ -f "$_uu" ]; then
+    mkdir -p "$OUT/r/opt/mu300/bin"
+    cp "$_uu" "$OUT/r/opt/mu300/bin/mu300-update"
+    chmod 755 "$OUT/r/opt/mu300/bin/mu300-update"
+fi
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
