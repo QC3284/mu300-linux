@@ -4721,7 +4721,14 @@ source_cmd() {  # source_cmd [URL|off]: show it, name another one, or take it ba
         off) [ $# = 1 ] || die "usage: mu300-update source [URL|off]"; source_put && source_show ;;
         -*) die "usage: mu300-update source [URL|off]" ;;
         *) [ $# = 1 ] || die "usage: mu300-update source [URL|off]"
-           printf '%s\n' "$1" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || die "not an http(s) URL: $1"
+           # the download source is a comma-separated list of mirrors (fetch_chain tries them in order, github.com
+           # last), so a list is one source: every entry a plain http(s) address, set as written
+           _sk=1
+           case $1 in ,*|*,|*,,*) _sk= ;; esac
+           for _se in $(printf '%s\n' "$1" | tr ',' ' '); do
+               printf '%s\n' "$_se" | grep -Eqx 'https?://[A-Za-z0-9._:/-]{1,200}' || { _sk=; break; }
+           done
+           [ -n "$_sk" ] || die "not an http(s) URL: $1"
            source_put "$1" && source_show ;;
     esac
 }

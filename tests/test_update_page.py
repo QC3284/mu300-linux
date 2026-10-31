@@ -1173,6 +1173,26 @@ class Status(test_update.Lock):
             self.script(shell, UPDATE, 'source', 'off', MU300_SOURCE_CONF=conf)
             self.assertFalse(conf.exists())
 
+    def test_the_source_command_takes_a_list_of_mirrors(self):
+        # the download source is a comma-separated list (fetch_chain tries them in order, github.com last), so
+        # `mu300-update source` sets one as written: every entry a plain http(s) address; one bad entry and nothing
+        # is written
+        conf = self.tmp / 'update-source'
+        a = 'https://ghfast.top/https://github.com/QC3284/mu300-linux/releases/download'
+        b = 'https://gh-proxy.com/https://github.com/QC3284/mu300-linux/releases/download'
+        for shell in self.each_shell():
+            conf.unlink(missing_ok=True)
+            conf.write_text('# a mirror\nMU300_API_URL=http://192.168.0.2:8000/api\n')
+            conf.chmod(0o600)
+            r = self.up(shell, f'source_cmd "{a},{b}"', MU300_SOURCE_CONF=conf)
+            self.assertEqual(r.stdout.split('\n')[0], f'release files  {a},{b}  ({conf})', r.stderr)
+            self.assertIn(f'MU300_DOWNLOAD_URL={a},{b}\n', conf.read_text())
+            before = conf.read_text()
+            for bad in (f'{a},file:///etc', f'{a},'):
+                r = self.up(shell, f'source_cmd "{bad}"', MU300_SOURCE_CONF=conf)
+                self.assertNotEqual(r.returncode, 0, bad)
+                self.assertEqual(conf.read_text(), before, bad)
+
     def test_a_mirror_that_cannot_be_reached(self):
         # a mirror the device cannot reach: said once, and the rest of that run comes from github.com. An HTTP
         # error is the source's answer, and stops the run as it always did.
