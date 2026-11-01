@@ -66,6 +66,10 @@ LIB=/usr/share/unisoc-modem/lib.sh
 . "$LIB"
 
 DASH=${MU300_DASH_BIN:-/usr/libexec/unisoc-modem}
+# The per-request SIM scope: sim_scope exports the adapter paths (dash dir, AT directory, lock
+# state, SMS pool) a slot-scoped call must use. Sourced here so a request can scope itself below;
+# a platform without the file keeps the single-SIM behaviour.
+[ -f "$DASH/sim-scope.sh" ] && . "$DASH/sim-scope.sh"
 # The SMS pool mu300-sms keeps (and mu300-smsd fills), handed to it in the
 # environment: /etc/mu300/sms-pool (D11), or the sms_pool the UI wrote, which
 # must be under /etc/unisoc-modem or /etc/mu300 - and is never /etc/mu300/sms,
@@ -528,22 +532,31 @@ m_lock_set() {
 
 SMS_ID='[0-9]{1,6}'
 m_sms_list() {
-    local page out
+    local page out sms_store sms_used sms_total sms_seen
     inp '@.page'; page=${V:-1}
     allowed "$page" "$SMS_ID" || { refuse 'Invalid page'; return; }
+    # The SIM storage counters the pool keeps beside the messages (the UFI panel shows
+    # used/total/other): the file is the SMS service's own, absent answers -1/0/0.
+    if [ -r "$MU300_SMS_POOL/storage" ]; then
+        read -r sms_store sms_used sms_total sms_seen < "$MU300_SMS_POOL/storage"
+    fi
+    case ${sms_used:-} in ''|*[!0-9]*) sms_used=-1 ;; esac
+    case ${sms_total:-} in ''|*[!0-9]*) sms_total=0 ;; esac
+    case ${sms_seen:-} in ''|*[!0-9]*) sms_seen=0 ;; esac
     out=$("$SMS" list "$page" 2>/dev/null) || out=''
     [ -n "$out" ] || { printf '{"error":"mu300-sms is not available (the SMS service is not installed or not running)"}\n'; return; }
     # first line "pool: N message(s), U unread - page P/T (10 per page)",
     # then fixed-width rows (see mu300-sms cmd_list); parse by column position
-    printf '%s\n' "$out" | awk "$JSON_ESC"'
+    printf '%s\n' "$out" | awk -v sms_used="$sms_used" -v sms_total="$sms_total" -v sms_seen="$sms_seen" "$JSON_ESC"'
         NR == 1 {
             total = $0; sub(/^pool: /, "", total); sub(/ message.*/, "", total)
             unread = $0; sub(/^pool: [0-9]+ message\(s\), /, "", unread); sub(/ unread.*/, "", unread)
             pg = $0; sub(/.*page /, "", pg); sub(/\/.*/, "", pg)
             pgs = $0; sub(/.*page [0-9]+\//, "", pgs); sub(/ \(.*/, "", pgs)
-            printf "{\"total\":%s,\"unread\":%s,\"page\":%s,\"pages\":%s,\"msgs\":[",
+            printf "{\"total\":%s,\"unread\":%s,\"page\":%s,\"pages\":%s,\"sim_used\":%d,\"sim_total\":%d,\"sim_seen\":%d,\"msgs\":[",
                 (total ~ /^[0-9]+$/ ? total : 0), (unread ~ /^[0-9]+$/ ? unread : 0),
-                (pg ~ /^[0-9]+$/ ? pg : 1), (pgs ~ /^[0-9]+$/ ? pgs : 1)
+                (pg ~ /^[0-9]+$/ ? pg : 1), (pgs ~ /^[0-9]+$/ ? pgs : 1),
+                sms_used + 0, sms_total + 0, sms_seen + 0
             next
         }
         {
@@ -983,13 +996,13 @@ do_list() {
 	"status": { },
 	"signal": { },
 	"act": { "op": "String", "arg": "String" },
-	"at": { "cmd": "String", "confirm": "String" },
+	"at": { "cmd": "String", "confirm": "String", "slot": "String" },
 	"at_job": { },
 	"at_history": { },
 	"ops_log": { },
-	"lock_get": { "fresh": "String" },
+	"lock_get": { "fresh": "String", "slot": "String" },
 	"lock_set": { "kind": "String", "val": "String" },
-	"sms_list": { "page": "String" },
+	"sms_list": { "page": "String", "slot": "String" },
 	"sms_show": { "id": "String" },
 	"sms_send": { "num": "String", "text": "String" },
 	"sms_job": { },
@@ -1004,12 +1017,14 @@ do_list() {
 	"power_get": { },
 	"power_set": { "op": "String", "key": "String", "value": "String" },
 	"sim_get": { },
+	"apn_get": { },
+	"data_sim_get": { },
 	"sim_set": { "op": "String", "value": "String" },
 	"simcard_get": { },
 	"simcard_set": { "kind": "String", "slot": "String", "state": "String" },
 	"ttl_get": { },
 	"ttl_set": { "value": "String" },
-	"traffic_get": { },
+	"traffic_get": { "slot": "String" },
 	"traffic_set": { "op": "String", "value": "String" },
 	"forward_get": { },
 	"forward_set": { "enabled": "String", "template": "String", "allow": "String", "deny": "String",
@@ -1105,6 +1120,8 @@ m_simcard_set() {
 }
 
 SIMCTL=${MU300_DASH_SIM:-/opt/mu300/bin/mu300-sim}
+m_apn_get() { reply_obj "$("$DASH/apn" get 2>/dev/null)" 'The APN adapter gave no valid reply'; }
+m_data_sim_get() { reply_obj "$("$DASH/data-sim" get 2>/dev/null)" 'The SIM control adapter gave no valid reply'; }
 m_sim_get() { reply_obj "$("$SIMCTL" status --json 2>/dev/null)" 'SIM control unavailable'; }
 m_sim_set() {
     local op value
@@ -1288,6 +1305,19 @@ call)
         refuse 'The runtime directory is not safe; nothing was run'
         exit 0
     fi
+    # A request may name a SIM slot (the UFI panel does for the lock, AT, SMS and traffic
+    # calls). Scope the adapter paths to it exactly as the LuCI pages do (sim_scope exports
+    # MU300_SIM_SLOT and the slot's AT/SMS/state directories) and refuse a slot this
+    # firmware cannot address (slot 1 without sim_slots=2). No slot keeps the default.
+    case ${2:-} in
+        status|cells|signal|act|at|at_history|lock_get|lock_set|lock_status|sms_*|traffic_*)
+            inp '@.slot'; if [ -n "$V" ]; then
+                if ! command -v sim_scope >/dev/null 2>&1 || ! sim_scope "$V"; then
+                    refuse 'SIM 卡槽不可用'
+                    exit 0
+                fi
+            fi ;;
+    esac
     case ${2:-} in
         sysinfo)      run_m sysinfo      m_sysinfo ;;
         status)       run_m status       m_status ;;
@@ -1320,6 +1350,8 @@ call)
         ttl_get)      run_m ttl_get      m_ttl_get ;;
         ttl_set)      run_m ttl_set      m_ttl_set ;;
         traffic_get)  run_m traffic_get  m_traffic_get ;;
+        apn_get)      run_m apn_get      m_apn_get ;;
+        data_sim_get) run_m data_sim_get m_data_sim_get ;;
         traffic_set)  run_m traffic_set  m_traffic_set ;;
         forward_get)  run_m forward_get  m_forward_get ;;
         forward_set)  run_m forward_set  m_forward_set ;;

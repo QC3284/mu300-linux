@@ -1,0 +1,8 @@
+#!/bin/sh
+action=${1:-get}
+case "$action" in get|apply|boot) ;; *) exit 2 ;; esac
+if [ "$action" != get ]; then
+    exec 9>"${UNISOC_NET_LOCK:-/run/unisoc-network-performance.lock}" || exit 1
+    flock -n 9 || { echo '{"ok":false,"error":"network_busy"}'; exit 1; }
+fi
+exec ucode "${UNISOC_NET_LIB:-/usr/libexec/unisoc-modem/network-performance.uc}" "$action"

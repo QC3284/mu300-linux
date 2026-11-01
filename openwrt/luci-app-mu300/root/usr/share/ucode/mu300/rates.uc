@@ -1,0 +1,38 @@
+// Resident rate sampler, adapted from liuwang97/cpu-load with the local WAN schema.
+import { readfile } from 'fs';
+import { cursor } from 'uci';
+import { connect } from 'ubus';
+
+export function sample() {
+	const cfg = cursor();
+	const iface = cfg.get('unisoc_modem', 'main', 'data_interface') || 'wan';
+	let status;
+	if (match(iface, /^[A-Za-z0-9_]{1,32}$/)) {
+		// Same live interface priority as the full snapshot. Bound an unavailable
+		// netifd without adding AT, retries, or another refresh timer.
+		try {
+			const bus = connect(null, 1);
+			status = bus?.call('network.interface.' + iface, 'status', {});
+		} catch (e) {}
+	}
+	const device = status?.l3_device || status?.device ||
+		cfg.get('unisoc_modem', 'main', 'data_device') || 'sipa_eth0';
+	if (!match(device, /^[A-Za-z0-9_.:-]{1,15}$/)) {
+		return {available:false};
+	}
+	const path = '/sys/class/net/' + device + '/';
+	const rx = readfile(path + 'statistics/rx_bytes');
+	const tx = readfile(path + 'statistics/tx_bytes');
+	const index = readfile(path + 'ifindex');
+	const uptime = readfile('/proc/uptime');
+	const valid = rx != null && tx != null && index != null && uptime != null;
+	return {
+		available: valid,
+		device: device,
+		ifindex: valid ? int(index) : null,
+		boot_id: trim(readfile('/proc/sys/kernel/random/boot_id') || ''),
+		ts: valid ? +split(uptime, ' ')[0] : null,
+		rx: valid ? +trim(rx) : null,
+		tx: valid ? +trim(tx) : null
+	};
+};

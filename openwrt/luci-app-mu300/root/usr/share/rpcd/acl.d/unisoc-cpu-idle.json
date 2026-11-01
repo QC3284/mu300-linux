@@ -1,0 +1,7 @@
+{
+  "unisoc-cpu-idle": {
+    "description": "CPU0 deep idle on supported UMS9620 devices",
+    "read": {"ubus": {"unisoc-cpu-idle": ["get"]}},
+    "write": {"ubus": {"unisoc-cpu-idle": ["apply"]}}
+  }
+}

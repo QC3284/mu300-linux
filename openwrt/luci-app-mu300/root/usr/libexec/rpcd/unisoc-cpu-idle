@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$1:$2" in
+    list:) echo '{"get":{},"apply":{"enabled":true}}' ;;
+    call:get) /usr/libexec/unisoc-modem/cpu-idle get ;;
+    call:apply) /usr/libexec/unisoc-modem/cpu-idle apply ;;
+    *) echo '{"ok":false,"error":"CPU0 深度休眠操作无效"}' ;;
+esac
+exit 0

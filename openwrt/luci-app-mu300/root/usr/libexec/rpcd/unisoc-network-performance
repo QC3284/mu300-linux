@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$1:$2" in
+    list:) echo '{"get":{},"apply":{"algorithm":"String"}}' ;;
+    call:get) /usr/libexec/unisoc-modem/network-performance get ;;
+    call:apply) /usr/libexec/unisoc-modem/network-performance apply ;;
+    *) echo '{"ok":false,"error":"network_invalid"}' ;;
+esac
+exit 0
