@@ -81,27 +81,56 @@ fi
 # non-executable (the package's own chmod list sets the mode in images built from this tree, the relabelled
 # base image keeps the mode it was built with), and the panel's data_sim_get runs it as a program. The tree's
 # copy is byte-identical; it is copied for the mode.
+# The rpcd providers and adapters the UFI panel needs (its objects, the author's shapes, and the
+# SIM/CPU/radio helpers behind them): copied from the tree, because the rootfs input is a prebuilt
+# image and a relabelled image cannot grow new files. The list is explicit so a missing file fails
+# the build instead of shipping a quietly half-complete image. data-sim is on it although the image
+# already has it: the base image carries the adapter non-executable, and the panel runs it as a
+# program. Every file here is the tree's, so the image and the package agree.
 P=$TREE/openwrt/luci-app-mu300/root
 for _pf in \
     usr/libexec/rpcd/mu300dash \
+    usr/libexec/rpcd/mu300-charge \
     usr/libexec/rpcd/unisoc-cpu-cores usr/libexec/rpcd/unisoc-cpu-idle usr/libexec/rpcd/unisoc-network-performance \
     usr/libexec/unisoc-modem/cpu-cores usr/libexec/unisoc-modem/cpu-cores.uc \
     usr/libexec/unisoc-modem/cpu-idle usr/libexec/unisoc-modem/cpu-idle.uc \
     usr/libexec/unisoc-modem/network-performance usr/libexec/unisoc-modem/network-performance.uc \
-    usr/libexec/unisoc-modem/data-sim \
+    usr/libexec/unisoc-modem/data-sim usr/libexec/unisoc-modem/dashboard-rates \
+    usr/libexec/unisoc-modem/apn usr/libexec/unisoc-modem/apn.uc \
+    usr/libexec/unisoc-modem/sms-forward usr/libexec/unisoc-modem/device-usb \
+    usr/libexec/unisoc-modem/charge.uc \
+    usr/libexec/unisoc-modem/cpu-policy usr/libexec/unisoc-modem/cpu-policy.uc \
+    usr/libexec/unisoc-modem/cpu-voltage-panel usr/libexec/unisoc-modem/cpu-voltage-panel.uc \
+    usr/libexec/unisoc-modem/dashboard-equipment \
+    usr/libexec/unisoc-modem/wifi-ciphers usr/libexec/unisoc-modem/wifi-ciphers.uc \
+    usr/libexec/unisoc-modem/panel-cpu-get usr/libexec/unisoc-modem/panel-cpu-voltage-get \
+    usr/libexec/unisoc-modem/traffic usr/libexec/unisoc-modem/traffic-mu300 \
     usr/share/rpcd/ucode/mu300rates.uc usr/share/rpcd/ucode/mu300status.uc \
-    usr/share/ucode/mu300/rates.uc \
+    usr/share/ucode/mu300/info.uc usr/share/ucode/mu300/rates.uc \
     usr/share/rpcd/acl.d/luci-app-mu300.json \
     usr/share/rpcd/acl.d/unisoc-cpu-cores.json usr/share/rpcd/acl.d/unisoc-cpu-idle.json \
-    usr/share/rpcd/acl.d/unisoc-network-performance.json; do
+    usr/share/rpcd/acl.d/unisoc-network-performance.json usr/share/rpcd/acl.d/mu300-wifi-ciphers.json \
+    opt/mu300/bin/mu300-sim-radio opt/mu300/bin/mu300-radio-allowed opt/mu300/bin/mu300-v50-sim \
+    opt/mu300/lib/v50-card.sh; do
     [ -f "$P/$_pf" ] || { echo "provider file missing from the tree: $_pf" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_pf")"
     cp "$P/$_pf" "$OUT/r/$_pf"
 done
-chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/unisoc-cpu-cores" \
-    "$OUT/r/usr/libexec/rpcd/unisoc-cpu-idle" "$OUT/r/usr/libexec/rpcd/unisoc-network-performance" \
+# the adapters and plugins run as programs (the .uc modules are data)
+chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/mu300-charge" \
+    "$OUT/r/usr/libexec/rpcd/unisoc-cpu-cores" "$OUT/r/usr/libexec/rpcd/unisoc-cpu-idle" \
+    "$OUT/r/usr/libexec/rpcd/unisoc-network-performance" \
     "$OUT/r/usr/libexec/unisoc-modem/cpu-cores" "$OUT/r/usr/libexec/unisoc-modem/cpu-idle" \
-    "$OUT/r/usr/libexec/unisoc-modem/network-performance" "$OUT/r/usr/libexec/unisoc-modem/data-sim"
+    "$OUT/r/usr/libexec/unisoc-modem/network-performance" "$OUT/r/usr/libexec/unisoc-modem/data-sim" \
+    "$OUT/r/usr/libexec/unisoc-modem/apn" "$OUT/r/usr/libexec/unisoc-modem/sms-forward" \
+    "$OUT/r/usr/libexec/unisoc-modem/device-usb" "$OUT/r/usr/libexec/unisoc-modem/cpu-policy" \
+    "$OUT/r/usr/libexec/unisoc-modem/cpu-voltage-panel" "$OUT/r/usr/libexec/unisoc-modem/dashboard-equipment" \
+    "$OUT/r/usr/libexec/unisoc-modem/wifi-ciphers" "$OUT/r/usr/libexec/unisoc-modem/panel-cpu-get" \
+    "$OUT/r/usr/libexec/unisoc-modem/panel-cpu-voltage-get" "$OUT/r/usr/libexec/unisoc-modem/traffic" \
+    "$OUT/r/usr/libexec/unisoc-modem/traffic-mu300" \
+    "$OUT/r/usr/libexec/unisoc-modem/dashboard-rates" \
+    "$OUT/r/opt/mu300/bin/mu300-sim-radio" "$OUT/r/opt/mu300/bin/mu300-radio-allowed" \
+    "$OUT/r/opt/mu300/bin/mu300-v50-sim"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
