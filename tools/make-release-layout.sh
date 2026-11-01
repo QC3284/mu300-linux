@@ -73,6 +73,35 @@ if [ -f "$_uc" ]; then
     mkdir -p "$OUT/r/etc/mu300"
     cp "$_uc" "$OUT/r/etc/mu300/update-source"
 fi
+# The rpcd providers the tree owns (the UFI panel's objects and the unisoc-* settings): copied from the tree
+# like the updater above, because the rootfs input is a prebuilt image and a relabelled image cannot grow new
+# files. The list is explicit so a missing one fails the build instead of shipping a quietly half-complete
+# image; it comes before the manifest for the same reason as the files above.
+# data-sim is on the list although the image already has it: the base image carries the adapter
+# non-executable (the package's own chmod list sets the mode in images built from this tree, the relabelled
+# base image keeps the mode it was built with), and the panel's data_sim_get runs it as a program. The tree's
+# copy is byte-identical; it is copied for the mode.
+P=$TREE/openwrt/luci-app-mu300/root
+for _pf in \
+    usr/libexec/rpcd/mu300dash \
+    usr/libexec/rpcd/unisoc-cpu-cores usr/libexec/rpcd/unisoc-cpu-idle usr/libexec/rpcd/unisoc-network-performance \
+    usr/libexec/unisoc-modem/cpu-cores usr/libexec/unisoc-modem/cpu-cores.uc \
+    usr/libexec/unisoc-modem/cpu-idle usr/libexec/unisoc-modem/cpu-idle.uc \
+    usr/libexec/unisoc-modem/network-performance usr/libexec/unisoc-modem/network-performance.uc \
+    usr/libexec/unisoc-modem/data-sim \
+    usr/share/rpcd/ucode/mu300rates.uc usr/share/rpcd/ucode/mu300status.uc \
+    usr/share/ucode/mu300/rates.uc \
+    usr/share/rpcd/acl.d/luci-app-mu300.json \
+    usr/share/rpcd/acl.d/unisoc-cpu-cores.json usr/share/rpcd/acl.d/unisoc-cpu-idle.json \
+    usr/share/rpcd/acl.d/unisoc-network-performance.json; do
+    [ -f "$P/$_pf" ] || { echo "provider file missing from the tree: $_pf" >&2; exit 1; }
+    mkdir -p "$OUT/r/$(dirname "$_pf")"
+    cp "$P/$_pf" "$OUT/r/$_pf"
+done
+chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/unisoc-cpu-cores" \
+    "$OUT/r/usr/libexec/rpcd/unisoc-cpu-idle" "$OUT/r/usr/libexec/rpcd/unisoc-network-performance" \
+    "$OUT/r/usr/libexec/unisoc-modem/cpu-cores" "$OUT/r/usr/libexec/unisoc-modem/cpu-idle" \
+    "$OUT/r/usr/libexec/unisoc-modem/network-performance" "$OUT/r/usr/libexec/unisoc-modem/data-sim"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
