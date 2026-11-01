@@ -1,0 +1,39 @@
+#!/usr/bin/ucode
+// The panel's cpu_get: the author firmware's CPU snapshot (policies with driver,
+// governors, hardware limits and the frequency table; the kernel thermal zones),
+// merged with this platform's profile fields so the LuCI CPU page keeps working.
+// All of it is read from sysfs by cpu-policy (the author's cpu.uc) and mu300-cpu;
+// nothing here writes, holds a lock or touches the modem.
+import * as fs from 'fs';
+function run(cmd) {
+    let p = fs.popen(cmd, 'r');
+    if (p == null) return '';
+    let out = p.read('all') || '';
+    p.close();
+    return out;
+}
+let ours = {}, auth = {};
+try { ours = json(run('/usr/libexec/unisoc-modem/cpu get 2>/dev/null')) || {}; } catch (e) { ours = {}; }
+try { auth = json(run('/usr/libexec/unisoc-modem/cpu-policy get 2>/dev/null')) || {}; } catch (e) { auth = {}; }
+if (type(ours) != 'object') ours = {};
+if (type(auth) != 'object') auth = {};
+let out = {};
+for (let k in ours) out[k] = ours[k];
+for (let k in [ 'ok', 'persist', 'thermal_persist', 'zones' ])
+    if (auth[k] != null) out[k] = auth[k];
+let pol = auth.policies;
+if (type(pol) != 'array' || !length(pol)) pol = ours.policies;
+if (type(pol) == 'array' && type(ours.policies) == 'array') {
+    for (let i = 0; i < length(pol); i++) {
+        let o = ours.policies[i] || {};
+        for (let k in [ 'name', 'profile' ])
+            if (o[k] != null) pol[i][k] = o[k];
+        // kHz (the author firmware's unit) and MHz (this platform's, what the LuCI clusters
+        // table printed before): both, so neither consumer has to guess.
+        for (let k in [ 'cur', 'min', 'max', 'hwmin', 'hwmax' ])
+            if (o[k] != null) pol[i][k + '_mhz'] = o[k];
+    }
+}
+if (pol != null) out.policies = pol;
+if (type(out.ok) != 'number') out.ok = 1;
+print(sprintf('%J\n', out));

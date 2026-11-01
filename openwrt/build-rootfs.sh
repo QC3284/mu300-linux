@@ -284,6 +284,7 @@ if [ -d /in/luci-plugin ]; then
     cp -a /in/luci-plugin/htdocs/. $R/www/
     chmod 0755 $R/etc/init.d/unisoc-modem-ui $R/etc/hotplug.d/net/90-unisoc-usb-host $R/etc/hotplug.d/iface/90-unisoc-usb-host $R/usr/libexec/rpcd/mu300dash $R/usr/libexec/rpcd/mu300vpn $R/usr/libexec/rpcd/unisoc-cpu-cores $R/usr/libexec/rpcd/unisoc-cpu-idle $R/usr/libexec/rpcd/unisoc-network-performance $R/usr/libexec/unisoc-modem/*
     chmod 0755 $R/usr/libexec/rpcd/mu300term $R/usr/libexec/mu300-terminal-login $R/etc/hotplug.d/iface/95-mu300-terminal
+    chmod 0755 $R/usr/libexec/rpcd/mu300-charge $R/opt/mu300/bin/mu300-sim-radio $R/opt/mu300/bin/mu300-radio-allowed $R/opt/mu300/bin/mu300-v50-sim
     # the terminal is System > Terminal (the panel menu: the page, and the settings page of luci-app-ttyd); its own Services >
     # Terminal frames ttyd without a token, which mu300-terminal-login refuses
     rm -f $R/usr/share/luci/menu.d/luci-app-ttyd.json

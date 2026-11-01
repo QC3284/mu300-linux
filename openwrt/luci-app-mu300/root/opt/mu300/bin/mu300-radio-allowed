@@ -1,0 +1,34 @@
+#!/bin/sh
+# Per-slot RF permission. F50/MU300 and U30 default to single standby.
+case ${1:-} in 0|1|--flags|--dsds) ;; *) exit 2;; esac
+model=$(mu300-device 2>/dev/null)
+standby_supported=0
+case "$model" in f50|u30air) standby_supported=1;; esac
+dsds=0
+if [ "$standby_supported" = 1 ]; then
+    value=$(uci -q get unisoc_modem.main.dual_standby 2>/dev/null)
+    case "$value" in 1) dsds=1;; ''|0) ;; *) exit 2;; esac
+fi
+[ "$1" != --dsds ] || { [ "$standby_supported" = 1 ] || exit 2; echo "$dsds"; exit 0; }
+policy=${UNISOC_RADIO_POLICY:-/etc/mu300/sim-radio}
+if [ -e "$policy" ]; then
+    flags=$(cat "$policy") || exit 2
+else
+    flags='1 0'
+    if [ "$standby_supported" = 1 ]; then
+        if [ "$(uci -q get unisoc_modem.main.data_sim 2>/dev/null)" = 1 ]; then
+            flags='0 1'
+            [ "$dsds" != 1 ] || flags='1 1'
+        fi
+    else
+        [ "$(uci -q get unisoc_modem.main.data_sim 2>/dev/null)" != 1 ] || flags='1 1'
+    fi
+fi
+case "$flags" in '0 0'|'0 1'|'1 0'|'1 1') ;; *) exit 2;; esac
+# Migrate a former both-on U30 policy without changing the user's data SIM.
+if [ "$standby_supported:$dsds:$flags" = '1:0:1 1' ]; then
+    flags='1 0'
+    [ "$(uci -q get unisoc_modem.main.data_sim 2>/dev/null)" != 1 ] || flags='0 1'
+fi
+[ "$1" != --flags ] || { printf '%s\n' "$flags"; exit 0; }
+if [ "$1" = 0 ]; then [ "${flags% *}" = 1 ]; else [ "${flags#* }" = 1 ]; fi

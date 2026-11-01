@@ -20,6 +20,9 @@ validate_apply() {
                 [ "$(uci -q get unisoc_modem.main.sim_slots)" = 2 ] || { echo dual_sim_unavailable >&2; return 1; };;
             esac
             return 0;;
+        dsds-[01])
+            case "$(mu300-device 2>/dev/null)" in f50|u30air) ;; *) echo dsds_unsupported >&2; return 1;; esac
+            return 0;;
         *) echo invalid_sim >&2; return 1 ;;
     esac
     [ "$(uci -q get unisoc_modem.main.sim_slots)" = 2 ] && [ -x "$adapter" ] || { echo dual_sim_unavailable >&2; return 1; }
@@ -34,6 +37,7 @@ apply)
     validate_apply "$2" "$3" || exit 1
     case "$3" in
         radio-[01]-[01]) value=${3#radio-}; exec /opt/mu300/bin/mu300-sim-radio apply "${value%-*}" "${value#*-}";;
+        dsds-[01]) exec /opt/mu300/bin/mu300-sim-radio dsds "${3#dsds-}";;
         v50-card-[0-3]) exec /opt/mu300/bin/mu300-v50-sim apply "${3#v50-card-}";;
         *) exec "$adapter" apply "$3";;
     esac;;

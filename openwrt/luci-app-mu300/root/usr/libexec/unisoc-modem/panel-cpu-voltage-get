@@ -1,0 +1,37 @@
+#!/usr/bin/ucode
+// The panel's cpu_voltage_get: the author's voltage snapshot (domains with their
+// tables, the three offsets, limits, pending/recovery phases) merged with this
+// platform's mu300-cpu fields (state, applied, limits, armed, trial...). Read only.
+import * as fs from 'fs';
+function run(cmd) {
+    let p = fs.popen(cmd, 'r');
+    if (p == null) return '';
+    let out = p.read('all') || '';
+    p.close();
+    return out;
+}
+let ours = {}, auth = {};
+try { ours = json(run('/usr/libexec/unisoc-modem/cpu voltage-get 2>/dev/null')) || {}; } catch (e) { ours = {}; }
+try { auth = json(run('/usr/libexec/unisoc-modem/cpu-voltage-panel get 2>/dev/null')) || {}; } catch (e) { auth = {}; }
+if (type(ours) != 'object') ours = {};
+if (type(auth) != 'object') auth = {};
+let out = {};
+for (let k in ours) out[k] = ours[k];
+for (let k in [ 'supported', 'firmware', 'offsets', 'min', 'max', 'step', 'pending', 'recovery' ])
+    if (auth[k] != null) out[k] = auth[k];
+// The author's domains carry id/policy/cpus/offset/table; the LuCI CPU page indexes
+// them with a numeric "domain" (and took it for granted before this port). Keep one
+// array in the reply and give each row both.
+if (type(auth.domains) == 'array' && length(auth.domains)) {
+    let doms = [];
+    for (let i = 0; i < length(auth.domains); i++) {
+        let d = auth.domains[i];
+        if (type(d) == 'object') {
+            if (type(d.domain) != 'number') d.domain = type(d.id) == 'number' ? d.id : i;
+            doms = push(doms, d);
+        }
+    }
+    out.domains = doms;
+}
+if (type(out.ok) != 'number') out.ok = 1;
+print(sprintf('%J\n', out));

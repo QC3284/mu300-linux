@@ -46,6 +46,7 @@ define Package/luci-app-mu300/install
 	find $(PKG_BUILD_DIR)/lmo -name 'mu300.*.lmo' -exec $(CP) {} $(1)/usr/lib/lua/luci/i18n/ \;
 	chmod 0755 $(1)/etc/init.d/unisoc-modem-ui $(1)/etc/hotplug.d/net/90-unisoc-usb-host $(1)/etc/hotplug.d/iface/90-unisoc-usb-host $(1)/usr/libexec/rpcd/mu300dash $(1)/usr/libexec/rpcd/mu300vpn $(1)/usr/libexec/rpcd/unisoc-cpu-cores $(1)/usr/libexec/rpcd/unisoc-cpu-idle $(1)/usr/libexec/rpcd/unisoc-network-performance $(1)/usr/libexec/unisoc-modem/*
 	chmod 0755 $(1)/usr/libexec/rpcd/mu300term $(1)/usr/libexec/mu300-terminal-login $(1)/etc/hotplug.d/iface/95-mu300-terminal
+	chmod 0755 $(1)/usr/libexec/rpcd/mu300-charge $(1)/opt/mu300/bin/mu300-sim-radio $(1)/opt/mu300/bin/mu300-radio-allowed $(1)/opt/mu300/bin/mu300-v50-sim
 endef
 
 define Package/luci-app-mu300/postinst

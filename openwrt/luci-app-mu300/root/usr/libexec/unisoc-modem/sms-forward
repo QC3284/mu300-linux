@@ -608,7 +608,8 @@ device_info_sms() {
     printf '%s%s' "$_model" "${nickname:+ ($nickname)}"
 }
 sms_units() {
-    printf '%s' "$1" | LC_ALL=C awk '
+    # The added terminator lets NR>1 count every original LF, including tails.
+    printf '%s\n' "$1" | LC_ALL=C awk '
         BEGIN { for (i=1; i<256; i++) ord[sprintf("%c",i)]=i; count=0 }
         NR>1 { count++ }
         {
@@ -817,7 +818,11 @@ process_sms() {
         _scts=$(msg_field "$_file" scts)
         _source=$(msg_field "$_file" source)
         _coding=$(msg_field "$_file" coding)
-        _body=$(msg_body "$_file")
+        # Command substitution strips all trailing LF. Protect them with a
+        # sentinel, then remove only store_msg's single file terminator.
+        _body=$(msg_body "$_file"; printf '.')
+        _body=${_body%.}
+        _body=${_body%"$NL"}
         last_id=$_id
         save_state || { write_result storage_failed "$power_last_result"; return 1; }
         _processed=$((_processed + 1))
