@@ -305,7 +305,7 @@ Track community adoption, download numbers, and repository traffic:
   * [Release Download Statistics Dashboard](https://tooomm.github.io/github-release-stats/?username=dikeckaan&repository=mu300-linux)
 
 <!-- STATS:START -->
-> *Last updated: **2026-10-31 05:26:41 UTC** (tracked automatically via GitHub Actions)*
+> *Last updated: **2026-11-01 05:53:01 UTC** (tracked automatically via GitHub Actions)*
 
 ### Overview
 
@@ -313,7 +313,7 @@ Track community adoption, download numbers, and repository traffic:
 |---|---|---|
 | ⭐ **Stars** | **1** | Stargazers |
 | 🍴 **Forks** | **0** | Forks (0% fork-to-star ratio) |
-| 📥 **Release Asset Downloads** | **385** | 131 OS/Kernel images, 254 checksums |
+| 📥 **Release Asset Downloads** | **410** | 143 OS/Kernel images, 267 checksums |
 | 👥 **Page Views (Archived)** | **1,154** | ~487 unique visitors |
 | 💻 **Git Clones (Archived)** | **668** | ~291 unique cloners |
 
@@ -343,8 +343,8 @@ Track community adoption, download numbers, and repository traffic:
 | Release | Asset | Size | Downloads |
 |---|---|---|---|
 | **v2026.10.31.3** | `latest-argon` | 29 B | **4** |
-|  | `latest-aurora` | 29 B | **6** |
-|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **4** |
+|  | `latest-aurora` | 29 B | **19** |
+|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **16** |
 |  | `mu300-kernel-7.2.tar.gz` | 20.4 MB | **2** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 27.9 MB | **2** |
 |  | `mu300-update` | 294.4 KB | **1** |
