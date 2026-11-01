@@ -105,6 +105,7 @@ for _pf in \
     usr/libexec/unisoc-modem/wifi-ciphers usr/libexec/unisoc-modem/wifi-ciphers.uc \
     usr/libexec/unisoc-modem/panel-cpu-get usr/libexec/unisoc-modem/panel-cpu-voltage-get \
     usr/libexec/unisoc-modem/traffic usr/libexec/unisoc-modem/traffic-mu300 \
+    usr/libexec/unisoc-modem/cell usr/libexec/unisoc-modem/cell-kick \
     usr/share/rpcd/ucode/mu300rates.uc usr/share/rpcd/ucode/mu300status.uc \
     usr/share/ucode/mu300/info.uc usr/share/ucode/mu300/rates.uc \
     usr/share/rpcd/acl.d/luci-app-mu300.json \
@@ -128,6 +129,7 @@ chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/mu300-cha
     "$OUT/r/usr/libexec/unisoc-modem/wifi-ciphers" "$OUT/r/usr/libexec/unisoc-modem/panel-cpu-get" \
     "$OUT/r/usr/libexec/unisoc-modem/panel-cpu-voltage-get" "$OUT/r/usr/libexec/unisoc-modem/traffic" \
     "$OUT/r/usr/libexec/unisoc-modem/traffic-mu300" \
+    "$OUT/r/usr/libexec/unisoc-modem/cell" "$OUT/r/usr/libexec/unisoc-modem/cell-kick" \
     "$OUT/r/usr/libexec/unisoc-modem/dashboard-rates" \
     "$OUT/r/opt/mu300/bin/mu300-sim-radio" "$OUT/r/opt/mu300/bin/mu300-radio-allowed" \
     "$OUT/r/opt/mu300/bin/mu300-v50-sim"

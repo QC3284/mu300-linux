@@ -518,6 +518,21 @@ qos_fragment() {  # "+CGEQOSRDP: 1,9,..OK" (this modem glues OK onto the line)
               ($8 != "" && $8 > 0) ? sprintf("%.1f", $8/1000) : "null" }'
 }
 
+# "no answer at all" is a modem/daemon problem, not "no signal". A round that read nothing must
+# not erase what the last good round cached: the page would then show the adapter error for the
+# lock/band/identity panels until the modem answers again (the app polls about once a second, so
+# the error flickers). Keep a good cache, record when the attempt failed, and let the provider
+# retry after the marker's short hold-off instead of stacking collectors on the AT channel.
+no_answer() {
+    printf '%s\n' "$(now)" > "$DIR/at-failed"
+    if { [ -s "$SIGF" ] && ! grep -q '"error"' "$SIGF" 2>/dev/null; } ||
+       { [ -s "$CELL" ] && ! grep -q '"error"' "$CELL" 2>/dev/null; }; then
+        return 0
+    fi
+    printf '{"ts":%d,"error":"AT backend did not answer (radio off, modem restarting, or adapter unavailable)"}\n' \
+        "$(now)" > "$SIGF.part" && mv "$SIGF.part" "$SIGF"
+    [ "$MODE" = full ] && cp "$SIGF" "$CELL"
+}
 # ---------------------------------------------------------- staged AT round
 # Publish the cheap, universally available core first. The UI can show radio,
 # registration and CESQ while the optional engineering/identity tier continues.
@@ -527,6 +542,11 @@ C5GREG=$(at 'AT+C5GREG?' 2 | grep '^+C5GREG:' | head -n1)
 CESQ=$(at 'AT+CESQ' 2 | grep '^+CESQ:' | head -n1)
 REG=$(reg_fragment "$CEREG"); REG5=$(reg_fragment "$C5GREG")
 CESQJ=$(cesq_fragment "$CESQ"); CFUNN=$(n_or_null "$CFUN")
+if [ -z "$CFUN$CEREG$C5GREG$CESQ" ]; then
+    # nothing at all answered: never publish a "partial" round that looks like a cache
+    no_answer
+    exit 0
+fi
 printf '{"ts":%d,"partial":1,"cfun":%s,"reg":%s,"reg5g":%s,"sig_src":"cesq","sig":%s,"lte":null,"nr":null}\n' \
     "$(now)" "$CFUNN" "$REG" "$REG5" "$CESQJ" > "$SIGF.part" && mv "$SIGF.part" "$SIGF"
 
@@ -608,13 +628,7 @@ if [ "$MODE" = full ]; then
     fi
 fi
 
-# "no answer at all" is a modem/daemon problem, not "no signal".
-if [ -z "$CFUN$CEREG$CESQ$SP_LTE$SP_NR$COPS" ]; then
-    printf '{"ts":%d,"error":"AT backend did not answer (radio off, modem restarting, or adapter unavailable)"}\n' \
-        "$(now)" > "$SIGF.part" && mv "$SIGF.part" "$SIGF"
-    [ "$MODE" = full ] && cp "$SIGF" "$CELL"
-    exit 0
-fi
+rm -f "$DIR/at-failed"
 
 LTE=$(sp_fragment lte "$SP_LTE" "$SP_LTEPHY")
 NR=$(sp_fragment nr "$SP_NR")

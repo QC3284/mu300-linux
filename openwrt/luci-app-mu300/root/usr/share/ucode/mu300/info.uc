@@ -274,17 +274,26 @@ export function status(slot,cells) {
     let busy=exists('/run/unisoc-modem-lock-apply') || exists('/run/mu300/sim-switching') ||
         exists('/run/mu300/sim-active-unknown') || owner(dir+'/collect.lck');
     let fast=busy || owner(dir+'/fast.lck'), failed=false;
+    // a round that read nothing leaves a marker: do not kick again for a few seconds, serve what
+    // the last good round cached and let the modem recover (the marker's age is the hold-off)
+    let fm=fs.stat(RUN+'/at-failed'), recentfail=fm!=null && (time()-fm.mtime)<5;
     let mode=cage<0 || cage>=5?'full':sage<0 || sage>=1?'fast':null;
+    if(recentfail)mode=null;
     if(mode && !(mode=='full'?busy:fast)) {
-        // This platform's collector: unisoc-modem/cell [fast], detached, one round at a time
-        // (it owns collect.lck/fast.lck itself, exactly as the LuCI page expects).
-        failed=!spawn('setsid /usr/libexec/unisoc-modem/cell'+(mode=='fast'?' fast':''));
+        // This platform's collector: unisoc-modem/cell-kick [fast], detached. The wrapper takes
+        // the single-flight lock without waiting, so overlapping status polls (the app polls
+        // about once a second) drop their kick instead of stacking collectors on the AT channel.
+        failed=!spawn('setsid /usr/libexec/unisoc-modem/cell-kick'+(mode=='fast'?' fast':''));
         // a kick was attempted: the caller refreshes, it does not see an error
         if(mode=='full')busy=true;
     }
     // a cache that exists is served even when the kick failed (its age says how old it is);
     // the error is only for a request that has neither a cache nor a working start
+    // a cache holding the adapter's error is not data: never serve it as the snapshot
+    let goodcache=o=>type(o)=='object' && o.error==null;
     let cell=obj(dir+'/cell.json'), sig=obj(dir+'/sig.json');
+    if(!goodcache(cell))cell=null;
+    if(!goodcache(sig))sig=null;
     return {info:cells?null:info(slot),
         cell:cell!=null?ident_fix(cell):failed?{error:'Unable to read cellular status'}:null,
         sig:sig!=null?sig:failed?{error:'Unable to read cellular status'}:null,

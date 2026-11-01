@@ -23,6 +23,12 @@ if(action=='resolve') {
     try {result.dial=json(fs.readfile('/run/unisoc-apn-dial-'+slot+'.json') || '{}');}catch(e){}
     let bus=connect(null,2), status=bus?.call('network.interface.'+result.iface,'status',{});
     result.connected=status?.up===true;result.connecting=status?.pending===true;
+    // The author's netifd proto writes /run/unisoc-apn-dial-<slot>.json as the bearer moves;
+    // ours does not, so the file is usually absent. Derive the phase the panel shows from the
+    // interface state instead of handing it an empty object.
+    if(type(result.dial)!='object') result.dial={};
+    if(result.dial.phase==null)
+        result.dial.phase=result.connected?'connected':(result.connecting?'connecting':'idle');
 }
 else {
     // Share the existing SIM-switch gate: an APN transaction must not commit

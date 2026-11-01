@@ -1,0 +1,11 @@
+#!/bin/sh
+# One dashboard collector round at a time. Every kicker (the rpcd providers and the LuCI page)
+# goes through this: the lock is taken WITHOUT waiting, so a kick while a round is running is
+# dropped instead of stacking another collector on the AT channel. The row of collectors the
+# app's roughly-1/s polling produced is exactly the window before the cell script's own
+# collect.lck exists; this closes it, and the cell script keeps its lock for the rest.
+set -u
+MODE=${1:-full}
+exec 9>/run/unisoc-modem-collect.lock || exit 0
+flock -n 9 || exit 0
+exec /usr/libexec/unisoc-modem/cell "$MODE"

@@ -211,10 +211,10 @@ m_status() {
     # A full round also refreshes sig.json. Prefer it when both tiers are stale;
     # starting full and fast together doubles the AT burst for no benefit.
     if { [ "$cage" -lt 0 ] || [ "$cage" -gt "$TTL" ]; } && [ "$busy" = 0 ]; then
-        ( setsid "$DASH/cell" </dev/null >/dev/null 2>&1 & )
+        ( setsid "$DASH/cell-kick" </dev/null >/dev/null 2>&1 & )
         busy=1; fbusy=1
     elif { [ "$sage" -lt 0 ] || [ "$sage" -gt "$TTL_FAST" ]; } && [ "$fbusy" = 0 ]; then
-        ( setsid "$DASH/cell" fast </dev/null >/dev/null 2>&1 & )
+        ( setsid "$DASH/cell-kick" fast </dev/null >/dev/null 2>&1 & )
         fbusy=1
     fi
     printf '{"info":%s,"cell":%s,"sig":%s,"cell_age":%d,"sig_age":%d,"refreshing":%d}\n' \
@@ -1217,10 +1217,15 @@ m_rates() { "$DASH/dashboard-rates"; }
 
 # the panel's sim_get adds the card count and the saved data-card choice to the SIM state
 m_sim_get() {
-    local out slots card
+    local out slots card s1
     out=$(m_sim_get_core 2>/dev/null)
     json_obj "$out" >/dev/null || { printf '%s\n' "${out:-{\"error\":\"SIM control unavailable\"}}"; return; }
+    s1=$(printf '%s' "$out" | jsonfilter -e '@.slot1_supported' 2>/dev/null)
     slots=$(uci -q get unisoc_modem.main.sim_slots 2>/dev/null); [ "$slots" = 2 ] || slots=1
+    # the author's firmware reports both slots even when the second holds no card (its app
+    # builds the dual-SIM selector from this number); report the same contract, the per-slot
+    # state still says the card is absent.
+    [ "$s1" = 1 ] && slots=2
     card=$(uci -q get unisoc_modem.main.data_sim 2>/dev/null); [ "$card" = 1 ] || card=0
     printf '%s,"slots":%s,"saved_sim":%s}\n' "${out%?}" "$slots" "$card"
 }

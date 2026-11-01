@@ -17,8 +17,10 @@ if (type(ours) != 'object') ours = {};
 if (type(auth) != 'object') auth = {};
 let out = {};
 for (let k in ours) out[k] = ours[k];
-for (let k in [ 'supported', 'firmware', 'offsets', 'min', 'max', 'step', 'pending', 'recovery' ])
+for (let k in [ 'supported', 'firmware', 'offsets', 'min', 'max', 'step', 'pending' ])
     if (auth[k] != null) out[k] = auth[k];
+// the panel reads recovery even when there is none: keep the key and let it be null
+if (out.recovery == null) out.recovery = auth.recovery ?? null;
 // The author's domains carry id/policy/cpus/offset/table; the LuCI CPU page indexes
 // them with a numeric "domain" (and took it for granted before this port). Keep one
 // array in the reply and give each row both.
@@ -28,7 +30,7 @@ if (type(auth.domains) == 'array' && length(auth.domains)) {
         let d = auth.domains[i];
         if (type(d) == 'object') {
             if (type(d.domain) != 'number') d.domain = type(d.id) == 'number' ? d.id : i;
-            doms = push(doms, d);
+            push(doms, d);
         }
     }
     out.domains = doms;
