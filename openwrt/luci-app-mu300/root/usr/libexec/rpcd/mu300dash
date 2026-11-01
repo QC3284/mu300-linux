@@ -484,7 +484,11 @@ m_lock_get_core() {
         printf '{"busy":1,"error":"Reading the locks from the modem; try again in a few seconds"}\n'
         return
     fi
-    json_obj "$out" >/dev/null || printf '{"error":"Lock read failed"}\n'
+    if json_obj "$out" >/dev/null; then
+        printf '%s\n' "$out"
+    else
+        printf '{"error":"Lock read failed"}\n'
+    fi
 }
 
 # the values unisoc-modem/lock apply takes, per kind: bands are up to 32

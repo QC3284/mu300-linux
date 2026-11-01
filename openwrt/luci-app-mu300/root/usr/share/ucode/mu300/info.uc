@@ -6,7 +6,6 @@ import * as rt from 'rtnl';
 import { statvfs } from 'luci.core';
 import { cursor } from 'uci';
 import { connect } from 'ubus';
-import * as uloop from 'uloop';
 import * as hotspot from '/usr/libexec/unisoc-modem/hotspot.uc';
 import * as apn from '/usr/libexec/unisoc-modem/apn.uc';
 
@@ -22,6 +21,16 @@ function text(v) { return v == null || v === '' ? null : replace(''+v,/[\r\n]/g,
 function device(v) { return type(v)=='string' && v!='.' && v!='..' && match(v,/^[A-Za-z0-9_.:-]{1,15}$/) ? v : null; }
 function exists(p) { return fs.stat(ROOT+p)!=null; }
 function executable(p) { return fs.access(ROOT+p,'x')==true; }
+// A detached child: rpcd's ucode context has no working uloop.process (it returns
+// null and starts nothing there - measured on the device and in the test image),
+// so a background start goes through the shell. fs.popen() forks, the shell
+// backgrounds the command and exits, and closing the pipe only reaps the shell.
+function spawn(cmd) {
+    let pipe=fs.popen(cmd+' </dev/null >/dev/null 2>&1 &','r');
+    if(!pipe)return false;
+    pipe.close();
+    return true;
+};
 export function sim_state(slot) {
     if(!(slot in ['0','1']))return 'unknown';
     let row=obj('/run/mu300-registration/sim'+slot+'.json');
@@ -41,9 +50,9 @@ function equipment(atd,slots) {
     let stamp=fs.stat(ROOT+dir+'/attempt')?.mtime, age=stamp==null?null:time()-stamp;
     if(atd && boot_id!='' && !equipment_job && (values[0]==null || (slots=='2' && values[1]==null)) &&
        (!valid || age==null || age<0 || age>=60)) {
-        equipment_job=uloop.process('/bin/sh',['/usr/libexec/unisoc-modem/dashboard-equipment'],{
-            PATH:'/usr/sbin:/usr/bin:/sbin:/bin',MU300_EQUIPMENT_SLOTS:slots
-        },()=>{equipment_job=null;});
+        equipment_job=1;
+        spawn('PATH=/usr/sbin:/usr/bin:/sbin:/bin MU300_EQUIPMENT_SLOTS='+slots+
+            ' /usr/libexec/unisoc-modem/dashboard-equipment');
     }
     return values;
 };
@@ -269,12 +278,17 @@ export function status(slot,cells) {
     if(mode && !(mode=='full'?busy:fast)) {
         // This platform's collector: unisoc-modem/cell [fast], detached, one round at a time
         // (it owns collect.lck/fast.lck itself, exactly as the LuCI page expects).
-        let job=uloop.process('/bin/sh',['-c',sprintf('setsid /usr/libexec/unisoc-modem/cell%s </dev/null >/dev/null 2>&1 &',mode=='fast'?' fast':'')]);
-        failed=job==null;
-        if(mode=='full' && !failed)busy=true;
+        failed=!spawn('setsid /usr/libexec/unisoc-modem/cell'+(mode=='fast'?' fast':''));
+        // a kick was attempted: the caller refreshes, it does not see an error
+        if(mode=='full')busy=true;
     }
-    return {info:cells?null:info(slot),cell:failed?{error:'Unable to read cellular status'}:ident_fix(obj(dir+'/cell.json')),
-        sig:failed?{error:'Unable to read cellular status'}:obj(dir+'/sig.json'),cell_age:cage,sig_age:sage,refreshing:busy?1:0};
+    // a cache that exists is served even when the kick failed (its age says how old it is);
+    // the error is only for a request that has neither a cache nor a working start
+    let cell=obj(dir+'/cell.json'), sig=obj(dir+'/sig.json');
+    return {info:cells?null:info(slot),
+        cell:cell!=null?ident_fix(cell):failed?{error:'Unable to read cellular status'}:null,
+        sig:sig!=null?sig:failed?{error:'Unable to read cellular status'}:null,
+        cell_age:cage,sig_age:sage,refreshing:busy?1:0};
 };
 
 export function sms_head(slot) {
