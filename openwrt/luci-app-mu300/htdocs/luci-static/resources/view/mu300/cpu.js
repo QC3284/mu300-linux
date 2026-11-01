@@ -110,14 +110,17 @@ return view.extend({
 		/* 2. the clusters */
 		var num = function(x) { return typeof x === 'number' ? x : null; };
 		var mhz = function(x) { return num(x) == null ? '--' : String(x); };
+		/* the merged reply keeps the author firmware's kHz values under cur/min/max/hwmax and adds
+		 * this platform's MHz ones as cur_mhz... (mu300dash cpu_get, unisoc-modem/panel-cpu-get) */
+		var pv = function(p, k) { return num(p[k + '_mhz']) != null ? p[k + '_mhz'] : p[k]; };
 		var rows = st.policies.map(function(p) {
 			return E('tr', {}, [
 				E('td', {}, [ 'cpu' + String(p.cpus || '') ]),
 				E('td', {}, [ String(p.governor || '--') ]),
-				E('td', {}, [ mhz(p.cur) ]),
-				E('td', {}, [ mhz(p.min) ]),
-				E('td', {}, [ mhz(p.max) ]),
-				E('td', {}, [ mhz(p.hwmax) ])
+				E('td', {}, [ mhz(pv(p, 'cur')) ]),
+				E('td', {}, [ mhz(pv(p, 'min')) ]),
+				E('td', {}, [ mhz(pv(p, 'max')) ]),
+				E('td', {}, [ mhz(pv(p, 'hwmax')) ])
 			]);
 		});
 		var table = E('section', { 'class': 'mud-card', 'style': 'margin-top:14px', 'id': 'mud-cpu-clusters' }, [
@@ -274,7 +277,10 @@ return view.extend({
 		var rows = (Array.isArray(v.domains) ? v.domains : []).map(function(d) {
 			var idx = typeof d.domain === 'number' ? d.domain : -1;
 			var tbl = Array.isArray(d.table) ? d.table : [];
-			var top = tbl.length && Array.isArray(tbl[tbl.length - 1]) ? tbl[tbl.length - 1] : null;
+			var last = tbl.length ? tbl[tbl.length - 1] : null;
+			/* the author firmware's rows are {khz,uv}; this platform's were [khz,uv] pairs */
+			var topKhz = last == null ? null : (Array.isArray(last) ? last[0] : num(last.khz));
+			var topUv = last == null ? null : (Array.isArray(last) ? last[1] : num(last.uv));
 			var inp = E('input', { 'type': 'number', 'class': 'cbi-input-text', 'id': 'mud-cpuv-in' + idx,
 				'min': String(lo), 'max': String(hi), 'step': String(step), 'style': 'width:8em',
 				'value': String(idx >= 0 && idx < 3 && typeof cur[idx] === 'number' ? cur[idx] : 0) });
@@ -283,7 +289,7 @@ return view.extend({
 				E('td', {}, [ String(idx) ]),
 				E('td', {}, [ 'cpu' + String(d.cpus || '') ]),
 				E('td', {}, [ typeof d.offset === 'number' ? String(d.offset) : '--' ]),
-				E('td', {}, [ top ? (top[0] / 1000).toFixed(0) + ' MHz / ' + (top[1] / 1000).toFixed(2) + ' mV' : '--' ]),
+				E('td', {}, [ num(topKhz) != null && num(topUv) != null ? (topKhz / 1000).toFixed(0) + ' MHz / ' + (topUv / 1000).toFixed(2) + ' mV' : '--' ]),
 				E('td', {}, [ inp ])
 			]);
 		});

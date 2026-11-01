@@ -459,7 +459,7 @@ lock_reading() {
     [ -n "$_p" ] && [ -d "/proc/$_p" ] &&
         { tr '\0' ' ' < "/proc/$_p/cmdline"; } 2>/dev/null | grep -q '/unisoc-modem/lock'
 }
-m_lock_get() {
+m_lock_get_core() {
     local fresh out before end
     inp '@.fresh'; fresh=$V
     allowed "$fresh" '(0|1)?' || { refuse 'The fresh parameter must be 0 or 1'; return; }
@@ -484,7 +484,7 @@ m_lock_get() {
         printf '{"busy":1,"error":"Reading the locks from the modem; try again in a few seconds"}\n'
         return
     fi
-    json_obj "$out" || printf '{"error":"Lock read failed"}\n'
+    json_obj "$out" >/dev/null || printf '{"error":"Lock read failed"}\n'
 }
 
 # the values unisoc-modem/lock apply takes, per kind: bands are up to 32
@@ -508,6 +508,18 @@ m_lock_set() {
     inp '@.val'; val=$V
     case "$kind" in
         mode|endc|lte|nr|cell|auto_apply|reset) ;;
+        volte|vonr)
+            # the panel's voice switches: the card's own VoLTE/VoNR choice, saved for every
+            # bring-up (mobile-data voice, FINDINGS 184); no protocol-stack restart
+            allowed "$val" '(on|off)' || { refuse 'Invalid value for this lock kind'; return; }
+            [ -x "${MOBILE_DATA:-/opt/mu300/bin/mobile-data}" ] ||
+                { refuse 'Mobile data integration is not provided by this platform'; return; }
+            if _vo=$("${MOBILE_DATA:-/opt/mu300/bin/mobile-data}" voice "$kind" "$val" --slot "${MU300_SIM_SLOT:-0}" 2>&1); then
+                printf '{"ok":1,"started":0,"id":%s,"op":%s}\n' "$(json_str "voice-$kind-$val")" "$(json_str "lock $kind=$val")"
+            else
+                refuse 'The modem did not take the setting; nothing was saved' "$_vo"
+            fi
+            return ;;
         *) refuse 'Unknown lock kind'; return ;;
     esac
     lock_val_ok "$kind" "$val" || { refuse 'Invalid value for this lock kind'; return; }
@@ -521,7 +533,7 @@ m_lock_set() {
     else
         ( setsid "$DASH/lock" apply "$kind" "$val" </dev/null >/dev/null 2>&1 & )
     fi
-    printf '{"ok":1,"started":1,"queued":%d,"op":%s}\n' "$q" "$(json_str "lock $kind=$val")"
+    printf '{"ok":1,"started":1,"queued":%d,"op":%s,"id":%s}\n' "$q" "$(json_str "lock $kind=$val")" "$(json_str "lock-$kind-$(now)")"
 }
 
 # --------------------------------------------------------------------- SMS
@@ -839,8 +851,9 @@ m_ttl_set() {
 
 # --------------------------------------------------------------- data usage
 # The Data usage page: mu300-traffic through the adapter, which checks every value again. Sizes are whole bytes.
-TRAFA=${MU300_TRAFFIC_ADAPTER:-$DASH/traffic}
-m_traffic_get() { reply_obj "$(sh "$TRAFA" get 2>/dev/null)" 'The data usage adapter gave no valid reply'; }
+# our page's adapter; traffic at $DASH/traffic is the author traffic service (ubus unisoc.traffic)
+TRAFA=${MU300_TRAFFIC_ADAPTER:-$DASH/traffic-mu300}
+m_traffic_get_core() { reply_obj "$(sh "$TRAFA" get 2>/dev/null)" 'The data usage adapter gave no valid reply'; }
 m_traffic_set() {
     local op value
     inp '@.op'; op=$V
@@ -861,15 +874,15 @@ m_traffic_set() {
 # since it carries the secrets (a bot token, a password), and nothing of it is logged: the method log keeps replies,
 # and the adapter's replies never hold a secret.
 FWDA=${MU300_FWD_ADAPTER:-$DASH/forward}
-m_forward_get() { reply_obj "$("$FWDA" get 2>/dev/null)" 'The forwarding adapter gave no valid reply'; }
-m_forward_set() {
+m_forward_get_core() { reply_obj "$("$FWDA" get 2>/dev/null)" 'The forwarding adapter gave no valid reply'; }
+m_forward_set_core() {
     reply_obj "$(printf '%s' "$INPUT" | "$FWDA" set 2>/dev/null)" 'The forwarding adapter gave no valid reply'
 }
-m_forward_test() { reply_obj "$("$FWDA" test 2>/dev/null)" 'The forwarding adapter gave no valid reply'; }
+m_forward_test_core() { reply_obj "$("$FWDA" test 2>/dev/null)" 'The forwarding adapter gave no valid reply'; }
 m_forward_log_clear() { reply_obj "$("$FWDA" logclear 2>/dev/null)" 'The forwarding adapter gave no valid reply'; }
 # The CPU page: mu300-cpu through the adapter, which checks the profile name again
 CPUA=${MU300_CPU_ADAPTER:-$DASH/cpu}
-m_cpu_get() { reply_obj "$("$CPUA" get 2>/dev/null)" 'The CPU adapter gave no valid reply'; }
+m_cpu_get_core() { reply_obj "$("$CPUA" get 2>/dev/null)" 'The CPU adapter gave no valid reply'; }
 m_cpu_set() {
     local profile
     inp '@.profile'; profile=$V
@@ -896,7 +909,7 @@ m_cpu_tune() {
 # The CPU voltage offset (EXPERIMENTAL: it can damage the device for good). Only the shape is checked here - three
 # signed numbers, the confirmation word, the minutes; the adapter checks them again and mu300-cpu and the kernel check
 # the limits. Nothing changes before the next boot, and the initramfs drops a value that does not prove itself.
-m_cpu_voltage_get() { reply_obj "$("$CPUA" voltage-get 2>/dev/null)" 'The CPU adapter gave no valid reply'; }
+m_cpu_voltage_get_core() { reply_obj "$("$CPUA" voltage-get 2>/dev/null)" 'The CPU adapter gave no valid reply'; }
 m_cpu_voltage_set() {
     local op offsets confirm minutes out
     inp '@.op'; op=$V
@@ -993,21 +1006,21 @@ do_list() {
     cat <<EOF
 {
 	"sysinfo": { },
-	"status": { },
+	"status": { "slot": "String" },
 	"signal": { },
-	"act": { "op": "String", "arg": "String" },
+	"act": { "op": "String", "arg": "String", "slot": "String" },
 	"at": { "cmd": "String", "confirm": "String", "slot": "String" },
 	"at_job": { },
-	"at_history": { },
+	"at_history": { "slot": "String" },
 	"ops_log": { },
 	"lock_get": { "fresh": "String", "slot": "String" },
-	"lock_set": { "kind": "String", "val": "String" },
+	"lock_set": { "kind": "String", "val": "String", "slot": "String" },
 	"sms_list": { "page": "String", "slot": "String" },
-	"sms_show": { "id": "String" },
-	"sms_send": { "num": "String", "text": "String" },
-	"sms_job": { },
-	"sms_delete": { "id": "String", "sim": "String" },
-	"sms_sync": { },
+	"sms_show": { "id": "String", "slot": "String" },
+	"sms_send": { "num": "String", "text": "String", "slot": "String" },
+	"sms_job": { "slot": "String" },
+	"sms_delete": { "id": "String", "sim": "String", "slot": "String" },
+	"sms_sync": { "slot": "String" },
 	"usb_get": { },
 	"usb_set": { "kind": "String", "value": "String", "scope": "String", "auto": "String" },
 	"usb_net_list": { },
@@ -1025,16 +1038,16 @@ do_list() {
 	"ttl_get": { },
 	"ttl_set": { "value": "String" },
 	"traffic_get": { "slot": "String" },
-	"traffic_set": { "op": "String", "value": "String" },
-	"forward_get": { },
+	"traffic_set": { "op": "String", "value": "String", "payload": "String" },
+	"forward_get": { "profile": "String" },
 	"forward_set": { "enabled": "String", "template": "String", "allow": "String", "deny": "String",
 		"keywords": "String", "clear": "String", "webhook": "String", "webhook_url": "String",
 		"webhook_format": "String", "webhook_headers": "String", "telegram": "String", "telegram_token": "String",
 		"telegram_chat": "String", "email": "String", "email_host": "String", "email_port": "String",
 		"email_tls": "String", "email_user": "String", "email_password": "String", "email_from": "String",
 		"email_to": "String", "sms": "String", "sms_number": "String", "webhook_body": "String",
-		"webhook_expect": "String" },
-	"forward_test": { },
+		"webhook_expect": "String", "payload": "String" },
+	"forward_test": { "profile": "String" },
 	"forward_log_clear": { },
 	"cpu_get": { },
 	"cpu_set": { "profile": "String" },
@@ -1049,7 +1062,24 @@ do_list() {
 	"backup_import": { "file": "String", "passphrase": "String", "dry_run": "Boolean", "force": "Boolean", "skip": "String" },
 	"backup_job": { },
 	"update_act": { "op": "String", "tag": "String", "systems": "String", "kernel": "String", "sha256": "String",
-		"size": "String", "flags": "String", "confirm": "String", "url": "String" }
+		"size": "String", "flags": "String", "confirm": "String", "url": "String" },
+	
+		"cells": { "slot": "String" },
+		"rates": { },
+		"lock_status": { "id": "String", "slot": "String" },
+		"data_sim_set": { "target": "String" },
+		"data_sim_status": { "id": "String" },
+		"sim_radio_get": { },
+		"sim_radio_set": { "slot": "String", "enabled": "Boolean", "confirm": "Boolean" },
+		"sim_radio_status": { "id": "String" },
+		"sim_dsds_set": { "enabled": "Boolean", "confirm": "Boolean" },
+		"v50_sim_get": { },
+		"apn_set": { "action": "String", "payload": "String" },
+		"cpu_apply": { "payload": "String" },
+		"cpu_voltage_save": { "payload": "String" },
+		"forward_status": { "profile": "String" },
+		"traffic_clear": { "confirm": "Boolean", "slot": "String" }
+	
 }
 EOF
 }
@@ -1122,7 +1152,222 @@ m_simcard_set() {
 SIMCTL=${MU300_DASH_SIM:-/opt/mu300/bin/mu300-sim}
 m_apn_get() { reply_obj "$("$DASH/apn" get 2>/dev/null)" 'The APN adapter gave no valid reply'; }
 m_data_sim_get() { reply_obj "$("$DASH/data-sim" get 2>/dev/null)" 'The SIM control adapter gave no valid reply'; }
-m_sim_get() { reply_obj "$("$SIMCTL" status --json 2>/dev/null)" 'SIM control unavailable'; }
+m_sim_get_core() { reply_obj "$("$SIMCTL" status --json 2>/dev/null)" 'SIM control unavailable'; }
+
+# ------------------------------------------------------------------ UFI panel
+# The Android UFI panel (com.termux.ufipanel) speaks the author firmware's rpcd surface:
+# mu300status/mu300rates/unisoc-* for the snapshot, and the methods of this object for
+# everything it can change. The methods below add that surface WITHOUT changing what the
+# LuCI pages read: where both consumers use one method, the reply is the union of their
+# keys; where only the panel calls it, it is the author's shape.
+
+# the panel's lock_get adds what the modem can be written to, and the two voice switches
+# (the card's saved choices: files only, no AT in the request path)
+m_lock_get() {
+    local out nr lte v en
+    out=$(m_lock_get_core 2>/dev/null)
+    json_obj "$out" >/dev/null || { printf '%s\n' "${out:-{\"error\":\"Lock read failed\"}}"; return; }
+    nr=$(printf '%s' "$out" | jsonfilter -e '@.caps.nr' 2>/dev/null)
+    [ -n "$nr" ] || nr=
+    lte=$(printf '%s' "$out" | jsonfilter -e '@.caps.lte' 2>/dev/null)
+    [ -n "$lte" ] || lte='1,3,5,8,34,38,39,40,41'
+    v=$("${MOBILE_DATA:-/opt/mu300/bin/mobile-data}" voice --json --slot "${MU300_SIM_SLOT:-0}" 2>/dev/null)
+    en() {
+        case "$1" in
+            true)  printf '{"enabled":true,"source":"saved","saved":"1"}' ;;
+            false) printf '{"enabled":false,"source":"saved","saved":"0"}' ;;
+            *)     printf '{"enabled":null,"source":"unknown","saved":null}' ;;
+        esac
+    }
+    nl=$([ -n "$v" ] && printf '%s' "$v" | jsonfilter -e "@.slots[${MU300_SIM_SLOT:-0}].volte" 2>/dev/null)
+    nv=$([ -n "$v" ] && printf '%s' "$v" | jsonfilter -e "@.slots[${MU300_SIM_SLOT:-0}].vonr" 2>/dev/null)
+    printf '%s,"write_caps":{"nr":"%s","lte":"1,3,5,8,34,38,39,40,41"},"volte":%s,"vonr":%s}\n' \
+        "${out%?}" "$nr" "$(en "$nl")" "$(en "$nv")"
+}
+
+# the panel's lock_status: our lock applies detached and records its result in the cache
+# the page reads; the panel only needs a state for the id it was given
+m_lock_status() {
+    local id
+    inp '@.id'; id=$V
+    allowed "$id" '[A-Za-z0-9._:-]{0,64}' || { refuse 'Invalid lock job'; return; }
+    if [ -d /run/unisoc-modem-lock-apply ]; then
+        printf '{"ok":1,"id":%s,"state":"running"}\n' "$(json_str "$id")"
+    else
+        printf '{"ok":1,"id":%s,"state":"done"}\n' "$(json_str "$id")"
+    fi
+}
+
+# the panel's cells: this platform's status object without the info snapshot (the shadow of
+# mu300status.cells, served from the same caches as the LuCI page)
+m_cells() {
+    local slot
+    inp '@.slot'; slot=${V:-0}
+    allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
+    ubus -S -t 20 call mu300status cells "{\"slot\":\""$slot"\"}" 2>/dev/null ||
+        printf '{"error":"Unable to read cellular status"}\n'
+}
+
+# the panel's rates: the same 1 s lane the dashboard uses
+m_rates() { "$DASH/dashboard-rates"; }
+
+# the panel's sim_get adds the card count and the saved data-card choice to the SIM state
+m_sim_get() {
+    local out slots card
+    out=$(m_sim_get_core 2>/dev/null)
+    json_obj "$out" >/dev/null || { printf '%s\n' "${out:-{\"error\":\"SIM control unavailable\"}}"; return; }
+    slots=$(uci -q get unisoc_modem.main.sim_slots 2>/dev/null); [ "$slots" = 2 ] || slots=1
+    card=$(uci -q get unisoc_modem.main.data_sim 2>/dev/null); [ "$card" = 1 ] || card=0
+    printf '%s,"slots":%s,"saved_sim":%s}\n' "${out%?}" "$slots" "$card"
+}
+
+# the panel's data usage: the union of our page's counters (mu300-traffic) and the author's
+# traffic service (unisoc.traffic: config, status, months) - the two ledgers stay separate
+m_traffic_get() {
+    local ours auth cfg status months slot
+    inp '@.slot'; slot=${V:-0}
+    allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
+    ours=$(m_traffic_get_core 2>/dev/null)
+    json_obj "$ours" >/dev/null || ours='{"ok":0,"error":"data_usage_unavailable"}'
+    auth=
+    command -v ubus >/dev/null 2>&1 && auth=$(ubus -t 3 call unisoc.traffic get "{\"slot\":$slot}" 2>/dev/null)
+    if ! json_obj "$auth" >/dev/null; then printf '%s\n' "$ours"; return; fi
+    cfg=$(printf '%s' "$auth" | jsonfilter -e '@.config' 2>/dev/null) || cfg=null
+    status=$(printf '%s' "$auth" | jsonfilter -e '@.status' 2>/dev/null) || status=null
+    months=$(printf '%s' "$auth" | jsonfilter -e '@.months' 2>/dev/null) || months=null
+    printf '%s,"config":%s,"status":%s,"months":%s}\n' "${ours%?}" "${cfg:-null}" "${status:-null}" "${months:-null}"
+}
+
+# the panel's traffic_set/clear carry the author's payload; our page keeps its op/value form
+m_traffic_set() {
+    local payload slot
+    inp '@.payload'; payload=$V
+    if [ -z "$payload" ]; then m_traffic_set_core; return; fi
+    inp '@.slot'; slot=${V:-0}
+    allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
+    [ ${#payload} -le 4096 ] || { refuse 'Request too large'; return; }
+    reply_obj "$(ubus -t 5 call unisoc.traffic set "{\"payload\":$(json_str "$payload"),\"slot\":$slot}" 2>/dev/null)" 'The data usage service gave no valid reply'
+}
+m_traffic_clear() {
+    local confirm slot
+    inp '@.confirm'; confirm=$V
+    inp '@.slot'; slot=${V:-0}
+    allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
+    case "$confirm" in true) confirm=true ;; *) confirm=false ;; esac
+    reply_obj "$(ubus -t 5 call unisoc.traffic clear "{\"confirm\":$confirm,\"slot\":$slot}" 2>/dev/null)" 'The data usage service gave no valid reply'
+}
+
+# the panel's forwarding methods carry a profile or a whole payload; our page keeps its fields
+m_forward_get() {
+    inp '@.profile'
+    if [ -z "$V" ]; then m_forward_get_core; return; fi
+    reply_obj "$("$DASH/sms-forward" get "$V" 2>/dev/null)" 'The forwarding adapter gave no valid reply'
+}
+m_forward_set() {
+    local payload
+    inp '@.payload'; payload=$V
+    if [ -z "$payload" ]; then m_forward_set_core; return; fi
+    [ ${#payload} -le 16384 ] || { refuse 'Request too large'; return; }
+    reply_obj "$(printf '%s' "$payload" | "$DASH/sms-forward" set 2>/dev/null)" 'The forwarding adapter gave no valid reply'
+}
+m_forward_test() {
+    inp '@.profile'
+    if [ -z "$V" ]; then m_forward_test_core; return; fi
+    case "$V" in
+        shared|sim0) ;;
+        sim1) [ "$(uci -q get unisoc_modem.main.sim_slots 2>/dev/null)" = 2 ] || { refuse 'Invalid forwarding profile'; return; } ;;
+        *) refuse 'Invalid forwarding profile'; return ;;
+    esac
+    reply_obj "$("$DASH/sms-forward" test-start "$V" 2>/dev/null)" 'The forwarding adapter gave no valid reply'
+}
+m_forward_status() {
+    inp '@.profile'
+    reply_obj "$("$DASH/sms-forward" status "${V:-shared}" 2>/dev/null)" 'The forwarding adapter gave no valid reply'
+}
+
+# the panel's APN editor: save/delete/apply/auto, the payload on the adapter's stdin
+m_apn_set() {
+    local action payload
+    inp '@.action'; action=$V
+    inp '@.payload'; payload=$V
+    case "$action" in save|delete|apply|auto) ;; *) refuse 'Invalid APN request'; return ;; esac
+    [ ${#payload} -le 4096 ] || { refuse 'Request too large'; return; }
+    reply_obj "$(printf '%s' "$payload" | "$DASH/apn" "$action" 2>/dev/null)" 'The APN adapter gave no valid reply'
+}
+
+# the panel's SIM/radio methods are the data-sim job adapter (start returns the job, status polls it)
+m_data_sim_set() {
+    local target
+    inp '@.target'; target=$V
+    allowed "$target" '(device-[01]|radio-[01]-[01]|v50-card-[0-3]|dsds-[01])' || { refuse 'Invalid SIM target'; return; }
+    reply_obj "$("$DASH/data-sim" start "$target" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+}
+m_data_sim_status() {
+    local id
+    inp '@.id'; id=$V
+    allowed "$id" '[A-Za-z0-9._:-]{0,64}' || { refuse 'Invalid SIM job'; return; }
+    reply_obj "$("$DASH/data-sim" status "$id" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+}
+m_sim_radio_get() { reply_obj "$("$SIM_RADIO" get 2>/dev/null)" 'The SIM radio control gave no valid reply'; }
+m_sim_radio_set() {
+    local slot enabled confirm on
+    inp '@.slot'; slot=$V
+    inp '@.enabled'; enabled=$V
+    inp '@.confirm'; confirm=$V
+    case "$slot" in
+        0|1) ;;
+        *) refuse 'Invalid radio request'; return ;;
+    esac
+    case "$enabled:$confirm" in
+        true:true) on=1 ;;
+        false:true) on=0 ;;
+        *) refuse 'Invalid radio request'; return ;;
+    esac
+    [ -x "$SIM_RADIO" ] || { refuse 'Radio control is not provided by this platform'; return; }
+    reply_obj "$("$DASH/data-sim" start "radio-$slot-$on" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+}
+m_sim_radio_status() {
+    local id
+    inp '@.id'; id=$V
+    allowed "$id" '[A-Za-z0-9._:-]{0,64}' || { refuse 'Invalid SIM job'; return; }
+    reply_obj "$("$DASH/data-sim" status "$id" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+}
+m_sim_dsds_set() {
+    local enabled confirm
+    inp '@.enabled'; enabled=$V
+    inp '@.confirm'; confirm=$V
+    case "$enabled:$confirm" in
+        true:true|false:true) ;;
+        *) refuse 'Invalid radio request'; return ;;
+    esac
+    reply_obj "$("$DASH/data-sim" start "dsds-$([ "$enabled" = true ] && echo 1 || echo 0)" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+}
+m_v50_sim_get() { reply_obj "$("${MU300_V50_SIM:-/opt/mu300/bin/mu300-v50-sim}" status 2>/dev/null)" 'The V50 card control gave no valid reply'; }
+
+# the panel's cpu_get/cpu_apply: the author CPU snapshot merged with our profile fields
+m_cpu_get() {
+    local out
+    out=$("$DASH/panel-cpu-get" 2>/dev/null)
+    if json_obj "$out" >/dev/null; then printf '%s' "$out"; else m_cpu_get_core; fi
+}
+m_cpu_apply() {
+    local payload
+    inp '@.payload'; payload=$V
+    [ -n "$payload" ] && [ ${#payload} -le 4096 ] || { refuse 'Invalid CPU settings'; return; }
+    reply_obj "$(printf '%s' "$payload" | "$DASH/cpu-policy" apply 2>/dev/null)" 'The CPU adapter gave no valid reply'
+}
+m_cpu_voltage_get() {
+    local out
+    out=$("$DASH/panel-cpu-voltage-get" 2>/dev/null)
+    if json_obj "$out" >/dev/null; then printf '%s' "$out"; else m_cpu_voltage_get_core; fi
+}
+m_cpu_voltage_save() {
+    local payload
+    inp '@.payload'; payload=$V
+    [ -n "$payload" ] && [ ${#payload} -le 4096 ] || { refuse 'Invalid CPU voltage request'; return; }
+    reply_obj "$(printf '%s' "$payload" | "$DASH/cpu-voltage-panel" save 2>/dev/null)" 'The CPU adapter gave no valid reply'
+}
+
 m_sim_set() {
     local op value
     inp '@.op'; op=$V
@@ -1370,6 +1615,21 @@ call)
         backup_export) run_m backup_export m_backup_export ;;
         backup_import) run_m backup_import m_backup_import ;;
         backup_job)   run_m backup_job   m_backup_job ;;
+        cells)        run_m cells        m_cells ;;
+        rates)        run_m rates        m_rates ;;
+        lock_status)  run_m lock_status  m_lock_status ;;
+        data_sim_set) run_m data_sim_set m_data_sim_set ;;
+        data_sim_status) run_m data_sim_status m_data_sim_status ;;
+        sim_radio_get) run_m sim_radio_get m_sim_radio_get ;;
+        sim_radio_set) run_m sim_radio_set m_sim_radio_set ;;
+        sim_radio_status) run_m sim_radio_status m_sim_radio_status ;;
+        sim_dsds_set) run_m sim_dsds_set m_sim_dsds_set ;;
+        v50_sim_get)  run_m v50_sim_get  m_v50_sim_get ;;
+        apn_set)      run_m apn_set      m_apn_set ;;
+        cpu_apply)    run_m cpu_apply    m_cpu_apply ;;
+        cpu_voltage_save) run_m cpu_voltage_save m_cpu_voltage_save ;;
+        forward_status) run_m forward_status m_forward_status ;;
+        traffic_clear) run_m traffic_clear m_traffic_clear ;;
         *)           refuse 'No such method' ;;
     esac
     ;;

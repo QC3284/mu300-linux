@@ -3,12 +3,15 @@
   "description": "MU300 control center: status dashboard, network locks, AT terminal, SMS and VPN",
   "read": {
    "ubus": {
-    "mu300dash": [ "sysinfo", "status", "signal", "lock_get", "usb_get", "usb_net_list", "lang_get", "power_get", "ttl_get", "cpu_get", "cpu_voltage_get", "traffic_get", "ops_log", "packages_get", "sim_get", "simcard_get", "update_get", "update_job", "apn_get", "data_sim_get" ],
+    "mu300dash": [ "sysinfo", "status", "cells", "rates", "signal", "lock_get", "lock_status", "usb_get", "usb_net_list", "lang_get", "power_get", "ttl_get", "cpu_get", "cpu_voltage_get", "traffic_get", "ops_log", "packages_get", "sim_get", "simcard_get", "sim_radio_get", "sim_radio_status", "sim_dsds_set", "data_sim_status", "v50_sim_get", "update_get", "update_job", "apn_get", "data_sim_get", "forward_status" ],
     "mu300rates": [ "netdev", "rates" ],
     "mu300vpn": [ "status", "profiles", "engines", "subscriptions", "settings" ],
     "mu300status": [ "status", "cells", "sysinfo", "sms_head" ],
     "mu300-charge": [ "get" ],
-    "unisoc-network-performance": [ "get" ]
+    "unisoc-network-performance": [ "get" ],
+    "unisoc-cpu-cores": [ "get" ],
+    "unisoc-cpu-idle": [ "get" ],
+    "mu300-wifi-ciphers": [ "get" ]
    },
    "uci": {
     "unisoc_modem": [ "*" ]
@@ -16,7 +19,10 @@
   },
   "write": {
    "ubus": {
-    "mu300dash": [ "act", "at", "at_job", "at_history", "lock_set", "sms_list", "sms_show", "sms_send", "sms_job", "sms_delete", "sms_sync", "usb_set", "usb_net_add", "lang_set", "power_set", "ttl_set", "forward_get", "forward_set", "forward_test", "forward_log_clear", "cpu_set", "cpu_tune", "cpu_voltage_set", "traffic_set", "packages_act", "sim_set", "simcard_set", "update_act", "backup_export", "backup_import", "backup_job" ],
+    "mu300dash": [ "act", "at", "at_job", "at_history", "lock_set", "sms_list", "sms_show", "sms_send", "sms_job", "sms_delete", "sms_sync", "usb_set", "usb_net_add", "lang_set", "power_set", "ttl_set", "forward_get", "forward_set", "forward_test", "forward_log_clear", "cpu_set", "cpu_tune", "cpu_apply", "cpu_voltage_set", "cpu_voltage_save", "traffic_set", "traffic_clear", "packages_act", "sim_set", "simcard_set", "sim_radio_set", "data_sim_set", "apn_set", "update_act", "backup_export", "backup_import", "backup_job" ],
+    "unisoc-cpu-cores": [ "apply" ],
+    "unisoc-cpu-idle": [ "apply" ],
+    "unisoc-network-performance": [ "apply" ],
     "mu300vpn": [ "job", "service", "killswitch", "use", "profile_add", "profile_rename", "profile_remove", "profile_check", "profile_option", "profile_reveal", "profile_edit", "latency", "sub_add", "sub_refresh", "sub_remove", "engine_install", "engine_remove", "core_install", "setting_set", "logs" ]
    },
    "uci": {
