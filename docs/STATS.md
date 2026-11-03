@@ -1,7 +1,7 @@
 # Repository & Community Statistics — `QC3284/mu300-linux`
 
 <!-- STATS:START -->
-> *Last updated: **2026-11-02 05:52:34 UTC** (tracked automatically via GitHub Actions)*
+> *Last updated: **2026-11-03 06:37:33 UTC** (tracked automatically via GitHub Actions)*
 
 ### Overview
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | ⭐ **Stars** | **1** | Stargazers |
 | 🍴 **Forks** | **0** | Forks (0% fork-to-star ratio) |
-| 📥 **Release Asset Downloads** | **416** | 146 OS/Kernel images, 270 checksums |
+| 📥 **Release Asset Downloads** | **423** | 149 OS/Kernel images, 274 checksums |
 | 👥 **Page Views (Archived)** | **1,154** | ~487 unique visitors |
 | 💻 **Git Clones (Archived)** | **668** | ~291 unique cloners |
 
@@ -39,8 +39,8 @@
 | Release | Asset | Size | Downloads |
 |---|---|---|---|
 | **v2026.10.31.3** | `latest-argon` | 29 B | **4** |
-|  | `latest-aurora` | 29 B | **22** |
-|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **19** |
+|  | `latest-aurora` | 29 B | **26** |
+|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **22** |
 |  | `mu300-kernel-7.2.tar.gz` | 20.4 MB | **2** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 27.9 MB | **2** |
 |  | `mu300-update` | 294.4 KB | **1** |
