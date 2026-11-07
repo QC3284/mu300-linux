@@ -98,6 +98,15 @@ done
 # the build instead of shipping a quietly half-complete image. data-sim is on it although the image
 # already has it: the base image carries the adapter non-executable, and the panel runs it as a
 # program. Every file here is the tree's, so the image and the package agree.
+# The image carries the tree's cpuinfo: the stock one reads the x86 "model name" and prints "? x 8" on this
+# arm64 SoC; the tree's names the cores from their CPU part (the format the user picked). The rootfs input
+# is a prebuilt image, so a relabelled image would keep the stock script and the fix would never reach a release.
+_ucpu="$TREE/rootfs/overlay/sbin/cpuinfo"
+if [ -f "$_ucpu" ]; then
+    mkdir -p "$OUT/r/sbin"
+    cp "$_ucpu" "$OUT/r/sbin/cpuinfo"
+    chmod 755 "$OUT/r/sbin/cpuinfo"
+fi
 P=$TREE/openwrt/luci-app-mu300/root
 for _pf in \
     usr/libexec/rpcd/mu300dash \
