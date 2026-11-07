@@ -551,6 +551,22 @@ m_sms_list() {
     local page out sms_store sms_used sms_total sms_seen
     inp '@.page'; page=${V:-1}
     allowed "$page" "$SMS_ID" || { refuse 'Invalid page'; return; }
+    # Slot 1 is the second card. This platform has no separate slot-1 SMS reader (no mu300-modemd: smsd-sim1
+    # is not started and /run/mu300-at4 never exists), so the author-shaped answer for the second card is the
+    # empty pool it has, not the slot 0 one. Same shape as the slot-0 parse below (the panel reads pages by
+    # index and shows 0/N), with the SIM storage counters -1/0/0 when the pool has no storage file.
+    if [ "${MU300_SIM_SLOT:-0}" = 1 ]; then
+        sms_used=-1 sms_total=0 sms_seen=0
+        if [ -r "$MU300_SMS_POOL/sim1/storage" ]; then
+            read -r sms_store sms_used sms_total sms_seen < "$MU300_SMS_POOL/sim1/storage"
+        fi
+        case ${sms_used:-} in ''|*[!0-9]*) sms_used=-1 ;; esac
+        case ${sms_total:-} in ''|*[!0-9]*) sms_total=0 ;; esac
+        case ${sms_seen:-} in ''|*[!0-9]*) sms_seen=0 ;; esac
+        printf '{"total":0,"unread":0,"page":1,"pages":1,"sim_used":%d,"sim_total":%d,"sim_seen":%d,"msgs":[]}\n' \
+            "$sms_used" "$sms_total" "$sms_seen"
+        return 0
+    fi
     # The SIM storage counters the pool keeps beside the messages (the UFI panel shows
     # used/total/other): the file is the SMS service's own, absent answers -1/0/0.
     if [ -r "$MU300_SMS_POOL/storage" ]; then

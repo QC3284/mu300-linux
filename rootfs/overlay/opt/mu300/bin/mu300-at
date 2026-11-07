@@ -29,6 +29,23 @@ case "$SLOT:$SIM_NATIVE" in
 esac
 DIR=${MU300_AT_DIR:-$default_dir}
 DEV=${MU300_AT_DEV:-$default_dev}
+# Slot 1 of this platform has no dedicated reader: the image carries no mu300-modemd, and mu300-atd holds only
+# the active card's group. A slot-1-scoped caller (sim_scope, smsd-sim1, sms-forward, the panel) sets
+# MU300_AT_DIR=/run/mu300-at4; with that directory missing the code below would open the ACTIVE card's tty
+# under slot 1's name - and closing a SIPC tty wedges it (FINDINGS 13b). Answer the way the modem answers an
+# empty slot (the author's slot-1 probes get +CME ERROR: 10 for a card that is not there) and open nothing.
+# When the boot is pinned to the internal card, that card is the active one and mu300-atd's main reader
+# (/run/mu300-at) is its owner: scope slot 1 there instead.
+if [ "${MU300_SIM_SLOT:-0}" = 1 ] && [ ! -p /run/mu300-at4/cmd ]; then
+    _active=$(/opt/mu300/bin/mu300-sim active 2>/dev/null) || _active=0
+    if [ "$SIM_NATIVE" = 0 ] && [ "$_active" = 1 ] && [ -p /run/mu300-at/cmd ]; then
+        DIR=/run/mu300-at
+        DEV=/dev/stty_nr4
+    else
+        printf '+CME ERROR: 10\n'
+        exit 0
+    fi
+fi
 # A live SIM switch (mu300-sim-u30, the U30 Air) is moving the radio from one card to the other: its own commands
 # pass (MU300_SIM_CONTROL), every other client is told "busy" in the words the callers already know, so that no SMS,
 # USSD or terminal command lands on a card that is being switched off. The marker alone is not believed: a switch

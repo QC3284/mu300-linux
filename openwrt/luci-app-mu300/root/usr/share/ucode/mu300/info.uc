@@ -268,6 +268,12 @@ function owner(dir) {
 export function status(slot,cells) {
     let c=cursor(CONFIG);
     if(!(slot in ['0','1']) || (slot=='1' && c.get('unisoc_modem','main','sim_slots')!='2'))return {error:'SIM 卡槽不可用'};
+    // This platform has no slot-1 reader: no mu300-modemd, and /run/mu300-at4 is never created on an F50
+    // (mu300-at answers slot-1 AT calls itself now). Asking for the second card answers the author's
+    // empty-card shape - no cell, no signal, no ages, not refreshing - instead of starting a collector
+    // that could only fail and flap. The snapshot (info) is still the normal one, as the author serves it.
+    if(slot=='1' && fs.stat(ROOT+'/run/mu300-at4/cmd')==null)
+        return {info:cells?null:info(slot),cell:null,sig:null,cell_age:-1,sig_age:-1,refreshing:0};
     let dir=RUN+(slot=='1'?'/sim1':''), cage=age(dir+'/cell.json'), sage=age(dir+'/sig.json');
     // A lock apply (SFUN restart) and a SIM switch both make the modem answer garbage:
     // the collectors stay off and the last snapshot is served.
@@ -276,7 +282,7 @@ export function status(slot,cells) {
     let fast=busy || owner(dir+'/fast.lck'), failed=false;
     // a round that read nothing leaves a marker: do not kick again for a few seconds, serve what
     // the last good round cached and let the modem recover (the marker's age is the hold-off)
-    let fm=fs.stat(RUN+'/at-failed'), recentfail=fm!=null && (time()-fm.mtime)<5;
+    let fm=fs.stat(dir+'/at-failed'), recentfail=fm!=null && (time()-fm.mtime)<5;
     let mode=cage<0 || cage>=5?'full':sage<0 || sage>=1?'fast':null;
     if(recentfail)mode=null;
     if(mode && !(mode=='full'?busy:fast)) {

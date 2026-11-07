@@ -1,0 +1,12 @@
+#!/bin/sh
+# Two SIM slots are a property of this device's modem, not of the image: the F50, U30 Air and V50 address two
+# card slots, and the panel's slot-1 objects, the SMS daemon's second instance and the traffic ledgers key off
+# unisoc_modem.main.sim_slots. An update keeps /etc/config (keep_list), so a system from before v2026.10.31.6
+# carries its old file over without the option: set it once here and never override a value the file already
+# holds (the image itself ships sim_slots 2, so a fresh install never runs into this).
+case "$(/opt/mu300/bin/mu300-device 2>/dev/null)" in f50|u30air|v50) ;; *) exit 0 ;; esac
+[ -f /etc/config/unisoc_modem ] || exit 0
+[ -n "$(uci -q get unisoc_modem.main.sim_slots 2>/dev/null)" ] && exit 0
+uci -q set unisoc_modem.main.sim_slots='2' || exit 0
+uci -q commit unisoc_modem || true
+exit 0

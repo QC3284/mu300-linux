@@ -73,6 +73,17 @@ if [ -f "$_uc" ]; then
     mkdir -p "$OUT/r/etc/mu300"
     cp "$_uc" "$OUT/r/etc/mu300/update-source"
 fi
+# The image carries the AT client and the SIM-slot files of this release, again because the rootfs input is a
+# prebuilt image: mu300-at is where a slot-1 request with no slot-1 reader is answered instead of opening the
+# active card's tty, the uci-defaults script gives an updated device (whose /etc/config the update keeps) the
+# sim_slots option the panel's slot-1 objects key off, and the SMS daemon init only starts its second
+# instance where a slot-1 AT reader exists. All three come before the manifest for the same reason as above.
+for _of in "opt/mu300/bin/mu300-at" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd"; do
+    [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
+    mkdir -p "$OUT/r/$(dirname "$_of")"
+    cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
+    chmod "$([ "${_of#etc/uci-defaults/}" != "$_of" ] && echo 644 || echo 755)" "$OUT/r/$_of"
+done
 # The rpcd providers the tree owns (the UFI panel's objects and the unisoc-* settings): copied from the tree
 # like the updater above, because the rootfs input is a prebuilt image and a relabelled image cannot grow new
 # files. The list is explicit so a missing one fails the build instead of shipping a quietly half-complete
@@ -111,6 +122,7 @@ for _pf in \
     usr/share/rpcd/acl.d/luci-app-mu300.json \
     usr/share/rpcd/acl.d/unisoc-cpu-cores.json usr/share/rpcd/acl.d/unisoc-cpu-idle.json \
     usr/share/rpcd/acl.d/unisoc-network-performance.json usr/share/rpcd/acl.d/mu300-wifi-ciphers.json \
+    etc/config/unisoc_modem \
     opt/mu300/bin/mu300-sim-radio opt/mu300/bin/mu300-radio-allowed opt/mu300/bin/mu300-v50-sim \
     opt/mu300/lib/v50-card.sh; do
     [ -f "$P/$_pf" ] || { echo "provider file missing from the tree: $_pf" >&2; exit 1; }
