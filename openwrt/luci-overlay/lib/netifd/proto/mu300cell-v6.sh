@@ -336,7 +336,7 @@ trap 'renew_pending=1' USR1
 
 # Close the setup/subscription gap with one scoped state read. No timer follows: every
 # later refresh is driven by a modem, netlink or renew event.
-: >"$pdp_pending"; printf 'pdp\n' >&3
+: >"$pending"; printf 'pdp\n' >&3
 last_pdp=0
 while :; do
 	if [ "$renew_pending" = 1 ]; then

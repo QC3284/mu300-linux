@@ -132,6 +132,24 @@ for _np in "openwrt/overlay/lib/netifd/proto/mu300cell.sh" "openwrt/luci-overlay
     cp "$TREE/$_np" "$OUT/r/lib/netifd/proto/${_np##*/}"
     chmod 755 "$OUT/r/lib/netifd/proto/${_np##*/}"
 done
+# Gate: every redirection target in the v6 monitor must be a variable that file sets itself. The D port
+# once renamed $pdp_pending to $pending but left one ": >$pdp_pending"; the redirect went to an empty path,
+# the protocol task exited, and netifd dropped wan and redialled every ~2 s (device A/B, 2026-11-08).
+_v6="$OUT/r/lib/netifd/proto/mu300cell-v6.sh"
+_v6rt=$(grep -oE '>[[:space:]]*"?[$][{]?[A-Za-z_][A-Za-z0-9_]*' "$_v6" | sed -E 's/^>[[:space:]]*"?[$][{]?//; s/}$//' | sort -u)
+_v6as=$(awk '
+  /^[ \t]*[A-Za-z_][A-Za-z0-9_]*=/ { name=$1; sub(/=.*/,"",name); print name }
+  /^[ \t]*export[ \t]+[A-Za-z_][A-Za-z0-9_]*=/ { name=$2; sub(/=.*/,"",name); print name }
+  /^[ \t]*local[ \t]+[A-Za-z_][A-Za-z0-9_]*=/ { name=$2; sub(/=.*/,"",name); print name }
+  /^[ \t]*for[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+in/ { print $2 }
+  /^[ \t]*read[ \t]/ { for(i=2;i<=NF;i++) { if ($i ~ /^-/ || $i ~ /^IFS=/) continue; print $i; break } }
+' "$_v6" | sort -u)
+for _v6rv in $_v6rt; do
+    printf '%s\n' "$_v6as" | grep -qx "$_v6rv" || {
+        echo "the v6 monitor redirects to \$$_v6rv but never sets it: $_v6" >&2
+        exit 1
+    }
+done
 P=$TREE/openwrt/luci-app-mu300/root
 for _pf in \
     usr/libexec/rpcd/mu300dash \
