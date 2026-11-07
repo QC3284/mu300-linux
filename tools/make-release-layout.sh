@@ -76,9 +76,11 @@ fi
 # The image carries the AT client and the SIM-slot files of this release, again because the rootfs input is a
 # prebuilt image: mu300-at is where a slot-1 request with no slot-1 reader is answered instead of opening the
 # active card's tty, the uci-defaults script gives an updated device (whose /etc/config the update keeps) the
-# sim_slots option the panel's slot-1 objects key off, and the SMS daemon init only starts its second
-# instance where a slot-1 AT reader exists. All three come before the manifest for the same reason as above.
-for _of in "opt/mu300/bin/mu300-at" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd"; do
+# sim_slots option the panel's slot-1 objects key off, and the SMS daemon (its binary and its init, which only
+# starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
+# old daemon that exits when no modem event source exists. All of them come before the manifest for the same
+# reason as above.
+for _of in "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"

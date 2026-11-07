@@ -145,7 +145,15 @@ signature() {
 last=$(signature)
 sms_clock; sync_due=$((SMS_NOW + SYNC_INTERVAL))
 sms_event= spool_failures=0 sms_first=1
-[ "$SMS_TRANSPORT" != ubus ] || sms_events_start || exit 1
+# Our platform has no mu300-modemd, so the mu300.modem event source the
+# ubus transport needs may be absent: fall back to the URC log the AT owner
+# already writes, instead of exiting into a procd respawn loop (which is what
+# happened until v2026.11.07: one restart every 10 s, direct delivery re-armed
+# every time, and no pool sync at all).
+if [ "$SMS_TRANSPORT" = ubus ] && ! sms_events_start; then
+    echo "mu300-smsd: no modem event source; polling the URC log instead" >&2
+    SMS_TRANSPORT=urc-log
+fi
 echo "mu300-smsd: pooling into $POOL (poll ${POLL}s, full sync every ${SYNC_INTERVAL}s)" >&2
 while :; do
     sms_event=
@@ -164,10 +172,17 @@ while :; do
     if sim_absent; then
         sim_configured=0
         rm -f "$DIRECT_FLAG"
+        # No archive was attempted for an empty slot. Retire its old safety
+        # deadline anyway: otherwise an expired deadline makes the ubus wait
+        # return immediately forever, spawning cache checks in a busy loop.
+        sms_clock; sync_due=$((SMS_NOW + SYNC_INTERVAL))
         continue  # no CPIN, CNMI, CMGL or CNMA against a known empty slot
     fi
     if [ "$sim_configured" = 0 ]; then
-        sim_ready || continue
+        if ! sim_ready; then
+            sms_clock; sync_due=$((SMS_NOW + SYNC_INTERVAL))
+            continue
+        fi
         setup_sms
         sim_configured=1
     fi
