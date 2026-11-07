@@ -11,6 +11,7 @@
     "unisoc-network-performance": [ "get" ],
     "unisoc-cpu-cores": [ "get" ],
     "unisoc-cpu-idle": [ "get" ],
+    "unisoc-roaming": [ "get" ],
     "mu300-wifi-ciphers": [ "get" ]
    },
    "uci": {
@@ -23,6 +24,7 @@
     "unisoc-cpu-cores": [ "apply" ],
     "unisoc-cpu-idle": [ "apply" ],
     "unisoc-network-performance": [ "apply" ],
+    "unisoc-roaming": [ "set" ],
     "mu300vpn": [ "job", "service", "killswitch", "use", "profile_add", "profile_rename", "profile_remove", "profile_check", "profile_option", "profile_reveal", "profile_edit", "latency", "sub_add", "sub_refresh", "sub_remove", "engine_install", "engine_remove", "core_install", "setting_set", "logs" ]
    },
    "uci": {

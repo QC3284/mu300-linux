@@ -80,7 +80,7 @@ fi
 # starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
 # old daemon that exits when no modem event source exists. All of them come before the manifest for the same
 # reason as above.
-for _of in "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew"; do
+for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/mobile-data"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
@@ -114,6 +114,15 @@ if [ -f "$_ucpu" ]; then
     cp "$_ucpu" "$OUT/r/sbin/cpuinfo"
     chmod 755 "$OUT/r/sbin/cpuinfo"
 fi
+# The base image predates the tree's own network scripts and dialer: ship them too, since the data
+# roaming policy (D, r20261106) is enforced in the dial and in both netifd proto scripts. A bundle
+# that skipped them would carry the new updater and panel but keep deciding roaming the old way.
+mkdir -p "$OUT/r/lib/netifd/proto"
+for _np in "openwrt/overlay/lib/netifd/proto/mu300cell.sh" "openwrt/luci-overlay/lib/netifd/proto/mu300cell-v6.sh"; do
+    [ -f "$TREE/$_np" ] || { echo "netifd proto script missing from the tree: $_np" >&2; exit 1; }
+    cp "$TREE/$_np" "$OUT/r/lib/netifd/proto/${_np##*/}"
+    chmod 755 "$OUT/r/lib/netifd/proto/${_np##*/}"
+done
 P=$TREE/openwrt/luci-app-mu300/root
 for _pf in \
     usr/libexec/rpcd/mu300dash \
@@ -133,6 +142,7 @@ for _pf in \
     usr/libexec/unisoc-modem/panel-cpu-get usr/libexec/unisoc-modem/panel-cpu-voltage-get \
     usr/libexec/unisoc-modem/traffic usr/libexec/unisoc-modem/traffic-mu300 \
     usr/libexec/unisoc-modem/cell usr/libexec/unisoc-modem/cell-kick \
+    usr/libexec/unisoc-modem/roaming usr/libexec/rpcd/unisoc-roaming \
     usr/share/rpcd/ucode/mu300rates.uc usr/share/rpcd/ucode/mu300status.uc \
     usr/share/ucode/mu300/info.uc usr/share/ucode/mu300/rates.uc \
     usr/share/rpcd/acl.d/luci-app-mu300.json \
@@ -158,6 +168,7 @@ chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/mu300-cha
     "$OUT/r/usr/libexec/unisoc-modem/panel-cpu-voltage-get" "$OUT/r/usr/libexec/unisoc-modem/traffic" \
     "$OUT/r/usr/libexec/unisoc-modem/traffic-mu300" \
     "$OUT/r/usr/libexec/unisoc-modem/cell" "$OUT/r/usr/libexec/unisoc-modem/cell-kick" \
+    "$OUT/r/usr/libexec/unisoc-modem/roaming" "$OUT/r/usr/libexec/rpcd/unisoc-roaming" \
     "$OUT/r/usr/libexec/unisoc-modem/dashboard-rates" \
     "$OUT/r/opt/mu300/bin/mu300-sim-radio" "$OUT/r/opt/mu300/bin/mu300-radio-allowed" \
     "$OUT/r/opt/mu300/bin/mu300-v50-sim"

@@ -234,6 +234,41 @@ refresh_bearer() {
 
 # tests: the functions only (sourced with MU300CELL_V6_LIB=1)
 [ -z "${MU300CELL_V6_LIB:-}" ] || return 0
+# Retain an unresolved event across busy/failed AT reads. The deadline exists only while
+# that event is pending, never as an idle polling timer: absolute uptime deadlines mean an
+# unrelated IPv6 event cannot postpone a retry (author r20261106).
+retry_due=0 retry_step=0 MONITOR_NOW=0
+monitor_clock() {
+	local up rest
+	IFS=' ' read -r up rest < /proc/uptime || return 1
+	MONITOR_NOW=${up%.*}
+}
+refresh_event() {
+	local result=0 delay
+	refresh_bearer "$1" || result=$?
+	case $result in
+		0) retry_due=0; retry_step=0 ;;
+		1)
+			case $retry_step in 0) delay=1;; 1) delay=3;; 2) delay=5;; *) delay=7;; esac
+			retry_step=$(((retry_step + 1) % 4))
+			monitor_clock || return 1
+			retry_due=$((MONITOR_NOW + delay))
+			;;
+	esac
+	return "$result"
+}
+read_event() {
+	event=
+	[ "$retry_due" != 0 ] || { IFS= read -r event <&3; return $?; }
+	while :; do
+		monitor_clock || return 1
+		if [ "$MONITOR_NOW" -ge "$retry_due" ]; then event=pdp-retry; return 0; fi
+		IFS= read -r -t "$((retry_due - MONITOR_NOW))" event <&3 && return 0
+		# A renew signal interrupts the read before the deadline: let the main loop
+		# handle it, keeping this pending event until a confirmed read.
+		[ "$renew_pending" != 1 ] || return 1
+	done
+}
 last_v6=$(v6_snapshot)
 report
 [ "${8:-}" = --once ] && exit 0
@@ -278,7 +313,7 @@ exec 3<>"$events"
 			# detach, and Unisoc's +SPPCODATA (protocol options, where a DNS
 			# change arrives). Each is only a hint to read the bearer once
 			# (after kanoqwq's clean-tf-7.2 3cbf37fc).
-			*+CGEV:*PDN*|*+CGEV:*ACT*|*+CGEV:*DETACH*|*+CGEV:*MODIFY*|*+SPPCODATA:*)
+			*+CGEV:*PDN*|*+CGEV:*ACT*|*+CGEV:*DETACH*|*+CGEV:*MODIFY*|*+SPPCODATA:*|*NO\ CARRIER*)
 				mkdir -m 700 "$pending" 2>/dev/null && printf 'pdp\n' ;;
 		esac
 	done > "$events" ) & urcmon=$!
@@ -299,11 +334,14 @@ cleanup() {
 trap cleanup INT TERM EXIT
 trap 'renew_pending=1' USR1
 
+# Close the setup/subscription gap with one scoped state read. No timer follows: every
+# later refresh is driven by a modem, netlink or renew event.
+: >"$pdp_pending"; printf 'pdp\n' >&3
 last_pdp=0
 while :; do
 	if [ "$renew_pending" = 1 ]; then
 		renew_pending=0
-		refresh_bearer manual-renew || true
+		refresh_event manual-renew
 		last_pdp=$(date +%s)
 	fi
 	event=
@@ -320,7 +358,7 @@ while :; do
 			report
 			logger -t "$logtag" "IPv6 RA address/route state refreshed"
 			;;
-		pdp)
+		pdp|pdp-retry)
 			# A hint inside the 2 s after the last read waits for the rest of
 			# that time instead of being dropped: the dropped one could be the
 			# last of a burst, the one after which the new address is readable.
@@ -333,7 +371,7 @@ while :; do
 			sleep 1
 			# hints from here on queue one more read (the producer's flag)
 			rmdir "$pending" 2>/dev/null
-			refresh_bearer cgev || true
+			refresh_event cgev
 			last_pdp=$(date +%s)
 			;;
 	esac

@@ -76,13 +76,22 @@ proto_mu300cell_setup() {
 		proto_block_restart "$config"
 		return 1
 		;;
-	4)
-		# Data roaming is off (option roaming / roaming_internal '0') and the card is registered as roaming: held
-		# back on purpose (mobile-data logged it once, docs/FINDINGS.md 120). Asked again in a minute - no context is
-		# activated by that, only the registration read - and data comes back by itself at home. ifdown ends it.
-		proto_notify_error "$config" DATA_ROAMING
-		sleep "${MU300_ROAM_RETRY:-60}"
-		proto_setup_failed "$config"
+	5)
+		# No cached registration to judge data roaming yet (the registration daemon may still be filling its first
+		# snapshot): transient, exactly like out-of-coverage. The event that fills the cache sets the interface up again.
+		printf '%s\n' "$slot" > "/run/mu300cell-$config.registration-wait"
+		proto_notify_error "$config" REGISTRATION_WAIT
+		proto_set_available "$config" 0
+		return 1
+		;;
+	8)
+		# Data roaming is denied (uci unisoc_modem.main.allow_roaming<slot>, default 0; the author model, r20261106)
+		# and the card is registered as roaming: held back on purpose, no context activated. Transient, not blocked:
+		# the recovery daemon suspends the interface and brings it back when mu300.roaming-policy changes or the card
+		# moves home (mu300-network-recovery, adopted with the same model).
+		printf '%s\n' "$slot" > "/run/mu300cell-$config.registration-wait"
+		proto_notify_error "$config" ROAMING_DISABLED
+		proto_set_available "$config" 0
 		return 1
 		;;
 	6)
