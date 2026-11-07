@@ -80,12 +80,16 @@ fi
 # starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
 # old daemon that exits when no modem event source exists. All of them come before the manifest for the same
 # reason as above.
-for _of in "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd"; do
+for _of in "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
     chmod "$([ "${_of#etc/uci-defaults/}" != "$_of" ] && echo 644 || echo 755)" "$OUT/r/$_of"
 done
+# The prebuilt rootfs cannot carry an enable symlink for a service this tree adds: the image was
+# built before the file existed, so the registration daemon (START=94) gets its S94 link here.
+mkdir -p "$OUT/r/etc/rc.d"
+ln -sf ../init.d/mu300-registration "$OUT/r/etc/rc.d/S94mu300-registration"
 # The rpcd providers the tree owns (the UFI panel's objects and the unisoc-* settings): copied from the tree
 # like the updater above, because the rootfs input is a prebuilt image and a relabelled image cannot grow new
 # files. The list is explicit so a missing one fails the build instead of shipping a quietly half-complete

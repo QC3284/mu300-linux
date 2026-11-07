@@ -1,0 +1,109 @@
+#!/bin/sh
+# The per-SIM registration and state cache the panel reads: /run/mu300-registration/*, the
+# same files the author firmware keeps. Passive where it can be: +CEREG, +C5GREG and +ECIND
+# are taken from the URC logs mu300-atd already writes, and the SIM state needs one scoped
+# AT+CPIN? through the AT owner (mu300-at, which serialises on the daemon) at start and when
+# an +ECIND asks for it. It dials nothing, opens no channel directly, touches no dial gating,
+# URC ingress or modem boot step, and writes only /run/mu300-registration/*.
+set -u
+export PATH="$PATH:/opt/mu300/bin:/opt/mu300/busybox-bin:/usr/sbin:/sbin"
+export MU300_AT_LOCK_WAIT=${MU300_AT_LOCK_WAIT:-5}
+REG=${MU300_REGISTRATION_LIB:-/opt/mu300/lib/registration.sh}
+[ -r "$REG" ] || { echo "mu300-registration: $REG is missing" >&2; exit 1; }
+. "$REG"
+ROOT=${MU300_REGISTRATION_DIR:-/run/mu300-registration}
+ATDIR=${MU300_AT_DIR:-/run/mu300-at}
+AT4=${MU300_AT4_DIR:-/run/mu300-at4}
+POLL=${MU300_REGISTRATION_POLL:-2}
+CHECK=${MU300_REGISTRATION_CHECK:-120}
+CR=$(printf "\r")
+mkdir -p "$ROOT" && chmod 700 "$ROOT" 2>/dev/null || exit 1
+
+# The F50 image carries no mu300-modemd, so slot 1 has no AT reader at all; the panel
+# already answers slot 1 as an absent card (mu300status/mu300dash short-circuit). Record
+# that same state here, so info.modem.sims says absent instead of unknown.
+set_absent_no_reader() {
+    slot=$1
+    [ -f "$ROOT/sim-power$slot" ] || : > "$ROOT/sim-power$slot" || return 0
+    mu300_sim_save "$slot" absent
+}
+
+# One scoped CPIN read through this slot's own reader. The answer itself proves the card
+# was powered and readable, which is the author's sim-power proof: without it no state is
+# written, so a missing reader or a silent modem leaves the previous state alone.
+probe() {
+    slot=$1
+    dir=$ATDIR
+    [ "$slot" = 1 ] && dir=$AT4
+    if [ ! -p "$dir/cmd" ]; then
+        [ "$slot" = 1 ] && set_absent_no_reader 1
+        return 1
+    fi
+    reply=$(MU300_SIM_SLOT=$slot MU300_AT_DIR=$dir "${MU300_AT_BIN:-mu300-at}" -t 6 "AT+CPIN?" 2>/dev/null) || return 0
+    state=
+    case "$reply" in
+        *"+CPIN: READY"*) state=ready ;;
+        *"SIM PIN"*|*"SIM PUK"*|*"PH-"*) state=locked ;;
+        *"NOT INSERTED"*) state=absent ;;
+    esac
+    [ -n "$state" ] || return 0
+    [ -f "$ROOT/sim-power$slot" ] || : > "$ROOT/sim-power$slot" || return 0
+    mu300_sim_save "$slot" "$state"
+}
+
+# stty_nr0/1/2/6/7 are SIM slot 0's group, nr3/4/5 are slot 1's (the author mapping).
+urc_slot() {
+    case "$1" in
+        stty_nr0*|stty_nr1*|stty_nr2*|stty_nr6*|stty_nr7*) echo 0 ;;
+        stty_nr3*|stty_nr4*|stty_nr5*) echo 1 ;;
+        *) echo "" ;;
+    esac
+}
+
+# New URC lines only, one capped log per channel. The bytes go through a temp file under
+# ROOT rather than a here-document: a URC can carry operator text, and an unquoted
+# here-document would expand it.
+scan_dir() {
+    dir=$1
+    [ -d "$dir" ] || return 0
+    for f in "$dir"/*.log; do
+        [ -f "$f" ] || continue
+        name=${f##*/}
+        slot=$(urc_slot "$name")
+        [ -n "$slot" ] || continue
+        key=$(printf "%s_%s" "${dir##*/}" "$name" | tr -c "A-Za-z0-9" "_")
+        eval "sz=\${SZ_$key:-0}"
+        size=$(wc -c < "$f" 2>/dev/null) || size=0
+        [ "$size" -ge "$sz" ] 2>/dev/null || sz=0
+        if [ "$size" -gt "$sz" ]; then
+            if tail -c +$((sz + 1)) "$f" > "$ROOT/.urc.new" 2>/dev/null; then
+                while IFS= read -r line; do
+                    line=${line%"$CR"}
+                    case "$line" in
+                        +CEREG:*|+C5GREG:*) mu300_registration_save "$slot" "$line" ;;
+                        +ECIND:*) case "$line" in *",3,"*|*": 3,"*) need_probe="$need_probe $slot" ;; esac ;;
+                    esac
+                done < "$ROOT/.urc.new"
+            fi
+            rm -f "$ROOT/.urc.new"
+        fi
+        eval "SZ_$key=$size"
+    done
+}
+
+need_probe="0"
+next_check=$(( $(date +%s) + CHECK ))
+probe 1 || true
+while :; do
+    [ -p "$AT4/cmd" ] || set_absent_no_reader 1
+    scan_dir "$ATDIR/urc"
+    scan_dir "$AT4/urc"
+    for slot in $need_probe; do probe "$slot" || need_probe="$need_probe $slot"; done
+    need_probe=
+    now=$(date +%s)
+    if [ "$now" -ge "$next_check" ]; then
+        probe 0 || need_probe="$need_probe 0"
+        next_check=$((now + CHECK))
+    fi
+    sleep "$POLL"
+done
