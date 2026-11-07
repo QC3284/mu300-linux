@@ -1,0 +1,442 @@
+#!/usr/bin/ucode
+// Solicit fresh carrier RAs before their real lifetimes expire.
+//
+// Only sends Router Solicitations. The kernel, odhcpd and odhcp6c keep ownership of
+// addresses, routes, DNS and withdrawals: no synthetic RA, no permanent route, no
+// AT command, no link reset, no netlink write. Additive only - the image works
+// without it (the kernel still sends its own RS on link up).
+//
+// The renewal rule is the author daemon's (r20261106, /usr/sbin/unisoc-ra-renew):
+// per interface, keep the lifetimes learned from RAs, renew each entry at half its
+// lifetime, never solicit faster than MIN_RS_GAP, back off 30 s -> 300 s after three
+// unanswered attempts, and let a partial RA not postpone an older renewal deadline.
+// Written in ucode because this image has no python3; the ICMPv6 codec is hand
+// written (ucode has no struct pack/unpack).
+//
+// One raw ICMPv6 socket per interface, bound to it: the egress interface of an RS
+// and the ingress interface of an RA are then properties of the socket, and no
+// control message steers them. (The development chroot runs this on aarch64 qemu,
+// whose ancillary-data path crashes; the bound-socket form also keeps the whole
+// send path observable there, while receive control data stays on the real kernel
+// the device A/B runs.)
+
+import * as fs from "fs";
+import * as ubus from "ubus";
+import * as s from "socket";
+
+const INFINITE = 0xffffffff;
+const MIN_RS_GAP = 4;
+const MAX_BACKOFF = 300;
+const TICK_MS = int(getenv("MU300_RA_RENEW_TICK_MS") || 1000);
+const SNAPSHOT_S = int(getenv("MU300_RA_RENEW_SNAPSHOT_S") || 5);
+const ICMPV6_RA = 134;
+const ICMPV6_RS = 133;
+const IPPROTO_ICMPV6 = 58;
+const IPV6_HOPLIMIT = s.IPV6_HOPLIMIT;
+const IPV6_PKTINFO = s.IPV6_PKTINFO;
+const IPV6_RECVPKTINFO = s.IPV6_RECVPKTINFO;
+const IPV6_RECVHOPLIMIT = s.IPV6_RECVHOPLIMIT;
+const IPV6_MULTICAST_HOPS = s.IPV6_MULTICAST_HOPS;
+const LEVEL_IPV6 = s.IPPROTO_IPV6;
+
+function log(msg) { warn(sprintf("unisoc-ra-renew: %s\n", msg)); }
+
+function rd(path) {
+    try { return trim(fs.readfile(path) || ""); } catch (e) { return null; }
+}
+
+// CLOCK_BOOTTIME equivalent: RA lifetimes include suspend time, NTP is irrelevant.
+function uptime() {
+    let text = rd("/proc/uptime");
+    if (text == null) return null;
+    let first = split(text, " ")[0];
+    if (!first) return null;
+    return int(first);
+}
+
+function knob(dev, key) { return rd("/proc/sys/net/ipv6/conf/" + dev + "/" + key); }
+
+// /sys/class/net/<dev>/flags is hexadecimal text ("0x83"); int() without a base
+// stops at the "x" and returns 0, which would hide every interface.
+function flags_up(text) {
+    if (text == null || !match(text, /^0[xX][0-9a-fA-F]+$/)) return false;
+    return (int(text, 16) & 1) != 0;
+}
+
+function ifindex(dev) {
+    let i = rd("/sys/class/net/" + dev + "/ifindex");
+    if (i == null || !match(i, /^[0-9]+$/)) return null;
+    if (!flags_up(rd("/sys/class/net/" + dev + "/flags"))) return null;
+    return int(i);
+}
+
+function be16(pkt, off) { return ord(pkt, off) * 256 + ord(pkt, off + 1); }
+function be32(pkt, off) {
+    return ord(pkt, off) * 16777216 + ord(pkt, off + 1) * 65536 +
+           ord(pkt, off + 2) * 256 + ord(pkt, off + 3);
+}
+
+function minv(a) { let m = null; for (let v in a) if (m == null || v < m) m = v; return m; }
+function maxv(a, b) { return a > b ? a : b; }
+
+function hexbytes(bin) {
+    let out = "";
+    for (let i = 0; i < length(bin); i++) out += sprintf("%02x", ord(bin, i));
+    return out;
+}
+
+function running_pid() {
+    let pid = rd(PIDFILE);
+    if (pid == null || !match(pid, /^[0-9]+$/)) return null;
+    let cmd = rd("/proc/" + pid + "/cmdline");
+    if (cmd == null) return null;
+    return index(cmd, "unisoc-ra-renew") >= 0 ? +pid : null;
+}
+
+
+// Validate ND framing and return {key: lifetime} entries, or null to reject.
+// Linux validates the ICMPv6 checksum before delivering to a raw socket; this codec
+// checks the framing, the RA type, the hop limit and the link-local source, then the
+// router lifetime and each option. Omitted options are not withdrawals; a zero
+// lifetime removes only that entry.
+function ra_entries(pkt, source, hoplimit) {
+    if (pkt == null || length(pkt) < 16) return null;
+    if (ord(pkt, 0) != ICMPV6_RA || ord(pkt, 1) != 0) return null;
+    if (hoplimit != 255) return null;
+    if (!match(source || "", /^fe80:/)) return null;
+    let entries = {}, router = be16(pkt, 6);
+    entries["r|" + source] = router;
+    let off = 16;
+    while (off < length(pkt)) {
+        if (off + 2 > length(pkt)) return null;
+        let kind = ord(pkt, off), units = ord(pkt, off + 1);
+        if (!units) return null;
+        let size = units * 8;
+        if (off + size > length(pkt)) return null;
+        if (kind == 3) {
+            // Prefix Information: valid and preferred may differ.
+            if (size != 32) return null;
+            let plen = ord(pkt, off + 2), flags = ord(pkt, off + 3);
+            let valid = be32(pkt, off + 4), preferred = be32(pkt, off + 8);
+            if (plen > 128 || preferred > valid) return null;
+            let prefix = hexbytes(substr(pkt, off + 16, 16));
+            if (flags & 0xc0) entries["p|" + source + "|" + plen + "|" + prefix + "|v"] = valid;
+            if (flags & 0x40) entries["p|" + source + "|" + plen + "|" + prefix + "|p"] = preferred;
+        }
+        else if (kind == 24) {
+            // Route Information, including an explicit ::/0.
+            let plen = ord(pkt, off + 2);
+            if (index([1, 2, 3], units) < 0 || plen > 128) return null;
+            if ((plen > 0 && units < 2) || (plen > 64 && units < 3)) return null;
+            let prefix = hexbytes(substr(pkt, off + 8, size - 8));
+            entries["o|" + source + "|" + plen + "|" + prefix] = be32(pkt, off + 4);
+        }
+        else if (kind == 25) {
+            // RDNSS.
+            if (units < 3 || units % 2 != 1) return null;
+            let ttl = be32(pkt, off + 4);
+            for (let pos = 8; pos < size; pos += 16)
+                entries["d|" + source + "|" + hexbytes(substr(pkt, off + pos, 16))] = ttl;
+        }
+        off += size;
+    }
+    return entries;
+}
+
+// One lease set per live interface. Renewal at half lifetime; three unanswered
+// solicitations fall back to an exponential backoff; a partial RA must not postpone
+// an older prefix/DNS renewal deadline.
+function new_state(name, idx, now) {
+    return { name, index: idx, leases: {}, next_probe: now, last_send: -1000000,
+             attempts: 0, backoff: 30 };
+}
+
+function state_receive(st, entries, now) {
+    let kept = {};
+    for (let key in st.leases)
+        if (st.leases[key][0] > now) kept[key] = st.leases[key];
+    st.leases = kept;
+    for (let key in entries) {
+        let ttl = entries[key];
+        if (ttl == 0 || ttl == INFINITE) delete st.leases[key];
+        else if ((key in st.leases) || length(keys(st.leases)) < 512)
+            st.leases[key] = [now + ttl, now + ttl / 2];
+    }
+    let deadlines = [];
+    for (let key in st.leases) push(deadlines, st.leases[key][1]);
+    if (length(deadlines) && minv(deadlines) <= now) {
+        let future = filter(deadlines, d => d > now);
+        let due = st.next_probe != null ? st.next_probe : now;
+        push(future, due);
+        st.next_probe = minv(future);
+    }
+    else {
+        st.attempts = 0;
+        st.backoff = 30;
+        st.next_probe = length(deadlines) ? minv(deadlines) : now + MAX_BACKOFF;
+    }
+}
+
+function state_due(st) {
+    return maxv(st.next_probe, st.last_send + MIN_RS_GAP);
+}
+
+function state_sent(st, now) {
+    st.last_send = now;
+    st.attempts += 1;
+    if (st.attempts < 3) {
+        st.next_probe = now + MIN_RS_GAP;
+    }
+    else {
+        st.next_probe = now + st.backoff;
+        st.backoff = minv([MAX_BACKOFF, st.backoff * 2]);
+        st.attempts = 0;
+    }
+}
+
+
+// netifd owns selection and ifdown intent; never solicit on LAN, USB or Wi-Fi.
+// MU300 kernel-owned RA means accept_ra=2; interfaces handled by ModemManager are
+// not part of this line.
+function snapshot(bus) {
+    let test = getenv("MU300_RA_RENEW_TEST_IFACES");
+    if (test) {
+        let out = [];
+        for (let name in split(test, ",")) {
+            let d = trim(name);
+            let idx = ifindex(d);
+            if (d && idx != null) push(out, { name: d, index: idx });
+        }
+        return out;
+    }
+    if (bus == null) return [];
+    let rv;
+    try { rv = bus.call("network.interface", "dump"); } catch (e) { return []; }
+    let rows = rv && rv.interface ? rv.interface : [];
+    let byname = {};
+    for (let row in rows) if (row && type(row) == "object") byname[row.interface] = row;
+    function dev(row, depth) {
+        let n = row.l3_device || row.device || "";
+        if (type(n) != "string") return "";
+        if (substr(n, 0, 1) == "@" && depth < 4) return dev(byname[substr(n, 1)] || {}, depth + 1);
+        return n;
+    }
+    function willing(row) { return row.autostart !== false && row.available !== false; }
+    let live = [];
+    for (let name in byname) {
+        let row = byname[name], d = dev(row, 0);
+        if (!match(d, /^sipa_eth[0-9]+$/)) continue;
+        if (!willing(row)) continue;
+        if (knob(d, "disable_ipv6") != "0") continue;
+        if (row.proto == "mu300cell" && row.up && knob(d, "accept_ra") == "2") {
+            let idx = ifindex(d);
+            if (idx != null) push(live, { name: d, index: idx });
+        }
+    }
+    return live;
+}
+
+// One raw ICMPv6 socket per interface, bound to that interface: the egress
+// interface of an RS is then a property of the socket itself, and the ingress
+// interface of an RA is known from which socket read it. No control message is
+// needed to steer either direction, which also keeps the code within what the
+// socket module here supports (multicast-interface setsockopt is not).
+const SOL_SOCKET = 1;
+const SO_BINDTODEVICE = 25;
+
+function open_socket(dev) {
+    let sock = s.create(s.AF_INET6, s.SOCK_RAW | s.SOCK_NONBLOCK, IPPROTO_ICMPV6);
+    if (sock == null) return null;
+    if (!sock.setopt(SOL_SOCKET, SO_BINDTODEVICE, dev)) { sock.close(); return null; }
+    sock.setopt(LEVEL_IPV6, IPV6_RECVPKTINFO, true);
+    sock.setopt(LEVEL_IPV6, IPV6_RECVHOPLIMIT, true);
+    sock.setopt(LEVEL_IPV6, IPV6_MULTICAST_HOPS, 255);
+    return sock;
+}
+
+// SIPA is point to point: no synthetic Ethernet source-address option. The kernel
+// picks the existing link-local and computes the ICMPv6 checksum. The hop limit and
+// the outgoing interface travel as ancillary data on this one message.
+function send_rs(sock, idx) {
+    let pkt = chr(ICMPV6_RS) + chr(0) + chr(0) + chr(0);
+    // The socket is bound to the interface and the multicast hop limit is 255
+    // (RFC 4861 requires it); the scoped address makes the egress explicit.
+    return sock.sendmsg([pkt], [], s.sockaddr("ff02::2%" + idx, 0), 0);
+}
+
+function handle_msg(msg, states) {
+    if (msg == null || msg.data == null) return;
+    if (msg.flags != null && (msg.flags & (s.MSG_TRUNC | s.MSG_CTRUNC))) return;
+    let hoplimit = null, ifidx = null;
+    for (let c in msg.ancillary || []) {
+        if (c.level != LEVEL_IPV6) continue;
+        if (c.type == IPV6_HOPLIMIT) hoplimit = type(c.data) == "number" ? c.data : null;
+        else if (c.type == IPV6_PKTINFO && type(c.data) == "object") {
+            if (type(c.data.interface) == "string") ifidx = ifindex(c.data.interface);
+            else if (type(c.data.interface) == "number") ifidx = c.data.interface;
+        }
+    }
+    let source = msg.address ? msg.address.address : "";
+    let entries = ra_entries(msg.data, source, hoplimit);
+    if (entries == null) return;
+    let st = null;
+    if (ifidx != null)
+        for (let name in states) if (states[name].index == ifidx) st = states[name];
+    if (st == null && length(keys(states)) == 1)
+        for (let name in states) st = states[name];
+    if (st == null) return;
+    let now = uptime();
+    if (now == null) return;
+    state_receive(st, entries, now);
+}
+
+function u16(n) { return chr(int(n / 256) & 255) + chr(int(n) & 255); }
+function u32(n) {
+    return chr(int(n / 16777216) & 255) + chr(int(n / 65536) & 255) +
+           chr(int(n / 256) & 255) + chr(int(n) & 255);
+}
+function addr16(a, b) { return u16(a) + u16(b) + u16(0) + u16(0) + u16(0) + u16(0) + u16(0) + u16(0); }
+
+function dns16() {
+    return u16(0x2001) + u16(0xdb8) + u16(0) + u16(0) + u16(0) + u16(0) + u16(0) + u16(0x53);
+}
+
+function selftest() {
+    let pass = 0, fail = 0;
+    function check(name, cond) {
+        if (cond) { pass++; print("ok   " + name + "\n"); }
+        else { fail++; print("FAIL " + name + "\n"); }
+    }
+    let ra = chr(134) + chr(0) + chr(0) + chr(0) + chr(64) + chr(0) + u16(1800) + u32(0) + u32(0)
+             + chr(3) + chr(4) + chr(64) + chr(192) + u32(600) + u32(300) + u32(0)
+             + addr16(0x2001, 0xdb8)
+             + chr(25) + chr(3) + u16(0) + u32(120) + dns16()
+             + chr(24) + chr(1) + chr(0) + chr(0) + u32(900);
+    let e = ra_entries(ra, "fe80::1", 255);
+    check("RA accepted with hop limit 255 from a link-local source", e != null);
+    if (e != null) {
+        check("router lifetime", e["r|fe80::1"] == 1800);
+        let pv = null, pp = null, dn = null, ro = null;
+        for (let k in e) {
+            if (match(k, /\|v$/)) pv = e[k];
+            else if (match(k, /\|p$/)) pp = e[k];
+            else if (substr(k, 0, 2) == "d|") dn = e[k];
+            else if (substr(k, 0, 2) == "o|") ro = e[k];
+        }
+        check("prefix valid lifetime", pv == 600);
+        check("prefix preferred lifetime", pp == 300);
+        check("RDNSS lifetime", dn == 120);
+        check("route lifetime", ro == 900);
+    }
+    check("reject hop limit 64", ra_entries(ra, "fe80::1", 64) == null);
+    check("reject a global source", ra_entries(ra, "2001:db8::1", 255) == null);
+    check("reject a short packet", ra_entries(substr(ra, 0, 12), "fe80::1", 255) == null);
+    let zero = chr(134) + chr(0) + chr(0) + chr(0) + chr(64) + chr(0) + u16(0) + u32(0) + u32(0)
+               + chr(3) + chr(4) + chr(64) + chr(192) + u32(0) + u32(0) + u32(0) + addr16(0x2001, 0xdb8);
+    let z = ra_entries(zero, "fe80::1", 255);
+    check("zero lifetimes parse", z != null && z["r|fe80::1"] == 0);
+    // renewal and backoff, the author timing
+    let st = new_state("sipa_eth0", 7, 1000);
+    state_receive(st, { "r|a": 1800, "d|a|00": 600 }, 1000);
+    check("renew at half the shortest lifetime", st.next_probe == 1300);
+    check("no gap violation at first send", state_due(st) == 1300);
+    state_sent(st, 1300); check("second attempt after MIN_RS_GAP", st.next_probe == 1304);
+    state_sent(st, 1304); check("third attempt after MIN_RS_GAP", st.next_probe == 1308);
+    state_sent(st, 1308); check("backoff after three unanswered attempts", st.next_probe == 1338 && st.backoff == 60);
+    check("MIN_RS_GAP wins over an earlier deadline", state_due(st) == 1338);
+    // a partial RA must not postpone an older deadline
+    let st2 = new_state("sipa_eth0", 7, 1000);
+    state_receive(st2, { "r|a": 1800, "d|a|00": 600 }, 1000);
+    state_receive(st2, { "r|b": 1800 }, 1100);
+    check("partial RA keeps the older renewal", st2.next_probe == 1300);
+    // expiry removes entries and the fallback is MAX_BACKOFF when nothing is left
+    let st3 = new_state("sipa_eth0", 7, 1000);
+    state_receive(st3, { "d|a|00": 100 }, 1000);
+    state_receive(st3, { "d|a|00": 0 }, 1010);
+    check("zero lifetime removes the entry", length(keys(st3.leases)) == 0);
+    check("nothing left falls back to MAX_BACKOFF", st3.next_probe == 1010 + MAX_BACKOFF);
+    check("interface flags 0x83 are up", flags_up("0x83"));
+    check("interface flags 0x80 are down", !flags_up("0x80"));
+    check("a broken flags file is not up", !flags_up("garbage"));
+    print(sprintf("SELFTEST %s %d/%d\n", fail == 0 ? "PASS" : "FAIL", pass, pass + fail));
+    return fail == 0 ? 0 : 1;
+}
+
+if (getenv("MU300_RA_RENEW_SELFTEST") == "1") exit(selftest());
+
+let bus = null;
+try { bus = ubus.connect(5); } catch (e) { bus = null; }
+let states = {};
+let last_snapshot = -100000;
+let oneshot = getenv("MU300_RA_RENEW_ONESHOT") == "1";
+let exit_code = 0;
+
+// s.poll() is variadic: build the call for the sockets this run has.
+function wait_for(seconds, socks) {
+    if (!length(socks)) return s.poll(seconds);
+    if (length(socks) == 1) return s.poll(seconds, socks[0]);
+    if (length(socks) == 2) return s.poll(seconds, socks[0], socks[1]);
+    if (length(socks) == 3) return s.poll(seconds, socks[0], socks[1], socks[2]);
+    return s.poll(seconds, socks[0], socks[1], socks[2], socks[3]);
+}
+function sockets() {
+    let out = [];
+    for (let name in states) if (states[name].sock != null) push(out, states[name].sock);
+    return out;
+}let states = {};
+let last_snapshot = -100000;
+let oneshot = getenv("MU300_RA_RENEW_ONESHOT") == "1";
+let exit_code = 0;
+while (true) {
+    let now = uptime();
+    if (now == null) { log("cannot read /proc/uptime"); exit(1); }
+    if (last_snapshot < 0 || now - last_snapshot >= SNAPSHOT_S) {
+        let live = snapshot(bus);
+        let names = {};
+        for (let item in live) names[item.name] = item;
+        for (let name in states) {
+            if (!(name in names)) {
+                if (states[name].sock != null) states[name].sock.close();
+                delete states[name];
+            }
+        }
+        for (let name in names) if (!(name in states)) {
+            let st = new_state(name, names[name].index, now);
+            st.sock = open_socket(name);
+            if (st.sock == null) {
+                log(sprintf("cannot open a raw ICMPv6 socket on %s: %s", name, s.strerror(s.error())));
+                continue;
+            }
+            states[name] = st;
+        }
+        last_snapshot = now;
+    }
+    let sent = 0;
+    for (let name in states) {
+        let st = states[name];
+        if (now >= state_due(st)) {
+            let rc = send_rs(st.sock, st.index);
+            if (rc == null) log(sprintf("RS on %s failed: %s", name, s.strerror(s.error())));
+            else { state_sent(st, now); sent++; log(sprintf("sent RS on %s (%d bytes)", name, rc)); }
+        }
+    }
+    if (oneshot) exit(sent > 0 ? 0 : 2);
+    for (let name in states) {
+        let st = states[name];
+        if (st.sock == null) continue;
+        let msg;
+        while ((msg = st.sock.recvmsg(65535, 256)) != null) handle_msg(msg, states);
+    }
+    let wait = TICK_MS;
+    let have = false;
+    for (let name in states) {
+        let d = state_due(states[name]);
+        have = true;
+        if (d <= now) { wait = 50; break; }
+        let delta = int((d - now) * 1000);
+        if (delta < wait) wait = delta;
+    }
+    if (!have) wait = TICK_MS;
+    if (wait < 1) wait = 1;
+    wait_for(wait, sockets());
+}
