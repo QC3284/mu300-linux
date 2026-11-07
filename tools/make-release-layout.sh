@@ -80,11 +80,20 @@ fi
 # starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
 # old daemon that exits when no modem event source exists. All of them come before the manifest for the same
 # reason as above.
-for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/mobile-data"; do
+for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/cpu-voltage-platform" "opt/mu300/bin/sml-voltage-check" "etc/init.d/unisoc-cpu" "opt/mu300/bin/mobile-data"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
     chmod "$([ "${_of#etc/uci-defaults/}" != "$_of" ] && echo 644 || echo 755)" "$OUT/r/$_of"
+    # E: the ABI checker is a pinned binary; a changed one is a different decision than the reviewed one.
+    case "$_of" in
+        opt/mu300/bin/sml-voltage-check)
+            _want=caef5333cd027f625105304c2f63d37105d2c3be09acb33c70a19f08eb8cf2b1
+            _got=$(sha256sum "$OUT/r/$_of" | cut -d" " -f1)
+            [ "$_got" = "$_want" ] || { echo "sml-voltage-check is $_got, not the reviewed $_want" >&2; exit 1; } ;;
+        etc/init.d/unisoc-cpu)
+            grep -q "cpu-voltage confirm" "$OUT/r/$_of" || { echo "unisoc-cpu does not confirm the armed voltage state at boot" >&2; exit 1; } ;;
+    esac
 done
 # The prebuilt rootfs cannot carry an enable symlink for a service this tree adds: the image was
 # built before the file existed, so the registration daemon (START=94) and the RA renewal daemon (START=98) get their links here.
@@ -137,6 +146,7 @@ for _pf in \
     usr/libexec/unisoc-modem/charge.uc \
     usr/libexec/unisoc-modem/cpu-policy usr/libexec/unisoc-modem/cpu-policy.uc \
     usr/libexec/unisoc-modem/cpu-voltage-panel usr/libexec/unisoc-modem/cpu-voltage-panel.uc \
+    usr/libexec/unisoc-modem/cpu-voltage.uc \
     usr/libexec/unisoc-modem/dashboard-equipment \
     usr/libexec/unisoc-modem/wifi-ciphers usr/libexec/unisoc-modem/wifi-ciphers.uc \
     usr/libexec/unisoc-modem/panel-cpu-get usr/libexec/unisoc-modem/panel-cpu-voltage-get \
