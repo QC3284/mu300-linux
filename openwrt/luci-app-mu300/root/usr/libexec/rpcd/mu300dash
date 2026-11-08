@@ -874,7 +874,7 @@ m_ttl_set() {
 # our page's adapter; traffic at $DASH/traffic is the author traffic service (ubus unisoc.traffic)
 TRAFA=${MU300_TRAFFIC_ADAPTER:-$DASH/traffic-mu300}
 m_traffic_get_core() { reply_obj "$(sh "$TRAFA" get 2>/dev/null)" 'The data usage adapter gave no valid reply'; }
-m_traffic_set() {
+m_traffic_set_core() {
     local op value
     inp '@.op'; op=$V
     inp '@.value'; value=$V
