@@ -97,10 +97,9 @@ setup_sms() {
     # Import anything already on SIM before enabling direct delivery. If direct
     # routing is rejected, the old +CMTI/periodic-sync path remains functional.
     at_ok 'AT+CNMI=2,1,0,0,0' || true
-    "$SMS" archive-sim || {
-        echo "mu300-smsd: PDU archive incomplete; attempting read-only legacy import" >&2
-        "$SMS" sync || true
-    }
+    # The panel's tool pools in one call: sync lists the SIM, moves what it took
+    # off it, and hands new messages to the forwarding hook.
+    "$SMS" sync || echo "mu300-smsd: the first SIM import failed; the loop retries it" >&2
     if at_ok 'AT+CMGF=0' && at_ok 'AT+CSMS=1' &&
        at_ok 'AT+CNMI=3,2,2,1,1'; then
         : > "$DIRECT_FLAG"
@@ -133,9 +132,10 @@ process_spool() {
 }
 
 sync_fallback() {
-    # PDU archival leaves direct delivery's CMGF=0 untouched. No text-mode
-    # window, no lost +CMT, and fewer commands on the shared AT channel.
-    "$SMS" archive-sim
+    # sync is the panel tool's one call: it lists the SIM, moves what it took off
+    # it and hands new messages to the forwarding hook. No text-mode window, so
+    # direct +CMT delivery keeps its CMGF=0.
+    "$SMS" sync
 }
 
 signature() {

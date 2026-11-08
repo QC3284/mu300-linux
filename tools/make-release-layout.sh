@@ -200,6 +200,21 @@ chmod 755 "$OUT/r/usr/libexec/rpcd/mu300dash" "$OUT/r/usr/libexec/rpcd/mu300-cha
     "$OUT/r/usr/libexec/unisoc-modem/dashboard-rates" \
     "$OUT/r/opt/mu300/bin/mu300-sim-radio" "$OUT/r/opt/mu300/bin/mu300-radio-allowed" \
     "$OUT/r/opt/mu300/bin/mu300-v50-sim"
+# The panel's SMS tool. mu300dash sends a message as "mu300-sms send --stdin
+# NUMBER" (the text on stdin, never an argument that could read as an option)
+# and the tool hands pool additions to the forwarding service. The rootfs input
+# is a prebuilt image whose /opt/mu300/bin/mu300-sms is the other flavor's older
+# tool - no --stdin, no forwarding hook - so a relabelled image would ship the
+# old contract with the new panel (v2026.11.07.3: a panel send failed with the
+# tool's usage message and real incoming SMS never reached the forward queue).
+# The tree keeps the panel's copy under openwrt/luci-overlay, which build-rootfs
+# copies last for LuCI images; take it from there and never fall back to the
+# image's stale file.
+_usms="$TREE/openwrt/luci-overlay/opt/mu300/bin/mu300-sms"
+[ -f "$_usms" ] || { echo "the panel's SMS tool is missing from the tree: $_usms" >&2; exit 1; }
+mkdir -p "$OUT/r/opt/mu300/bin"
+cp "$_usms" "$OUT/r/opt/mu300/bin/mu300-sms"
+chmod 755 "$OUT/r/opt/mu300/bin/mu300-sms"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
