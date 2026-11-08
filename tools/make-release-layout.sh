@@ -215,6 +215,26 @@ _usms="$TREE/openwrt/luci-overlay/opt/mu300/bin/mu300-sms"
 mkdir -p "$OUT/r/opt/mu300/bin"
 cp "$_usms" "$OUT/r/opt/mu300/bin/mu300-sms"
 chmod 755 "$OUT/r/opt/mu300/bin/mu300-sms"
+# Gates for the SMS composition: the shipped tool must be the panel's (a send's
+# text on stdin, and new messages handed to the forwarding service), and the
+# panel must define the function a wrapper dispatches to. v2026.11.07.3 shipped
+# neither property (user defects: a panel send answered with the tool's usage
+# message, real incoming SMS never reached the forward queue, and a traffic save
+# answered with an empty reply). Keep them as build failures, not release notes.
+_isms="$OUT/r/opt/mu300/bin/mu300-sms"
+grep -qF 'send --stdin NUMBER' "$_isms" || {
+    echo "the image's mu300-sms does not take a send's text on stdin (mu300dash calls 'send --stdin NUMBER'): $_isms" >&2
+    exit 1
+}
+grep -qF 'FORWARD=' "$_isms" && grep -qF '"$FORWARD" enqueue' "$_isms" || {
+    echo "the image's mu300-sms does not hand new messages to the forwarding service: $_isms" >&2
+    exit 1
+}
+_idash="$OUT/r/usr/libexec/rpcd/mu300dash"
+if grep -q 'm_traffic_set_core' "$_idash" && ! grep -q '^m_traffic_set_core()' "$_idash"; then
+    echo "mu300dash refers to m_traffic_set_core but never defines it: $_idash" >&2
+    exit 1
+fi
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
