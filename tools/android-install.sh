@@ -686,13 +686,12 @@ upk_units() {
         done
     done | sort -u
 }
-# upk_record OLD NEW OS: after the settings are in NEW, before the switch. Writes NEW/etc/mu300/user-packages/
-# (wanted: the names; files: "package path" of their files in etc/; rc.d: the services enabled in OLD; from; state)
-# and moves their etc/config files out of the way. MU300_KEEP_PACKAGES=0: they are not installed again (state
-# skipped; mu300-user-packages retry does it later), their settings are set aside all the same.
-upk_record() {
+# upk_wanted OLD NEW KIND: the packages installed on the device that the new system does not have - what its first
+# boot installs again. upk_record writes the list down in the new system; the carry block asks for it before it makes
+# the plan, so a file of one of those packages that the user changed waits for the install (J, package-files).
+upk_wanted() {
     _uo=$1 _un=$2 _uk=$(upk_kind "$3")
-    _ut=$2/.mu300-image _ud=$2/$UPK_DIR
+    _ut=$2/.mu300-image
     mkdir -p "$_ut" || return 1
     # the old image's own set; a system from before that list: the new image's and the one packages.txt names
     if [ -s "$_uo/etc/mu300/image-packages" ]; then cat "$_uo/etc/mu300/image-packages"
@@ -706,9 +705,18 @@ upk_record() {
     { upk_manual "$_uo" "$_uk"; upk_pending "$_uo/$UPK_DIR"; } > "$_ut/had"
     { sed 's/^/x /' "$_ut/not"; sed 's/^/w /' "$_ut/had"; } |
         awk '$1 == "x" { n[$2] = 1; next } NF > 1 && !($2 in n) { print $2 }' | sort -u > "$_ut/added"
+    while read -r _up; do upk_skip "$_up" || echo "$_up"; done < "$_ut/added"
+}
+# upk_record OLD NEW OS: after the settings are in NEW, before the switch. Writes NEW/etc/mu300/user-packages/
+# (wanted: the names; files: "package path" of their files in etc/; rc.d: the services enabled in OLD; from; state)
+# and moves their etc/config files out of the way. MU300_KEEP_PACKAGES=0: they are not installed again (state
+# skipped; mu300-user-packages retry does it later), their settings are set aside all the same.
+upk_record() {
+    _uo=$1 _un=$2 _uk=$(upk_kind "$3")
+    _ut=$2/.mu300-image _ud=$2/$UPK_DIR
+    mkdir -p "$_ut" || return 1
+    upk_wanted "$_uo" "$_un" "$_uk" > "$_ut/wanted" || return 1
     rm -rf "$_ud"
-    : > "$_ut/wanted"
-    while read -r _up; do upk_skip "$_up" || echo "$_up" >> "$_ut/wanted"; done < "$_ut/added"
     # Ubuntu: the apt sources added on the device (a PPA's packages cannot come back without it), see upk_apt_keep
     if [ "$_uk" = ubuntu ]; then
         upk_apt_keep "$_uo" "$_un" "$([ -s "$_ut/wanted" ] && echo checked)" || return 1

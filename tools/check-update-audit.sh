@@ -7,7 +7,10 @@
 # helper the carry block runs, BUSYBOX_PATH the static shell that runs the helper (the updater also unpacks through
 # it), the union manifests tell a release file of an older system from the user's, and etc/mu300/image-manifest.gz
 # is the image's own list. The manifest is checked against the files of the tarball, two implementations held
-# against each other (tools/image-manifest.py), as tools/make-release.sh always did.
+# against each other (tools/image-manifest.py), as tools/make-release.sh always did. And the updater must write down
+# the files of packages the user changed (the package database's checksum is not the file's), set the user's versions
+# aside and have mu300-user-packages put them back after the package is installed again: an image whose updater only
+# carries its test files replaces them with packages' versions (the OpenClash rules of the v2026.11.08.2 test).
 #
 # env:
 #   MU300_AUDIT_TOOLS=DIR       where image-manifest.py is (default: this script's directory)
@@ -29,6 +32,7 @@ needs() {
 needs opt/mu300/bin/mu300-carry
 needs "$BB"
 needs opt/mu300/bin/mu300-update
+needs opt/mu300/bin/mu300-user-packages
 needs etc/mu300/image-manifest.gz
 for u in $(printf '%s\n' "$UNIONS" | tr ',' ' '); do
     needs "opt/mu300/lib/image-manifests/$u.gz"
@@ -52,6 +56,23 @@ if [ -e "$C" ]; then
     elif command -v file >/dev/null 2>&1; then
         LC_ALL=C file "$C" | grep -q 'ARM aarch64' || { echo "$IMG: opt/mu300/bin/mu300-carry is not an AArch64 binary" >&2; fail=1; }
     fi
+fi
+# the changed files of packages: the updater keeps them (upk_wanted is the list of packages installed again, the J
+# lines the files, nkept the count) and mu300-user-packages puts them back after the install
+tar -xzf "$IMG" -C "$T" ./opt/mu300/bin/mu300-update ./opt/mu300/bin/mu300-user-packages 2>/dev/null || true
+U=$T/opt/mu300/bin/mu300-update
+UP=$T/opt/mu300/bin/mu300-user-packages
+if [ -f "$U" ]; then
+    for _m in upk_wanted 'kept\[owned\[p\], p\] = 1' nkept package-files; do
+        grep -q -- "$_m" "$U" ||
+            { echo "$IMG: its updater does not keep the changed files of packages (no $_m)" >&2; fail=1; }
+    done
+fi
+if [ -f "$UP" ]; then
+    for _m in kept_pkg_files kept_restore_early package-files; do
+        grep -q -- "$_m" "$UP" ||
+            { echo "$IMG: mu300-user-packages does not put the changed files of packages back (no $_m)" >&2; fail=1; }
+    done
 fi
 if [ "${MU300_AUDIT_EXACT_UNIONS:-0}" = 1 ]; then
     want=$(printf '%s\n' "$UNIONS" | tr ',' '\n' | grep -c . || true)

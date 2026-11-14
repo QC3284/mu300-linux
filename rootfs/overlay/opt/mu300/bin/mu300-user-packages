@@ -28,6 +28,7 @@ BIN=${MU300_BIN:-/opt/mu300/bin}
 MU300_LIB=1 . "$BIN/mu300-update" || exit 1
 D=$R/$UPK_DIR
 ORPH=$R/$UPK_ORPH
+KEPT=$R/$CARRY_KEPT
 LOG=$D/log
 TRIES=${MU300_PKG_TRIES:-12}
 DELAY=${MU300_PKG_DELAY:-300}
@@ -211,7 +212,52 @@ theme_repair() {
 
 # ---- putting a package's settings back -------------------------------------------------------------------------
 # restore PKG: its UCI files from orphaned-config, and its services enabled or not as they were before the update
+# ---- the files the user made of a package's own ---------------------------------------------------------------
+# The update sets aside a file of a package when the package database's checksum says the user changed it (the package
+# is installed again, and its install writes the package's version there): the user's version goes to
+# update-kept/<the image the device came from>/user, and package-files says which file of which package it is. After
+# the package is installed again (installed again here, or already installed - the package's file is there and the
+# user's version goes back over it), the user's version is put back. A package that is not installed again leaves
+# nothing to write over: its files are put back at the start of a run (kept_restore_early).
+kept_dir() {
+    [ -f "$D/from" ] || return 1
+    _kf=$(cat "$D/from" 2>/dev/null) || return 1
+    case $_kf in ''|*[!0-9A-Za-z._-]*) return 1 ;; esac
+    [ -d "$KEPT/$_kf/user" ] || return 1
+    printf '%s\n' "$KEPT/$_kf/user"
+}
+# kept_pkg_files PACKAGE: the versions the user made of files of this package, over the package's own files
+kept_pkg_files() {
+    [ -f "$D/package-files" ] || return 0
+    _kd=$(kept_dir) || return 0
+    while IFS="$CARRY_TAB" read -r _kpk _kfp; do
+        [ "$_kpk" = "$1" ] || continue
+        _kf=$(carry_unesc "${_kfp:-}")
+        case /$_kf/ in *//*|*/../*|*/./*) continue ;; esac
+        [ -f "$_kd/$_kf" ] || continue
+        mkdir -p "$R/$(dirname "$_kf")" && rm -f "$R/$_kf" && mv -f "$_kd/$_kf" "$R/$_kf" &&
+            log "$1: your version of /$_kf is back (you changed it after the package installed it)"
+    done < "$D/package-files"
+    return 0
+}
+# the versions the user made of files of packages that are not installed again: nothing writes over them
+kept_restore_early() {
+    [ -f "$D/package-files" ] || return 0
+    _kd=$(kept_dir) || return 0
+    while IFS="$CARRY_TAB" read -r _kpk _kfp; do
+        [ -n "${_kpk:-}" ] || continue
+        grep -qx "$_kpk" "$D/wanted" 2>/dev/null && continue
+        _kf=$(carry_unesc "${_kfp:-}")
+        case /$_kf/ in *//*|*/../*|*/./*) continue ;; esac
+        [ -f "$_kd/$_kf" ] || continue
+        mkdir -p "$R/$(dirname "$_kf")" && rm -f "$R/$_kf" && mv -f "$_kd/$_kf" "$R/$_kf" &&
+            log "$_kpk: your version of /$_kf is back (the package is not installed again)"
+    done < "$D/package-files"
+    return 0
+}
+
 restore() {
+    kept_pkg_files "$1"
     _back=
     while read -r _p _f; do
         [ "$_p" = "$1" ] || continue
@@ -337,11 +383,14 @@ note() {
 }
 
 run() {  # run [now]: now (retry) does not wait for the system to settle and does not count as a boot
-    [ -s "$D/wanted" ] || return 0
     mkdir -p "$RUNDIR"
     mkdir "$RUNDIR/mu300-user-packages.lock" 2>/dev/null || { echo "mu300-user-packages is running already" >&2; return 1; }
     trap 'rmdir "$RUNDIR/mu300-user-packages.lock" 2>/dev/null' EXIT
     trap 'exit 130' INT TERM HUP
+    # files of packages that are not installed again: no install writes over them, so they do not wait for one (and a
+    # run with no package written down still puts them back)
+    kept_restore_early
+    [ -s "$D/wanted" ] || return 0
     _left=$(upk_pending "$D")
     if [ -z "$_left" ]; then
         # nothing left: a state that still waits (an older retry left pending) is over

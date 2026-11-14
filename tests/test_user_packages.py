@@ -855,6 +855,64 @@ class Service(ShellTest):
             self.assertFalse((src / 'gone.list.disabled').exists())
 
 
+    def test_a_changed_file_of_a_package_comes_back_over_the_new_install(self):
+        # the update set the user's version of a file of a package aside (update-kept/<from>/user) and wrote down
+        # which file of which package it is: when the package is installed again, the install writes the package's
+        # own there, and the user's goes back over it
+        for shell in self.each_shell():
+            if 'busybox' in ' '.join(shell):
+                continue        # (busybox's standalone shell runs its own id applet, not the stub: pre-existing here)
+            self.setup_openwrt()
+            self.init_scripts()
+            d = 'etc/mu300/user-packages'
+            (self.tmp / 'online').write_text('')
+            write(self.R, {
+                f'{d}/package-files': 'luci-app-openclash\tetc/openclash/custom/openclash_custom_rules.list\n',
+                'etc/mu300/update-kept/v1/user/etc/openclash/custom/openclash_custom_rules.list': '# the rules of the user\n',
+                'etc/openclash/custom/openclash_custom_rules.list': '# the package default\n',
+            })
+            r = self.run_upk(shell, 'run')
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            self.assertEqual((self.R / 'etc/openclash/custom/openclash_custom_rules.list').read_text(), '# the rules of the user\n')
+            self.assertFalse((self.R / 'etc/mu300/update-kept/v1/user/etc/openclash/custom/openclash_custom_rules.list').exists())
+            log = self.rec('log')
+            self.assertIn('luci-app-openclash: your version of /etc/openclash/custom/openclash_custom_rules.list is back '
+                          '(you changed it after the package installed it)', log)
+            # a second run: the version is in place, nothing is put back again
+            self.assertEqual(self.run_upk(shell, 'run').returncode, 0)
+            self.assertEqual((self.R / 'etc/openclash/custom/openclash_custom_rules.list').read_text(), '# the rules of the user\n')
+
+    def test_a_changed_file_of_a_package_not_installed_again_goes_back_first(self):
+        # nothing writes over it (its package is not installed again), so it does not wait for the install: a run
+        # puts it back at the start, and one with no package left to install still does
+        for shell in self.each_shell():
+            if 'busybox' in ' '.join(shell):
+                continue        # (busybox's standalone shell runs its own id applet, not the stub: pre-existing here)
+            self.setup_openwrt()
+            self.init_scripts()
+            d = 'etc/mu300/user-packages'
+            write(self.R, {
+                f'{d}/wanted': 'luci-app-openclash\n',
+                f'{d}/files': 'luci-app-openclash etc/config/openclash\n',
+                f'{d}/package-files': 'luci-theme-argon\tetc/argon/custom/rules.list\n',
+                'etc/mu300/update-kept/v1/user/etc/argon/custom/rules.list': '# the rules of the user\n',
+            })
+            r = self.run_upk(shell, 'run')
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            self.assertEqual((self.R / 'etc/argon/custom/rules.list').read_text(), '# the rules of the user\n')
+            self.assertIn('luci-theme-argon: your version of /etc/argon/custom/rules.list is back (the package is not '
+                          'installed again)', self.rec('log'))
+            # no package written down: no package manager, and the file still goes back
+            write(self.R, {f'{d}/wanted': '', f'{d}/done': '', f'{d}/failed': ''})
+            write(self.R, {'etc/mu300/update-kept/v1/user/etc/argon/custom/rules.list': '# the rules of the user\n'})
+            (self.tmp / 'pm.log').unlink(missing_ok=True)
+            r = self.run_upk(shell, 'run')
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            self.assertEqual((self.R / 'etc/argon/custom/rules.list').read_text(), '# the rules of the user\n')
+            self.assertFalse((self.tmp / 'pm.log').exists())
+
+
+
 class Wiring(ShellTest):
     def test_the_images_list_their_packages_and_run_the_service(self):
         b = (TOP / 'openwrt/build-rootfs.sh').read_text()

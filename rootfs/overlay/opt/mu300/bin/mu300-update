@@ -922,13 +922,12 @@ upk_units() {
         done
     done | sort -u
 }
-# upk_record OLD NEW OS: after the settings are in NEW, before the switch. Writes NEW/etc/mu300/user-packages/
-# (wanted: the names; files: "package path" of their files in etc/; rc.d: the services enabled in OLD; from; state)
-# and moves their etc/config files out of the way. MU300_KEEP_PACKAGES=0: they are not installed again (state
-# skipped; mu300-user-packages retry does it later), their settings are set aside all the same.
-upk_record() {
+# upk_wanted OLD NEW KIND: the packages installed on the device that the new system does not have - what its first
+# boot installs again. upk_record writes the list down in the new system; the carry block asks for it before it makes
+# the plan, so a file of one of those packages that the user changed waits for the install (J, package-files).
+upk_wanted() {
     _uo=$1 _un=$2 _uk=$(upk_kind "$3")
-    _ut=$2/.mu300-image _ud=$2/$UPK_DIR
+    _ut=$2/.mu300-image
     mkdir -p "$_ut" || return 1
     # the old image's own set; a system from before that list: the new image's and the one packages.txt names
     if [ -s "$_uo/etc/mu300/image-packages" ]; then cat "$_uo/etc/mu300/image-packages"
@@ -942,9 +941,18 @@ upk_record() {
     { upk_manual "$_uo" "$_uk"; upk_pending "$_uo/$UPK_DIR"; } > "$_ut/had"
     { sed 's/^/x /' "$_ut/not"; sed 's/^/w /' "$_ut/had"; } |
         awk '$1 == "x" { n[$2] = 1; next } NF > 1 && !($2 in n) { print $2 }' | sort -u > "$_ut/added"
+    while read -r _up; do upk_skip "$_up" || echo "$_up"; done < "$_ut/added"
+}
+# upk_record OLD NEW OS: after the settings are in NEW, before the switch. Writes NEW/etc/mu300/user-packages/
+# (wanted: the names; files: "package path" of their files in etc/; rc.d: the services enabled in OLD; from; state)
+# and moves their etc/config files out of the way. MU300_KEEP_PACKAGES=0: they are not installed again (state
+# skipped; mu300-user-packages retry does it later), their settings are set aside all the same.
+upk_record() {
+    _uo=$1 _un=$2 _uk=$(upk_kind "$3")
+    _ut=$2/.mu300-image _ud=$2/$UPK_DIR
+    mkdir -p "$_ut" || return 1
+    upk_wanted "$_uo" "$_un" "$_uk" > "$_ut/wanted" || return 1
     rm -rf "$_ud"
-    : > "$_ut/wanted"
-    while read -r _up; do upk_skip "$_up" || echo "$_up" >> "$_ut/wanted"; done < "$_ut/added"
     # Ubuntu: the apt sources added on the device (a PPA's packages cannot come back without it), see upk_apt_keep
     if [ "$_uk" = ubuntu ]; then
         upk_apt_keep "$_uo" "$_un" "$([ -s "$_ut/wanted" ] && echo checked)" || return 1
@@ -1227,7 +1235,10 @@ carry_pksame() {
 #     S path           set the release's aside first (image)  R path          remove it from NEW first
 #     M mode uid gid path   give NEW's the owner and mode the user gave it
 #     A path           an apt source added on the device (upk_apt_keep decides about it, see carry_system)
-#     n blocks kind    512-byte blocks to be written (kind l, h or s)      c files package-files
+#     n blocks kind    512-byte blocks to be written (kind l, h or s)
+#     J package path   a file of a package the user changed, set aside for mu300-user-packages to put back after the
+#                      package is installed again (package-files, carry_system writes it)
+#     c files packages-changed files-kept   the counts of carry_report (the last: c's J lines)
 #     r code path      a line of the report (carry_report has the words)
 carry_plan() {
     awk -v pass="$1" -v T="$CARRY_T" -v kind="$CARRY_KIND" -v keep="$CARRY_KEEP" -v fb="$CARRY_FALLBACK" '
@@ -1351,10 +1362,17 @@ carry_plan() {
     function fallback(   k) {
         if (aptsrc(p) && !innew) { if (pass == 3) print "A\t" p; return }
         if (pass == 1) { if (innew && hashable(t, nt) && (t == "l" || f(ns[p], 5) == size)) { want("O", p); want("N", p) }; return }
-        if (pass == 2) { if (innew && t == "f" && (p in psum) && !same_as_new(p)) want("K\t" psum[p], p); return }
+        if (pass == 2) { if (t == "f" && (p in psum) && ((innew && !same_as_new(p)) || ((p in owned) && !listed(conf, p)))) want("K\t" psum[p], p); return }
         # the version of the user wins: the places an update always kept, and what protects the device
         k = ismask(p) || (((keep != "" && p ~ ("^(" keep ")(/|$)")) || p ~ secure) && !project(p) && !script(p) && p !~ /^etc\/pam\.d\/common-/)
         if (t == "m") t = "d"
+        # a file of a package the user changed (the sum in the package database is not the file): the install of the
+        # package writes its version there, so the version of the user waits for it (H, kept[], mu300-user-packages
+        # puts it back); with the package not installed again there is nothing to wait for, and the file goes along
+        if (t == "f" && (p in psum) && !(p in pksame) && (p in owned) && !listed(conf, p) && !vendor(p)) {
+            if (owned[p] in reinst) { hold(p, "j"); kept[owned[p], p] = 1; nkept++; return }
+            if (!innew) { live(p); return }
+        }
         if (t == "d") {
             if (innew && nt == "d") return
             if (innew) { if (k) { print "R\t" p; live(p) } else { block = p; hold(p, "i") }; return }
@@ -1397,6 +1415,9 @@ carry_plan() {
         while ((getline l < (T "/sum.old")) > 0) so[rest(l, 1)] = f(l, 1)
         while ((getline l < (T "/sum.new")) > 0) sn[rest(l, 1)] = f(l, 1)
         while ((getline l < (T "/pksame")) > 0) pksame[l] = 1
+        # the packages the new image installs again at the first boot (upk_wanted): a file of one of them that the
+        # user changed waits for that install (J)
+        while ((getline l < (T "/reinst")) > 0) reinst[l] = 1
         while ((getline l < (T "/cmds")) > 0) cmds[l] = 1
         while ((getline l < (T "/ids")) > 0) { split(l, q, " "); if (substr(q[1], 1, 1) == "o") oldid[substr(q[1], 2) q[2]] = 1; else newid[substr(q[1], 2) q[2]] = 1 }
         while ((getline l < (T "/idmap")) > 0) { split(l, q, " "); idm[q[1] q[2]] = q[3] }
@@ -1429,6 +1450,9 @@ carry_plan() {
         if (pass == 2) {
             if (st == "same" || st == "meta") next
             if (st == "mod" && (p in psum) && t == "f") want("K\t" psum[p], p)
+            # a file of a package the user changed: is the file in OLD still the one the package manager put there?
+            # (K, as for a file of the image; the answer decides pass 3)
+            if (st == "new" && t == "f" && (p in psum) && (p in owned) && !listed(conf, p)) want("K\t" psum[p], p)
             if (!innew) next
             if (nt == "f" || nt == "l") want("N", p)
             if (hashable(t, nt) && (t == "l" || f(ns[p], 5) == size)) want("O", p)
@@ -1452,7 +1476,18 @@ carry_plan() {
         if (aptsrc(p)) { if (st == "mod" && !same_as_new(p)) hold(p, "i"); else if (st == "new") print "A\t" p; next }
         if (st == "new") {
             if (vendor(p)) { if (!innew) live(p); next }
-            if ((p in owned) && !listed(conf, p)) { npkg++; next }          # comes back with its package
+            if ((p in owned) && !listed(conf, p)) {
+                # A file of a package. The sum in the package database says whether the user changed it (an upgrade
+                # leaves the version of the package there; the version of the user is theirs). The packages the new
+                # image installs again at the first boot write their files when they install, so the version of the
+                # user waits for that install (H, kept[]: package-files, from which mu300-user-packages puts it back)
+                # instead of being carried to a place the install writes over. A package not installed again leaves
+                # nothing to wait for.
+                if (t == "f" && (p in psum) && !(p in pksame)) {
+                    if (owned[p] in reinst) { hold(p, "j"); kept[owned[p], p] = 1; nkept++; next }
+                    if (!innew) { live(p); next }
+                } else { npkg++; next }
+            }
             if (!innew) { live(p); next }
             if (same_as_new(p)) next
             if (nt == "d" || !wins(p)) { hold(p, "i"); next }
@@ -1503,8 +1538,11 @@ carry_plan() {
         }
         # ... and a grant of sudo that the old system did not have is not taken from the new image
         if (fb) for (p in ns) if (p ~ /^etc\/sudoers\.d\/[^\/]*$/ && !(p in had) && f(ns[p], 1) != "d") { print "R\t" p; note("s", p) }
+        # the user versions of package files, waiting for their package to be installed again: carry_system writes
+        # them down (package-files), and mu300-user-packages puts them back after the install
+        for (p in kept) { split(p, kk, SUBSEP); print "J\t" kk[1] "\t" kk[2] }
         print "n\t" nl + 0 "\tl"; print "n\t" nh + 0 "\th"; print "n\t" nsv + 0 "\ts"
-        print "c\t" files + 0 "\t" npkg + 0
+        print "c\t" files + 0 "\t" npkg + 0 "\t" nkept + 0
     }'
 }
 # carry_idmap OLD NEW: "u OLD NEW" and "g OLD NEW" for the accounts both systems have under another number (Ubuntu
@@ -1631,7 +1669,7 @@ carry_report() {
                 print title
                 for (i = 1; i <= n[code]; i++) print "  " pre item[code, i]
             }
-            $1 == "c" { files = $2; npkg = $3; next }
+            $1 == "c" { files = $2; npkg = $3; nkept = $4; next }
             $1 == "n" && $3 == "l" { mb = int($2 / 2048); next }
             $1 == "r" { p = $0; sub(/^r\t[^\t]*\t/, "", p); n[$2]++; item[$2, n[$2]] = p }
             END {
@@ -1644,6 +1682,7 @@ carry_report() {
                 }
                 list("u", "Yours is in use where the new release has another version (the one of the release: " kept "/image):", "/")
                 list("g", "Yours is in use; the new release no longer has this file:", "/")
+                list("j", "Files of packages you changed: kept as yours in " kept "/user, and put back after the package is installed again (mu300-user-packages):", "/")
                 list("i", "The version of the release is in use; yours is in " kept "/user:", "/")
                 if (nohold == "") list("f", "Differed from the new release and were replaced; as they were: " kept "/user:", "/")
                 else list("f", "Differed from the new release and were replaced. There was no room to set them aside: they are in the previous system until mu300-update clean, or the next update:", "/")
@@ -1660,6 +1699,7 @@ carry_report() {
                 list("a", "Accounts that could not be carried over (the files they own keep the number):", "")
                 if (n["v"]) print "Files that were there when the update looked and gone when it came to carry them (the running system removed them): " item["v", 1]
                 if (npkg) printf "%d files of packages are not carried: they come with their packages.\n", npkg
+                if (nkept) printf "%d files of packages you changed are kept as yours (set aside until the package is installed again).\n", nkept
             }' "$CARRY_T/plan"
         echo "Packages installed on the device:"
         cat "$CARRY_T/upk"
@@ -1700,6 +1740,9 @@ carry_system() {
     fi
     { carry_pkgdb "$_co" "$CARRY_KIND" O C S && carry_pkgdb "$_cn" "$CARRY_KIND" N D "" &&
         upk_installed "$_co" "$CARRY_KIND" | sed "s/^/I$CARRY_TAB/"; } > "$CARRY_T/pkg" || return 1
+    # the packages the new system's first boot installs again (as upk_record writes them down below): a file of one of
+    # them that the user changed is not carried to its place, but set aside until that install (J)
+    upk_wanted "$_co" "$_cn" "$_cos" > "$CARRY_T/reinst" || return 1
     "$CARRY_BIN" scan "$_cn" > "$CARRY_T/scan.new" && "$CARRY_BIN" scan "$_co" > "$CARRY_T/scan.old" || return 1
     for _cp in 1 2; do
         carry_plan "$_cp" < "$CARRY_T/scan.old" > "$CARRY_T/ask" || return 1
@@ -1777,6 +1820,13 @@ carry_system() {
     # the packages installed on the device: written down, their settings set aside, put back at the first boot
     upk_record "$_co" "$_cn" "$_cos" > "$CARRY_T/upk" || { cat "$CARRY_T/upk"; echo "  could not write down the packages installed on the device" >&2; return 1; }
     rm -rf "$_cn/.mu300-image"
+    # the user's versions of the changed files of those packages: "package<TAB>path", for mu300-user-packages to put
+    # back after it installed the package (the install writes the package's own version there)
+    if awk -F'\t' '$1 == "J" { print $2 "\t" $3 }' "$CARRY_T/plan" > "$CARRY_T/pkgfiles" && [ -s "$CARRY_T/pkgfiles" ]; then
+        mkdir -p "$_cn/$UPK_DIR" && ( umask 077; cat "$CARRY_T/pkgfiles" > "$_cn/$UPK_DIR/package-files" ) || return 1
+        chmod 600 "$_cn/$UPK_DIR/package-files" || return 1
+        [ "$(id -u)" != 0 ] || chown 0:0 "$_cn/$UPK_DIR/package-files" || return 1
+    fi
     # an apt source added on the device is upk_apt_keep's to keep (in use, or off for another Ubuntu release): where
     # it is in use, everything of the file comes along (its owner and times), as for what was carried
     sed -n "s/^A$CARRY_TAB//p" "$CARRY_T/plan" | while IFS= read -r _cl; do

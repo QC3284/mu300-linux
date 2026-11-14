@@ -978,6 +978,71 @@ class Carry(CarryCase):
         self.assertFalse((new / 'etc/motd').exists())
 
 
+    def test_a_changed_file_of_a_package_waits_for_the_package(self):
+        # OpenClash: a package the user installed (not in either image), and a file of it the user changed after the
+        # package put it there. The package's database sum is the package's version, the file is not: the user's is
+        # theirs. The package is installed again at the first boot and its install writes over the place, so the
+        # user's version waits in update-kept/user and package-files names it; mu300-user-packages puts it back after
+        # the install. A file of the package that is unchanged from the sum is not carried (it comes with the package).
+        import base64
+        import hashlib
+
+        def q1(data):
+            return 'Q1' + base64.b64encode(hashlib.sha1(data).digest()).decode()
+
+        old_image = dict(OLD_IMAGE)
+        old_image['etc/mu300/image-packages'] = 'base\n'
+
+        def user(old):
+            build(old, {
+                'etc/apk/world': 'base\nuserpkg\n',
+                'lib/apk/db/installed':
+                    'P:base\nV:1.0\nF:usr\nF:usr/bin\nR:tool\na:0:0:755\nZ:' + q1(b'tool v1') + '\n'
+                    '\nP:userpkg\nV:2.0\nF:usr\nF:usr/share\nF:usr/share/userpkg\nR:data\na:0:0:644\nZ:' + q1(b'package default data\n') + '\n'
+                    'F:usr/bin\nR:userpkg\na:0:0:755\nZ:' + q1(b'pkg bin\n') + '\n',
+                'usr/share/userpkg/data': 'my rules\n',            # changed after the package installed it
+                'usr/bin/userpkg': ('f', 'pkg bin\n', 0o755),       # the package's own, as its database has it
+            })
+
+        def check(old, new, report, r):
+            kept = new / 'etc/mu300/update-kept/v1'
+            self.assertEqual((kept / 'user/usr/share/userpkg/data').read_text(), 'my rules\n')
+            self.assertFalse((new / 'usr/share/userpkg/data').exists())
+            self.assertEqual((new / 'etc/mu300/user-packages/package-files').read_text(),
+                             'userpkg\tusr/share/userpkg/data\n')
+            self.assertIn('Files of packages you changed: kept as yours in /etc/mu300/update-kept/v1/user, and put back '
+                          'after the package is installed again (mu300-user-packages):\n  /usr/share/userpkg/data\n', report)
+            self.assertIn('1 files of packages you changed are kept as yours', report)
+            self.assertIn('1 files of packages are not carried: they come with their packages.\n', report)
+            self.assertEqual((new / 'etc/mu300/user-packages/wanted').read_text(), 'userpkg\n')
+
+        self.each(user, check, old_image=old_image, image='openwrt', os_name='openwrt')
+
+    def test_a_changed_file_of_a_package_in_no_image_goes_along(self):
+        # the package is not installed again (it is not in the device's world any more, or its file was changed and
+        # the package's install has nothing to write): nothing will write over it, so the user's version is carried
+        # to its place
+        import base64
+        import hashlib
+
+        def q1(data):
+            return 'Q1' + base64.b64encode(hashlib.sha1(data).digest()).decode()
+
+        def user(old):
+            build(old, {
+                'lib/apk/db/installed':
+                    'P:gone\nV:1.0\nF:usr\nF:usr/share\nF:usr/share/gone\nR:data\na:0:0:644\nZ:' + q1(b'package default\n') + '\n',
+                'usr/share/gone/data': 'mine\n',
+            })
+
+        def check(old, new, report, r):
+            self.assertEqual((new / 'usr/share/gone/data').read_text(), 'mine\n')
+            self.assertFalse((new / 'etc/mu300/update-kept').exists())
+            self.assertFalse((new / 'etc/mu300/user-packages/package-files').exists())
+            self.assertIn('Everything you added to the system was carried over', report)
+
+        self.each(user, check, image='openwrt', os_name='openwrt')
+
 SEC = {
     'etc/passwd': 'root:x:0:0::/root:/bin/sh\nubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n',
     'etc/group': 'root:x:0:\nubuntu:x:1000:\n',

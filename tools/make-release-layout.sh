@@ -80,7 +80,7 @@ fi
 # starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
 # old daemon that exits when no modem event source exists. All of them come before the manifest for the same
 # reason as above.
-for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/cpu-voltage-platform" "opt/mu300/bin/sml-voltage-check" "etc/init.d/unisoc-cpu" "opt/mu300/bin/mobile-data"; do
+for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/cpu-voltage-platform" "opt/mu300/bin/sml-voltage-check" "etc/init.d/unisoc-cpu" "opt/mu300/bin/mobile-data" "opt/mu300/bin/mu300-user-packages"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
