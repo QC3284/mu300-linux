@@ -235,6 +235,38 @@ if grep -q 'm_traffic_set_core' "$_idash" && ! grep -q '^m_traffic_set_core()' "
     echo "mu300dash refers to m_traffic_set_core but never defines it: $_idash" >&2
     exit 1
 fi
+# The image must carry its own way of carrying the user's files over: the carry block runs opt/mu300/bin/mu300-carry,
+# a static AArch64 helper, built from this tree. tools/make-release.sh built and audited it for the images of the old
+# build path; this path relabels a prebuilt rootfs, which none of them had, so every update of this line up to
+# v2026.11.08.1 kept only the list of places and lost the rest (the DNS and proxy packages' directories, the ssh host
+# keys, /etc/sysupgrade.conf, ...). Built here, gated, and in place before the manifest is made, so the image's own
+# manifest lists it. MU300_CARRY: a helper built elsewhere; MU300_CARRY_CC: the cross compiler (default
+# aarch64-linux-gnu-gcc; the mu300-kbuild container is amd64 on this host and would make an x86-64 helper).
+echo '== carry helper =='
+_ucsrc="$TREE/tools/carry/mu300-carry.c"
+[ -f "$_ucsrc" ] || { echo "the carry helper's source is missing: $_ucsrc" >&2; exit 1; }
+_ucout="$OUT/r/opt/mu300/bin/mu300-carry"
+mkdir -p "$OUT/r/opt/mu300/bin"
+if [ -n "${MU300_CARRY:-}" ]; then
+    cp "$MU300_CARRY" "$_ucout"
+else
+    _ucc=${MU300_CARRY_CC:-}
+    if [ -z "$_ucc" ]; then
+        if command -v aarch64-linux-gnu-gcc >/dev/null 2>&1; then _ucc=aarch64-linux-gnu-gcc
+        elif command -v aarch64-linux-musl-gcc >/dev/null 2>&1; then _ucc=aarch64-linux-musl-gcc
+        else echo "no AArch64 cross compiler for the carry helper: install aarch64-linux-gnu-gcc, set MU300_CARRY_CC, or MU300_CARRY to a built helper (the amd64 kbuild container makes an x86-64 one)" >&2; exit 1
+        fi
+    fi
+    "$_ucc" -O2 -static -o "$_ucout" "$_ucsrc"
+fi
+chmod 755 "$_ucout"
+if command -v readelf >/dev/null 2>&1; then
+    LC_ALL=C readelf -h "$_ucout" | grep -q 'Machine:.*AArch64' || { echo "the carry helper is not an AArch64 ELF (the compiler was the host's?)" >&2; exit 1; }
+    if LC_ALL=C readelf -l "$_ucout" | grep -q 'INTERP'; then echo "the carry helper is dynamically linked: the image has no loader for it" >&2; exit 1; fi
+elif command -v file >/dev/null 2>&1; then
+    LC_ALL=C file "$_ucout" | grep -q 'ARM aarch64' || { echo "the carry helper is not an AArch64 binary" >&2; exit 1; }
+fi
+echo "  mu300-carry $(stat -c%s "$_ucout") B"
 if [ -n "$TAG" ]; then
     printf '%s\n' "$TAG" > "$OUT/r/etc/mu300/image-version"
     tar --owner=0 --group=0 -czf "$OUT/manifest-stage.tar.gz" -C "$OUT/r" .
@@ -245,6 +277,11 @@ chmod 644 "$OUT/r/features"
 tar --owner=0 --group=0 -czf "$OUT/mu300-immortalwrt-rootfs.tar.gz" -C "$OUT/r" .
 rm -rf "$OUT/r"
 echo "  mu300-immortalwrt-rootfs.tar.gz $(stat -c%s "$OUT/mu300-immortalwrt-rootfs.tar.gz") B"
+echo '== update audit =='
+# the gate tools/make-release.sh runs on its images, on the image this path packs: an update to an image without
+# these keeps only the list of places
+MU300_AUDIT_TOOLS="$TREE/tools" sh "$TREE/tools/check-update-audit.sh" "$OUT/mu300-immortalwrt-rootfs.tar.gz" opt/mu300/bin/busybox immortalwrt,openwrt,openwrt-luci
+
 echo '== updater asset =='
 cp "$TREE/rootfs/overlay/opt/mu300/bin/mu300-update" "$OUT/mu300-update"
 chmod 755 "$OUT/mu300-update"

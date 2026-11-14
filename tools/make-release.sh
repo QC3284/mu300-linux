@@ -193,13 +193,10 @@ done
 for a in mu300-ubuntu-rootfs:usr/bin/busybox:ubuntu-24.04,ubuntu-26.04 mu300-ubuntu-26.04-rootfs:usr/bin/busybox:ubuntu-24.04,ubuntu-26.04 \
          mu300-openwrt-rootfs:opt/mu300/bin/busybox:openwrt mu300-openwrt-luci-rootfs:opt/mu300/bin/busybox:openwrt-luci; do
     old=${a##*:}; a=${a%:*}; bb=${a#*:}; a=${a%%:*}
-    l=$(list_of_image "$a")
-    for f in opt/mu300/bin/mu300-carry "$bb" etc/mu300/image-manifest.gz $(echo "$old" | tr ',' '\n' | sed 's|.*|opt/mu300/lib/image-manifests/&.gz|'); do
-        printf '%s\n' "$l" | grep -qx "$f" || { echo "$a lacks $f: an update to it would not carry everything over"; fail=1; }
-    done
-    [ "$(printf '%s\n' "$l" | grep -c '^opt/mu300/lib/image-manifests/.')" = "$(echo "$old" | tr ',' '\n' | wc -l | tr -d ' ')" ] ||
-        { echo "$a has manifests of another system in opt/mu300/lib/image-manifests"; fail=1; }
-    python3 "$TOP/tools/image-manifest.py" check "$D/$a.tar.gz" || fail=1
+    # one implementation of the check, also run by tools/make-release-layout.sh on the image it packs: that path
+    # skipped it once, and every image it published shipped without mu300-carry (an update kept only the list of
+    # places and lost the configs of the DNS and proxy packages)
+    MU300_AUDIT_TOOLS="$TOP/tools" MU300_AUDIT_EXACT_UNIONS=1 sh "$TOP/tools/check-update-audit.sh" "$D/$a.tar.gz" "$bb" "$old" || fail=1
     tar -xzOf "$D/$a.tar.gz" ./etc/mu300/image-manifest.gz > "$D/$a.manifest.gz" 2>/dev/null || { echo "$a: no manifest to publish"; fail=1; }
 done
 # the panel: everything of it is in the luci asset, and nothing of it (nor Aurora) in the plain OpenWrt one
