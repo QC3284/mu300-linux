@@ -30,6 +30,26 @@ rm -rf "$OUT" && mkdir -p "$OUT/stage"
 echo '== rootfs asset =='
 mkdir -p "$OUT/r"
 tar -xzf "$ROOTFS" -C "$OUT/r"
+# The image ships the newest package set the feeds have: the input is a prebuilt image of a fixed date, and packages
+# that are behind (a security update, a fix in rpcd or ucode, a theme) should not be frozen into the device just
+# because the base image was cut earlier. The upgrade runs inside an arm64 chroot of the extracted image, with the
+# host's resolver (the image's /etc/resolv.conf is a symlink into /tmp), and its scripts off: the package scripts
+# are first-boot migrations that belong to a booting device (apk runs /etc/uci-defaults and deletes them), and the
+# image must keep its uci-defaults for the device's first boot. MU300_APK_UPGRADE=0 skips it (a rebuild of the same
+# image offline). The kernel and base-files are pinned in /etc/apk/world, so this does not change the kernel.
+if [ "${MU300_APK_UPGRADE:-1}" = 1 ]; then
+    command -v docker >/dev/null 2>&1 || { echo "MU300_APK_UPGRADE=1 needs docker" >&2; exit 1; }
+    echo '== package upgrade =='
+    cp /etc/resolv.conf "$OUT/r/tmp/resolv.conf"
+    # The chroot runs as root (chroot(2) needs it), so the files it rewrites would come back root-owned and the
+    # rest of this script (run as the user) could not pack them: hand the tree back to this user in the same run.
+    docker run --rm --platform linux/arm64 --privileged -v "$OUT/r:/rfs" ubuntu:26.04 \
+        /bin/sh -c "chroot /rfs /bin/sh -c 'apk update >/dev/null 2>&1 && apk upgrade --scripts=no --commit-hooks=no --no-progress' && chown -R $(id -u):$(id -g) /rfs"
+    rm -rf "$OUT/r/tmp/cache/apk" "$OUT/r/tmp/resolv.conf"
+    rm -f "$OUT/r"/etc/config/*.apk-new
+    [ ! -f "$OUT/r/dev/null" ] || rm -f "$OUT/r/dev/null"   # apk made a regular one in the chroot, not a device
+    echo "packages installed: $(grep -c '^P:' "$OUT/r/lib/apk/db/installed" 2>/dev/null || echo '?')"
+fi
 printf 'sdcard\ngpt-root\ntheme=%s\n' "$THEME" > "$OUT/r/features"
 # The boot directory's tag names the release the kernel came from; the panel offers an update while it differs from the
 # installed image-version. A release that ships a boot image writes it here.
@@ -80,7 +100,7 @@ fi
 # starts the second instance where a slot-1 AT reader exists) comes from the tree: the base image carries the
 # old daemon that exits when no modem event source exists. All of them come before the manifest for the same
 # reason as above.
-for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/cpu-voltage-platform" "opt/mu300/bin/sml-voltage-check" "etc/init.d/unisoc-cpu" "opt/mu300/bin/mobile-data" "opt/mu300/bin/mu300-user-packages"; do
+for _of in "opt/mu300/lib/roaming.uc" "opt/mu300/lib/network-recovery.uc" "opt/mu300/bin/mu300-network-recovery" "opt/mu300/bin/mu300-at" "opt/mu300/bin/mu300-smsd" "opt/mu300/lib/registration.sh" "opt/mu300/bin/mu300-registration" "etc/uci-defaults/94-mu300-sim-slots" "etc/init.d/mu300-smsd" "etc/init.d/mu300-registration" "usr/sbin/unisoc-ra-renew" "etc/init.d/unisoc-ra-renew" "opt/mu300/bin/cpu-voltage-platform" "opt/mu300/bin/sml-voltage-check" "etc/init.d/unisoc-cpu" "opt/mu300/bin/mobile-data" "opt/mu300/bin/mu300-user-packages" "opt/mu300/bin/ndp-learn" "opt/mu300/bin/mu300-os"; do
     [ -f "$TREE/rootfs/overlay/$_of" ] || { echo "overlay file missing from the tree: $_of" >&2; exit 1; }
     mkdir -p "$OUT/r/$(dirname "$_of")"
     cp "$TREE/rootfs/overlay/$_of" "$OUT/r/$_of"
