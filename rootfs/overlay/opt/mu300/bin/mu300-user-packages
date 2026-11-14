@@ -112,9 +112,12 @@ port_owner() {
     done < "$D/files"
     return 1
 }
-# project_names PORT: the project's own settings (the VPN's too) mention the port
+# project_names PORT: the project's own settings (the VPN's too) mention the port. The copies an update keeps
+# under update-kept/ (the user's versions of files, set aside so a package's install does not overwrite them)
+# and the update's own records are not settings: a port number in them says nothing about the project.
 project_names() {
     [ -n "$(find "$R/etc/mu300" -type f ! -path '*/orphaned-config/*' ! -path '*/user-packages/*' \
+        ! -path '*/update-kept/*' ! -name 'update-report' ! -name 'update-report.*' ! -name 'image-manifest.gz' \
         -exec grep -lw -- "$1" {} + 2>/dev/null)" ]
 }
 vpn_on() { [ "$(vpn_conf_value "$R/etc/mu300/vpn.conf" ENABLE)" = 1 ]; }

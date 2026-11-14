@@ -657,6 +657,35 @@ class Service(ShellTest):
             self.run_upk(shell, 'run')
             self.assertEqual(self.dhcp(), before)
 
+    def test_a_dns_forwarder_is_removed_with_the_updates_kept_files_around(self):
+        # the update sets the user's version of files aside under /etc/mu300/update-kept/<from>/user, and
+        # those copies can name the proxy's port (an OpenClash rule the user changed). They are not the
+        # project's settings: the orphaned forwarder must still be found, and repair-dns must remove it.
+        for shell in self.each_shell():
+            if 'busybox' in ' '.join(shell):
+                continue        # (busybox's standalone shell runs its own id applet, not the stub: pre-existing here)
+            self.setup_openwrt(server='127.0.0.1#7874 8.8.8.8')
+            write(self.R, {'etc/mu300/update-kept/v2026.11.08.2/user/etc/openclash/custom/openclash_custom_rules.list':
+                           '# the rules of the user\nREDIRECT,127.0.0.1#7874\n'})
+            (self.tmp / 'online').write_text('')
+            (self.tmp / 'missing').write_text('luci-app-openclash\n')     # not in the feeds: failed for good
+            r = self.run_upk(shell, 'run')
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            self.assertNotIn('7874', self.dhcp())
+            self.assertIn('DNS: removed the forwarder 127.0.0.1#7874 of luci-app-openclash', self.rec('log'))
+            # the same with the only forwarder and the user's repair-dns: removed, then the resolvers
+            self.setup_openwrt()
+            write(self.R, {'etc/mu300/update-kept/v2026.11.08.2/user/etc/openclash/custom/openclash_custom_rules.list':
+                           '# the rules of the user\nREDIRECT,127.0.0.1#7874\n'})
+            (self.tmp / 'online').write_text('')
+            (self.tmp / 'missing').write_text('luci-app-openclash\n')
+            self.run_upk(shell, 'run')
+            r = self.run_upk(shell, 'repair-dns')
+            self.assertEqual(r.returncode, 0, r.stderr)
+            u = self.dhcp()
+            self.assertNotIn('dhcp.cfg01.server', u)
+            self.assertIn('dhcp.cfg01.noresolv=0', u)
+
     def test_dns_port_that_comes_up_during_the_window_is_left(self):
         for shell in self.each_shell():
             self.setup_openwrt(server='127.0.0.1#7874 8.8.8.8')
