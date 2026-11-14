@@ -2598,10 +2598,13 @@ class Os(ShellTest):
         self.root = self.tmp / 'root'
         (self.root / 'etc' / 'mu300').mkdir(parents=True)
         (self.root / 'etc' / 'mu300' / 'default-boot').write_text('linux\n')
-        self.stub('mountpoint', 'exit 0')
+        # the disk area is recognised through the mount table: the image's busybox has no mountpoint applet
+        self.mounts = self.tmp / 'mounts'
+        self.mounts.write_text(f'/dev/mmcblk1p1 {self.disk} ext4 rw,relatime 0 0\n')
 
     def os(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-os', *args, MU300_DISK=self.disk, MU300_SYSROOT=self.root)
+        return self.script(shell, BIN / 'mu300-os', *args, MU300_DISK=self.disk, MU300_SYSROOT=self.root,
+                           MU300_MOUNTS=self.mounts)
 
     def test_lists_the_third_system(self):
         for shell in self.each_shell():
@@ -2617,6 +2620,18 @@ class Os(ShellTest):
             self.assertEqual((self.disk / '.mu300' / 'boot-os').read_text().strip(), 'openwrt-luci')
             self.assertEqual((self.disk / 'openwrt-luci' / 'etc' / 'mu300' / 'default-boot').read_text().strip(), 'linux')
 
+    def test_a_disk_area_that_is_not_mounted_is_refused(self):
+        for shell in self.each_shell():
+            self.mounts.write_text('/dev/mmcblk0p1 / ext4 rw 0 0\n')
+            r = self.os(shell)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn('cannot find the MU300 disk area', r.stderr)
+
+    def test_a_mount_entry_identifies_the_disk_area(self):
+        for shell in self.each_shell():
+            r = self.os(shell)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn('openwrt-luci: installed', r.stdout)
     def test_a_kept_copy_cannot_be_chosen(self):
         for shell in self.each_shell():
             r = self.os(shell, 'openwrt-luci.old')

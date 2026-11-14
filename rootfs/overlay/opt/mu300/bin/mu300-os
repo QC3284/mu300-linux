@@ -7,7 +7,19 @@
 export PATH="$PATH:/opt/mu300/busybox-bin"
 set -e
 # MU300_DISK / MU300_SYSROOT: a directory standing in for the disk area and for / (tests)
-if mountpoint -q "${MU300_DISK:-/mnt/mu300-disk}" 2>/dev/null; then
+# The mount table rather than mountpoint(1): the image's busybox has no mountpoint applet and the static busybox in
+# /opt/mu300/busybox-bin is not on every PATH this runs under. MU300_MOUNTS is the test seam.
+mounts=${MU300_MOUNTS:-/proc/mounts}
+is_mountpoint() {
+    p=${1%/}
+    [ -n "$p" ] || p=/
+    [ -r "$mounts" ] || return 1
+    while read -r dev mnt rest; do
+        [ "$mnt" = "$p" ] && return 0
+    done < "$mounts"
+    return 1
+}
+if is_mountpoint "${MU300_DISK:-/mnt/mu300-disk}"; then
     DISK=${MU300_DISK:-/mnt/mu300-disk}
 elif [ -x /lib/systemd/systemd ] && [ ! -d /ubuntu ] && [ -f /etc/os-release ] && grep -q '^ID=ubuntu' /etc/os-release; then
     DISK=/            # first-install layout: Ubuntu lives in the filesystem root
