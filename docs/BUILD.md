@@ -119,6 +119,10 @@ sh tools/adbd/build.sh tools/adbd/adbd
 # over and the image gets the manifest of its own files; without it such an update keeps only the list of places
 # an update kept before the first release with a four-field tag (docs/FINDINGS.md 85)
 docker run --rm -v "$PWD/tools/carry":/w mu300-kbuild gcc -O2 -static -o /w/mu300-carry /w/mu300-carry.c
+# (a release built with tools/make-release-layout.sh does this itself since v2026.11.08.2: it builds or takes
+# MU300_CARRY, copies the helper in before the manifest and runs tools/check-update-audit.sh; the docker run above
+# is for an image built by hand. The helper must be an AArch64 static binary: on an amd64 host pass
+# --platform linux/arm64, or the audit refuses the x86-64 helper it would otherwise build.)
 docker run --rm -v "$PWD/rootfs":/w -v "$PWD/out/modules":/kmods:ro -v "$PWD/out":/kout:ro \
   -v "$PWD/firmware":/firmware:ro -v "$PWD/android-subset":/android-subset:ro -v "$PWD/tools/logdw/logdw":/logdw:ro \
   -v "$PWD/tools/bt-init/mu300-bt-init":/bt-init:ro -v "$PWD/tools/adbd/adbd":/adbd:ro \

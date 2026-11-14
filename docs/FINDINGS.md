@@ -10945,4 +10945,26 @@ is re-cut under the same tag: the tag, the kernel bundle, `latest-aurora`/`lates
 so image and `mu300-update` asset are the same file): a release image that was only relabelled from an older one kept
 that one's updater, and `apply` hands its run over to the release's updater but the next boot starts the image's.
 
+**An update that lost the DNS and proxy stacks (2026-11-14): the image never carried `mu300-carry`.** The device
+update from v2026.11.07.3 to v2026.11.08.1 kept `/etc/config` (whole directory) and the old keep-list's places, and
+replaced everything else with the new image - `/etc/openclash` (124 of 148 files), `/etc/adguardhome` (data and yaml),
+`/etc/smartdns` custom files, the SSH host keys and `sshd_config` edit, `/etc/sysupgrade.conf`, `/etc/msmtprc`, the
+certificates and user files elsewhere were gone; the user restored the stack by hand from an SD snapshot. The log said
+why: `openwrt: this image does not bring what carries everything over (mu300-carry): keeping the settings an update
+always kept`. `mu300-update` has carried every file that is not part of the installed image over since v2026.10.27
+(`carry`, using the old system's own `etc/mu300/image-manifest.gz`), and delta updates since then, but only when the
+NEW image brings `/opt/mu300/bin/mu300-carry` and a busybox - and every release of our line (and the author's) was
+assembled by relabelling the prebuilt .25.4 aurora rootfs, which never had the helper. `tools/make-release.sh` built
+it and audited each image for it; `tools/make-release-layout.sh` did neither, so every .31.x/.11.x release shipped
+without it and every update took the narrow fallback (and was never a delta). Fixed by building the helper in the
+layout path (or taking `MU300_CARRY`), copying it in before the image manifest is made and running the audit (the
+audit is now `tools/check-update-audit.sh`, shared with `make-release.sh`; it refuses an x86-64 helper built on an
+amd64 host and an image that lacks the helper, its busybox, the updater, the manifest or exactly its unions);
+`apply` now REFUSES an image without the helper instead of silently taking the narrow fallback (`MU300_UPDATE_KEEP=list`
+asks for the old behaviour explicitly); and that fallback keeps more of what such packages own (`/etc/openclash`,
+`/etc/adguardhome`, `/etc/smartdns`, `/etc/ssh`, `/etc/sysupgrade.conf`, `/etc/msmtprc`) and writes the reduced
+`etc/mu300/update-report` naming what it did. v2026.11.08.2 is the first image with the helper in it; the author's
+data-preserving path is their diff OTA (`unisoc-diff-ota-2`, release-file diff applied in place, user files never
+touched), so the on-device updater's carry is what makes ours equivalent.
+
 
