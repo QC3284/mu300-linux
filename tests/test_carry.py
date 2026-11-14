@@ -1343,12 +1343,26 @@ class Apply(ShellTest):
             self.assertEqual((new / 'etc/hostname').read_text(), 'mu300\n')
             self.assertNotIn('carried over', r.stdout)
             self.assertTrue((self.disk / 'ubuntu.old/etc/wireguard/wg0.conf').exists())
-            # and for an image that does not bring the helper, with a line that says so
+            # an image that does not bring the helper is refused, with nothing changed: only the list of places
+            # would be kept, which is what every image of this line up to v2026.11.08.1 did
             self.fresh(with_engine=False)
+            before = snapshot(self.old)
             r = self.up(shell, 'apply_one ubuntu v2')
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn('does not bring what carries your files over', r.stderr)
+            self.assertIn('Nothing was changed', r.stderr)
+            self.assertFalse((self.disk / 'ubuntu.new').exists())
+            self.assertFalse((self.disk / 'ubuntu.old').exists())
+            self.assertEqual(snapshot(self.disk / 'ubuntu'), before)
+            # asked for, the old way applies it, with the report that says what it replaces
+            self.fresh(with_engine=False)
+            r = self.up(shell, 'apply_one ubuntu v2', MU300_UPDATE_KEEP='list')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertIn('does not bring what carries everything over', r.stdout)
             self.assertFalse((self.disk / 'ubuntu/etc/wireguard').exists())
+            rep = (self.disk / 'ubuntu/etc/mu300/update-report').read_text()
+            self.assertIn('==== ubuntu:', rep)
+            self.assertIn('The update was asked for with MU300_UPDATE_KEEP=list', rep)
+            self.assertTrue((self.disk / 'ubuntu/etc/mu300/update-report.new').exists())
 
     def test_no_rollback_keeps_no_copy(self):
         for shell in self.each_shell():
@@ -1522,15 +1536,25 @@ class Installers(ShellTest):
             self.assertFalse((self.M / 'ubuntu/etc/wireguard').exists())
             self.assertNotIn('carrying everything', r.stdout)
             self.assertIn('[device] kept from the previous ubuntu:', r.stdout)
-            # an image without the helper: said, and the list of places is kept
+            rep = (self.M / 'ubuntu/etc/mu300/update-report').read_text()
+            self.assertIn('==== ubuntu:', rep)
+            self.assertIn('The update was asked for with MU300_UPDATE_KEEP=list', rep)
+            self.assertIn('Kept:', rep)
+            self.assertIn('/etc/openclash', rep)
+            self.assertTrue((self.M / 'ubuntu/etc/mu300/update-report.new').exists())
+            # an image without the helper is refused, with nothing changed: it would keep only the list of places,
+            # which is what every image of this line up to v2026.11.08.1 did (and lost the user files it did not name)
             self.fresh()
+            before = snapshot(self.old)
             root = build(self.tmp / 'plain', NEW_IMAGE)
             subprocess.run(['tar', '-czf', str(self.T / 'mu300-ubuntu.tar.gz'), '-C', str(root), '.'], check=True)
             shutil.rmtree(root)
             r = self.install(shell)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertIn('does not bring what carries everything over', r.stdout)
-            self.assertFalse((self.M / 'ubuntu/etc/wireguard').exists())
+            self.assertNotEqual(r.returncode, 0, r.stdout)
+            self.assertIn('does not bring what carries your files over', r.stdout + r.stderr)
+            self.assertNotIn('MU300-INSTALL-OK', r.stdout)
+            self.assertEqual(snapshot(self.old), before)
+            self.assertFalse((self.M / 'ubuntu.new').exists())
 
     def test_a_failed_carry_replaces_nothing(self):
         # the carry block ends without saying it did the work (here: its helper cannot run): the old system stays
@@ -1590,9 +1614,23 @@ class Wiring(unittest.TestCase):
         self.assertIn('gcc -O2 -static -o /o/carry/mu300-carry /src/carry/mu300-carry.c', rel)
         self.assertIn('-v "$IN/tools/carry/mu300-carry":/carry:ro', rel)
         audit = rel[rel.index('echo "==> audit"'):rel.index('audit failed, nothing published')]
-        for s in ('opt/mu300/bin/mu300-carry', 'etc/mu300/image-manifest.gz', 'image-manifest.py" check "$D/$a.tar.gz" || fail=1',
-                  'mu300-openwrt-luci-rootfs:opt/mu300/bin/busybox:openwrt-luci'):
-            self.assertIn(s, audit)
+        # the image audit is one tool run by both release paths: a path with its own copy skips a check when the copy
+        # is not updated with it (the layout path had none, and every image it published shipped without the helper)
+        self.assertIn('tools/check-update-audit.sh', audit)
+        self.assertIn('MU300_AUDIT_EXACT_UNIONS=1', audit)
+        self.assertIn('mu300-openwrt-luci-rootfs:opt/mu300/bin/busybox:openwrt-luci', audit)
+        tool = (TOP / 'tools/check-update-audit.sh').read_text()
+        for s in ('opt/mu300/bin/mu300-carry', 'etc/mu300/image-manifest.gz', 'opt/mu300/lib/image-manifests/',
+                  'image-manifest.py" check "$IMG"', 'AArch64'):
+            self.assertIn(s, tool)
+        # and the layout path builds the helper, gates its architecture and runs the same audit on the image it packs
+        lay = (TOP / 'tools/make-release-layout.sh').read_text()
+        self.assertIn('tools/carry/mu300-carry.c', lay)
+        self.assertIn('tools/check-update-audit.sh', lay)
+        self.assertIn('MU300_AUDIT_TOOLS="$TREE/tools" sh "$TREE/tools/check-update-audit.sh"', lay)
+        self.assertIn('Machine:.*AArch64', lay)
+        # the helper is in the image before its manifest is made (the manifest lists the image's own files)
+        self.assertLess(lay.index('mu300-carry.c'), lay.index('image-manifest.py" make'))
         self.assertIn('*.manifest.gz mu300-update', rel)                    # in SHA256SUMS
         self.assertEqual(rel.count('"$D"/*.manifest.gz "$D/mu300-update" "$D/mu300-release" "$D/SHA256SUMS" $SIG'), 2)     # uploaded
         inst = (TOP / 'install.sh').read_text()

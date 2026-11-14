@@ -23,6 +23,11 @@
 #                                 directory with a release's files and their SHA256SUMS (--unsigned: one the project's
 #                                 release key cannot vouch for)
 #   mu300-update apply --downgrade   go to a release older than what is installed (online or --from): never by itself
+#   MU300_UPDATE_KEEP=list        the update as it was before the first release that carries every file: only the
+#                                 places an update always kept (the configs of the DNS and proxy packages included),
+#                                 no delta. An image that does not bring the carry block is refused, not updated so;
+#                                 this asks for it on purpose, and the report it leaves says what this way replaces
+
 #   mu300-update status|releases|inspect FILE   JSON for a panel (see "for a panel" below)
 # Installed extras (mu300-extra: LuCI's languages) are updated with the release, the VPN module (mu300-vpn and its
 # engines, from github.com/dikeckaan/mu300-linux-vpn) to its latest release. A device that uses the VPN is never left
@@ -690,8 +695,13 @@ check() {
 # <os>.old, and the image's own /etc/crontabs is empty, so cron's init refused to start at all (FINDINGS 83).
 keep_list() {
     case $(os_kind "$1") in
-        ubuntu) echo "etc/mu300 etc/ssh etc/hostname etc/localtime etc/timezone etc/fstab home root srv usr/local var/lib/bluetooth" ;;
-        openwrt) echo "etc/config etc/mu300 etc/unisoc-modem etc/dropbear etc/rc.local etc/crontabs root" ;;
+        # The DNS and proxy packages are installed by hand: the image has no files of theirs, so the carry block (in
+        # an image that brings it) carries all of theirs; this list must bring their directories itself. What an
+        # update of this line up to v2026.11.08.1 lost with only this list: /etc/openclash (124 of its 148 files),
+        # /etc/adguardhome, /etc/smartdns's configs, the ssh host keys and their sshd_config, /etc/sysupgrade.conf,
+        # /etc/msmtprc (the user restored them by hand from a copy of the previous system).
+        ubuntu) echo "etc/mu300 etc/ssh etc/hostname etc/localtime etc/timezone etc/fstab home root srv usr/local var/lib/bluetooth etc/openclash etc/adguardhome etc/smartdns etc/msmtprc" ;;
+        openwrt) echo "etc/config etc/mu300 etc/unisoc-modem etc/dropbear etc/rc.local etc/crontabs root etc/openclash etc/adguardhome etc/smartdns etc/ssh etc/sysupgrade.conf etc/msmtprc" ;;
     esac
 }
 # vendor files that the published images deliberately do not contain
@@ -2155,6 +2165,29 @@ keep_listed_services() {
     rm -rf "$new/.mu300-image"
 }
 
+# fallback_report OLD NEW OS: the report of the update as it was before the carry block (MU300_UPDATE_KEEP=list). It is
+# the same file and login note carry_report writes, so mu300-update report and the panel show it the same way; a
+# fallback that writes no report is how the config-migration gap stayed invisible on v2026.11.08.1.
+fallback_report() {
+    _fo=$1 _fn=$2 _fos=$3
+    _ffrom=$(cat "$_fo/etc/mu300/image-version" 2>/dev/null) || _ffrom=unknown
+    _fto=$(cat "$_fn/etc/mu300/image-version" 2>/dev/null) || _fto=unknown
+    _fr=$_fn/$CARRY_REPORT
+    mkdir -p "$_fn/etc/mu300" || return 1
+    {
+        printf '==== %s: %s -> %s, %s ====\n' "$_fos" "$_ffrom" "$_fto" "$(date '+%Y-%m-%d %H:%M' 2>/dev/null)"
+        printf 'The update was asked for with MU300_UPDATE_KEEP=list: only the places an update always kept were kept, and the rest of the system is the new image.\n'
+        printf 'Kept:\n'
+        for _fk in $(keep_list "$_fos"); do printf '  /%s\n' "$_fk"; done
+        printf 'Everything else in the previous system was replaced by its files. Without MU300_UPDATE_KEEP=list an update carries every file that is not part of the image over, and names here what it could not put where it was.\n'
+        printf 'The packages installed on the device are installed again at the first boot; the settings the new image does not have are set aside as etc/mu300/orphaned-config, and put back by that install.\n'
+        printf 'The whole previous system is kept as %s.old until the next update: a file only it has can be copied from there (mu300-update rollback goes back to it).\n' "$_fos"
+    } > "$_fr" || return 1
+    chmod 600 "$_fr" || return 1
+    [ "$(id -u)" != 0 ] || chown 0:0 "$_fr" || return 1
+    # the line at the next login, as carry_report leaves it: until mu300-update report has shown it
+    : > "$_fr.new"
+}
 apply_one() {  # apply_one OS TAG
     os=$1 tag=$2
     old=$DISK/$os
@@ -2210,7 +2243,15 @@ apply_one() {  # apply_one OS TAG
                die "$os: carrying your files over failed, nothing was changed (MU300_UPDATE_KEEP=list mu300-update apply updates as before the first release with a four-field tag: only the settings an update always kept)" ;;
         esac
     elif [ "${MU300_UPDATE_KEEP:-all}" != list ]; then
-        echo "$os: this image does not bring what carries everything over (mu300-carry): keeping the settings an update always kept"
+        # An image without the helper would keep only the places an update always kept and replace everything else:
+        # exactly what v2026.11.08.1 and every image of this line before it did, losing the directories of the DNS and
+        # proxy packages, the ssh host keys, /etc/sysupgrade.conf and every other file outside keep_list. It is
+        # refused now; the old way is there to ask for on purpose.
+        rm -rf "$new"
+        die "$os: the new image does not bring what carries your files over (mu300-carry): it would keep only the settings an update always kept and replace everything else. Nothing was changed. Use a release that brings it (v2026.11.08.2 and later do), or ask for the old behaviour on purpose: MU300_UPDATE_KEEP=list mu300-update apply"
+    fi
+    if [ -z "$carried" ] && [ "${MU300_UPDATE_KEEP:-all}" = list ]; then
+        echo "$os: MU300_UPDATE_KEEP=list: keeping the settings an update always kept, and the directories of the DNS and proxy packages"
     fi
     [ -n "$carried" ] || keep_listed_settings
     # firmware and the Android userspace come from this device, never from the release
@@ -2225,7 +2266,14 @@ apply_one() {  # apply_one OS TAG
             copy_missing "$from/$v" "$new/$v" || { rm -rf "$new"; die "$os: copying the vendor files failed, nothing was changed"; }
         done
     done
-    [ -n "$carried" ] || keep_listed_services
+    if [ -n "$carried" ]; then
+        :
+    else
+        keep_listed_services
+        # the reduced report of the update as it was before the carry block (MU300_UPDATE_KEEP=list): the same file
+        # and login note carry_report writes, so mu300-update report and the panel show it the same way
+        fallback_report "$old" "$new" "$os" || echo "$os: could not write the report of what the update kept" >&2
+    fi
 
     say "$os: switching over"
     sync

@@ -10,8 +10,10 @@
 #                      (plus mu300-vendor-<os>.tar.gz with the device's own vendor files for prebuilt images)
 #   WIPE_LEGACY=0|1    remove a first-generation Ubuntu that lives directly in the filesystem root
 #   UPDATE=0|1         keep everything of the user's in the systems being reinstalled (the carry block of the new
-#                      image's mu300-update; MU300_UPDATE_KEEP=list in the environment: only the list of places an
-#                      update kept before the first release with a four-field tag)
+#                      image's mu300-update; MU300_UPDATE_KEEP=list in the environment asks for the update as it was,
+#                      keeping only the list of places an update kept before the first release with a four-field tag,
+#                      and the report it leaves says what that replaces; an image that does not bring the carry block
+#                      is refused, not updated that way)
 #   DOWNGRADE=0|1      with UPDATE=1: 1 lets an image of an older release replace a system (see the downgrade block);
 #                      not set or 0: that is refused before anything is written
 #   BOOT_OS            system started by the initramfs
@@ -856,8 +858,9 @@ for os in $OSES; do
     # there, by that busybox - one implementation for mu300-update apply, install.sh and the Magisk zip, with nothing
     # of it copied here and none of Android's own tools in it (toybox's cp breaks hard links and makes sparse files
     # dense). By link: the old system is not kept on this path, so its files become the new system's without a copy,
-    # which needs no room. MU300_UPDATE_KEEP=list (environment), or an image without those parts: the update as it
-    # was, keeping the list of places below.
+    # which needs no room. MU300_UPDATE_KEEP=list (environment) asks for the update as it was, keeping the list of
+    # places below; an image without those parts is refused: it would keep only that list (what lost the DNS and proxy
+    # packages' directories, the ssh host keys and /etc/sysupgrade.conf on v2026.11.08.1).
     if [ "${UPDATE:-0}" = 1 ] && [ -d $M/$os ]; then
         carried=0
         cbb=
@@ -886,15 +889,21 @@ for os in $OSES; do
             fi
             carried=1
         elif [ "${MU300_UPDATE_KEEP:-all}" != list ]; then
-            say "this image does not bring what carries everything over (mu300-carry): keeping the settings an update always kept"
+            rm -rf $M/$os.new
+            say "$os: the new image does not bring what carries your files over (mu300-carry): it would keep only the settings an update always kept and replace everything else. $os was not replaced, and nothing of it was changed"
+            say "use a release that brings it (v2026.11.08.2 and later do), or ask for the old behaviour on purpose: MU300_UPDATE_KEEP=list"
+            exit 1
         fi
         extra=
         if [ $carried = 0 ]; then
             # the new image's version and package lists, and the names of its own etc/config files (upk_record)
             image_own_save "$M/$os.new"
             case $os in
-                ubuntu) keep="etc/mu300 etc/ssh etc/hostname etc/localtime etc/timezone etc/fstab home root srv usr/local var/lib/bluetooth" ;;
-                openwrt|openwrt-*) keep="etc/config etc/mu300 etc/unisoc-modem etc/dropbear etc/rc.local etc/crontabs root" ;;
+                # the DNS and proxy packages are installed by hand and the image has no files of theirs: this list
+                # must bring their directories itself (it did not, and an update of this line up to v2026.11.08.1
+                # lost /etc/openclash, /etc/adguardhome, /etc/smartdns, the ssh host keys, /etc/sysupgrade.conf)
+                ubuntu) keep="etc/mu300 etc/ssh etc/hostname etc/localtime etc/timezone etc/fstab home root srv usr/local var/lib/bluetooth etc/openclash etc/adguardhome etc/smartdns etc/msmtprc" ;;
+                openwrt|openwrt-*) keep="etc/config etc/mu300 etc/unisoc-modem etc/dropbear etc/rc.local etc/crontabs root etc/openclash etc/adguardhome etc/smartdns etc/ssh etc/sysupgrade.conf etc/msmtprc" ;;
             esac
             kept=
             for k in $keep; do
@@ -952,6 +961,21 @@ for os in $OSES; do
                 { rm -rf $M/$os.new; say "$upk"; say "$os: could not write down the packages installed on the device; $os was not replaced"; exit 1; }
             printf '%s\n' "$upk" | while IFS= read -r l; do say "$l"; done
             rm -rf "$M/$os.new/.mu300-image"
+            # the report of this way of updating (MU300_UPDATE_KEEP=list): the same file mu300-update report and the
+            # panel show, so what it replaced cannot go unsaid
+            _ffrom=$(head -n1 $M/$os/etc/mu300/image-version 2>/dev/null) || _ffrom=unknown
+            _fto=$(head -n1 $M/$os.new/etc/mu300/image-version 2>/dev/null) || _fto=unknown
+            _frep=$M/$os.new/etc/mu300/update-report
+            mkdir -p $M/$os.new/etc/mu300
+            {
+                printf '==== %s: %s -> %s, %s ====\n' "$os" "$_ffrom" "$_fto" "$(date '+%Y-%m-%d %H:%M')"
+                printf 'The update was asked for with MU300_UPDATE_KEEP=list: only the places an update always kept were kept, and the rest of the system is the new image.\n'
+                printf 'Kept:\n'
+                for k in $keep; do printf '  /%s\n' "$k"; done
+                printf 'Everything else in the previous system was replaced by its files. Without MU300_UPDATE_KEEP=list an update carries every file that is not part of the image over, and names here what it could not put where it was.\n'
+                printf 'The packages installed on the device are installed again at the first boot; the settings the new image does not have are set aside as etc/mu300/orphaned-config, and put back by that install.\n'
+            } > $_frep && chmod 600 $_frep || { rm -rf $M/$os.new; say "$os: could not write the report of what the update kept; $os was not replaced"; exit 1; }
+            : > $_frep.new
         fi
         if [ -f "$M/$os/etc/shadow" ]; then
             # (carried over by the carry block already, when that ran)
