@@ -337,6 +337,9 @@ v6_up() {  # v6_up IID
     fi
     prefix=$(prefix64 "${prefix%/*}")
     sysctl -qw net.ipv6.conf.all.forwarding=1
+    # That switch resets accept_ra to 0 on every interface (the kernel's rule for a forwarding one), undoing
+    # the 2 set above: re-arm it, or the next RA after a reconnect is ignored and the bearer keeps no address.
+    echo 2 > "$c/accept_ra" 2>/dev/null || true
     if ip link show br-lan >/dev/null 2>&1; then
         echo 0 > "$c/accept_ra_pinfo"   # or the next RA puts the address back
         ip -6 addr flush dev "$IFACE" scope global
