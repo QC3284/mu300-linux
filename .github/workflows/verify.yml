@@ -82,6 +82,7 @@ jobs:
           [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
       - name: Build
         run: |
+          set -o pipefail
           mkdir -p "$RUNNER_TEMP/out"
           MU300_TAG="$TAG" MU300_THEME=aurora MU300_ROOTFS_SHA256="$BASE_ROOTFS_SHA256" MU300_APK_UPGRADE=1 \
             bash tools/make-release-layout.sh "$RUNNER_TEMP/base/$BASE_ROOTFS" "$RUNNER_TEMP/out" "$PWD" \
@@ -134,6 +135,7 @@ jobs:
           echo "gate B passed: $(grep -m1 -E "not an AArch64 ELF|dynamically linked" "$RUNNER_TEMP/gate-b.log")"
       - name: The real bundle audit (includes the regulatory database signature)
         run: |
+          set -o pipefail
           MU300_AUDIT_TOOLS="$PWD/tools" sh tools/check-update-audit.sh \
             "$RUNNER_TEMP/out/mu300-immortalwrt-rootfs.tar.gz" opt/mu300/bin/busybox immortalwrt,openwrt,openwrt-luci \
             | tee "$RUNNER_TEMP/audit.log"
@@ -184,6 +186,7 @@ jobs:
           [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
       - name: Run the migration suite
         run: |
+          set -o pipefail
           MU300_VERIFY_RUNTIME=direct sh tools/verify/chroot-suite.sh \
             "$RUNNER_TEMP/bundle/mu300-immortalwrt-rootfs.tar.gz" \
             "$RUNNER_TEMP/base/$BASE_ROOTFS" \
@@ -217,11 +220,13 @@ jobs:
       - name: The whole test suite
         if: ${{ inputs.suites == 'full' }}
         run: |
+          set -o pipefail
           cd tests
           python3 -m unittest discover -s . -p "test_*.py" -v 2>&1 | tee "$RUNNER_TEMP/pytest.log"
       - name: The quick tests
         if: ${{ inputs.suites != 'full' }}
         run: |
+          set -o pipefail
           cd tests
           python3 -m unittest -v test_regdb_gate test_ndp_learn test_device_scripts.Os 2>&1 | tee "$RUNNER_TEMP/pytest.log"
       - name: Upload the log
