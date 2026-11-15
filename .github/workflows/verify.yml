@@ -216,7 +216,10 @@ jobs:
 
   pytest:
     name: Tests
-    runs-on: ubuntu-latest
+    # Python 3.12, the version the suite was written against: ubuntu-latest has moved to a newer
+    # Python where the suite's generator+subTest helper raises RuntimeError/generator ignored GeneratorExit
+    # (the pinned-env item in the approved test-infra plan). Keep the OS pinned until the helper is converted.
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - name: Checkout
