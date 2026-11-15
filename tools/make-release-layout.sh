@@ -184,6 +184,12 @@ for _v6rv in $_v6rt; do
         exit 1
     }
 done
+# The package upgrade above installs the feed's build of luci-app-mu300, and its htdocs are older than this tree:
+# the image's views, i18n and styles are always this tree's (the provider list below is the rest of the app).
+if [ -d "$TREE/openwrt/luci-app-mu300/htdocs" ]; then
+    mkdir -p "$OUT/r/www"
+    cp -a "$TREE/openwrt/luci-app-mu300/htdocs/." "$OUT/r/www/"
+fi
 P=$TREE/openwrt/luci-app-mu300/root
 for _pf in \
     usr/libexec/rpcd/mu300dash \
