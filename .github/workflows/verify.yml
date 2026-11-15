@@ -203,7 +203,7 @@ jobs:
         run: |
           set -o pipefail
           MU300_PANEL_POLLS=120 MU300_VERIFY_RUNTIME=docker MU300_VERIFY_DOCKER_IMAGE=ubuntu:24.04 \
-            sh tools/verify/panel-speed.sh "$RUNNER_TEMP/chroot-work" "$PWD" | tee "$RUNNER_TEMP/panel-speed.log"
+            sh tools/verify/panel-speed.sh "$RUNNER_TEMP/chroot-work/chroot" "$PWD" 2>&1 | tee "$RUNNER_TEMP/panel-speed.log"
       - name: Upload the log
         if: always()
         uses: actions/upload-artifact@v4
