@@ -10,6 +10,7 @@ set -e
 # The mount table rather than mountpoint(1): the image's busybox has no mountpoint applet and the static busybox in
 # /opt/mu300/busybox-bin is not on every PATH this runs under. MU300_MOUNTS is the test seam.
 mounts=${MU300_MOUNTS:-/proc/mounts}
+osr=${MU300_OS_RELEASE:-/etc/os-release}
 is_mountpoint() {
     p=${1%/}
     [ -n "$p" ] || p=/
@@ -21,7 +22,7 @@ is_mountpoint() {
 }
 if is_mountpoint "${MU300_DISK:-/mnt/mu300-disk}"; then
     DISK=${MU300_DISK:-/mnt/mu300-disk}
-elif [ -x /lib/systemd/systemd ] && [ ! -d /ubuntu ] && [ -f /etc/os-release ] && grep -q '^ID=ubuntu' /etc/os-release; then
+elif [ -x /lib/systemd/systemd ] && [ ! -d /ubuntu ] && [ -f "$osr" ] && grep -q '^ID=ubuntu' "$osr"; then
     DISK=/            # first-install layout: Ubuntu lives in the filesystem root
 else
     echo "cannot find the MU300 disk area (/mnt/mu300-disk)" >&2; exit 1

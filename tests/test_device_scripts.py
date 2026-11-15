@@ -2605,10 +2605,14 @@ class Os(ShellTest):
         # the disk area is recognised through the mount table: the image's busybox has no mountpoint applet
         self.mounts = self.tmp / 'mounts'
         self.mounts.write_text(f'/dev/mmcblk1p1 {self.disk} ext4 rw,relatime 0 0\n')
+        # the first-install fallback reads /etc/os-release; the seam keeps the case the same on an
+        # ubuntu runner as on any other host
+        self.os_release = self.tmp / 'os-release'
+        self.os_release.write_text('ID=arch\n')
 
     def os(self, shell, *args):
         return self.script(shell, BIN / 'mu300-os', *args, MU300_DISK=self.disk, MU300_SYSROOT=self.root,
-                           MU300_MOUNTS=self.mounts)
+                           MU300_MOUNTS=self.mounts, MU300_OS_RELEASE=self.os_release)
 
     def test_lists_the_third_system(self):
         for shell in self.each_shell():
