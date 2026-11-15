@@ -40,11 +40,13 @@ tar -xzf "$ROOTFS" -C "$OUT/r"
 if [ "${MU300_APK_UPGRADE:-1}" = 1 ]; then
     command -v docker >/dev/null 2>&1 || { echo "MU300_APK_UPGRADE=1 needs docker" >&2; exit 1; }
     echo '== package upgrade =='
-    cp /etc/resolv.conf "$OUT/r/tmp/resolv.conf"
     # The chroot runs as root (chroot(2) needs it), so the files it rewrites would come back root-owned and the
     # rest of this script (run as the user) could not pack them: hand the tree back to this user in the same run.
+    # The resolver has to come from inside the container: a runner's resolver can be a loopback
+    # stub (127.0.0.53) that is not reachable from the container's network namespace, and then
+    # apk update fails (rc 7) with its output suppressed, which is what stopped a CI build.
     docker run --rm --platform linux/arm64 --privileged -v "$OUT/r:/rfs" ubuntu:26.04 \
-        /bin/sh -c "chroot /rfs /bin/sh -c 'apk update >/dev/null 2>&1 && apk upgrade --scripts=no --commit-hooks=no --no-progress' && chown -R $(id -u):$(id -g) /rfs"
+        /bin/sh -c "cp /etc/resolv.conf /rfs/tmp/resolv.conf && chroot /rfs /bin/sh -c 'apk update >/dev/null 2>&1 && apk upgrade --scripts=no --commit-hooks=no --no-progress' && chown -R $(id -u):$(id -g) /rfs"
     rm -rf "$OUT/r/tmp/cache/apk" "$OUT/r/tmp/resolv.conf"
     rm -f "$OUT/r"/etc/config/*.apk-new
     [ ! -f "$OUT/r/dev/null" ] || rm -f "$OUT/r/dev/null"   # apk made a regular one in the chroot, not a device
