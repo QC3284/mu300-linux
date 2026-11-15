@@ -7,6 +7,12 @@ ok() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1: [$2] != [$3]
 reset() { rm -rf /mnt/mu300-disk/openwrt /mnt/mu300-disk/openwrt.old /mnt/mu300-disk/openwrt.new; cp -a /opt/old-base /mnt/mu300-disk/openwrt; }
 loadup() { MU300_LIB=1; export MU300_LIB; . /tmp/newimg/opt/mu300/bin/mu300-update; MU300_DISK=/mnt/mu300-disk; STAGE=/tmp/stage; export MU300_DISK STAGE; }
 echo "== A1 carry: a user file of a package over the update"
+# MU300_VERIFY_DEBUG=1: what the room check sees (a CI filesystem can surprise it)
+[ "${MU300_VERIFY_DEBUG:-0}" = 1 ] && {
+    echo "debug df_root=$(df -Pk / 2>&1 | tr '\n' '|')"
+    echo "debug df_disk=$(df -Pk /mnt/mu300-disk 2>&1 | tr '\n' '|')"
+    echo "debug df_bin=$(command -v df) busybox=$(command -v busybox)"
+}
 reset; loadup
 if carry_ready /tmp/newimg; then echo "PASS carry_ready YES"; else echo "FAIL carry_ready"; fi
 NEW=/mnt/mu300-disk/openwrt
