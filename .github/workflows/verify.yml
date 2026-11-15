@@ -180,14 +180,38 @@ jobs:
         with:
           name: verify-bundle
           path: ${{ runner.temp }}/bundle
-      - name: The published base image, as the installed system
+      - name: Cache the published base image
+        id: base-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/base
+          key: base-rootfs-${{ env.BASE_ROOTFS_SHA256 }}
+      - name: Download the published base image
+        if: steps.base-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/base"
           gh release download "$BASE_RELEASE" -R "$GITHUB_REPOSITORY" -p "$BASE_ROOTFS" -D "$RUNNER_TEMP/base" --clobber
+      - name: Check the base image
+        run: |
           got=$(sha256sum "$RUNNER_TEMP/base/$BASE_ROOTFS" | cut -d" " -f1)
+          echo "base rootfs sha256: $got"
           [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
+      - name: Cache the chroot container image
+        id: docker-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/docker-ubuntu-24.04.tar
+          key: docker-ubuntu-24.04-arm64-v1
+      - name: Load the chroot container image
+        run: |
+          if [ -f "$RUNNER_TEMP/docker-ubuntu-24.04.tar" ]; then
+            docker load -i "$RUNNER_TEMP/docker-ubuntu-24.04.tar"
+          else
+            docker pull --platform linux/arm64 ubuntu:24.04
+            docker save -o "$RUNNER_TEMP/docker-ubuntu-24.04.tar" ubuntu:24.04
+          fi
       - name: Run the migration suite
         run: |
           set -o pipefail
@@ -215,12 +239,16 @@ jobs:
             ${{ runner.temp }}/panel-speed.log
 
   pytest:
-    name: Tests
-    # Python 3.12, the version the suite was written against: ubuntu-latest has moved to a newer
-    # Python where the suite's generator+subTest helper raises RuntimeError/generator ignored GeneratorExit
-    # (the pinned-env item in the approved test-infra plan). Keep the OS pinned until the helper is converted.
+    name: Tests shard ${{ matrix.shard }}/4
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    env:
+      SHARDS: 4
+      SHARD: ${{ matrix.shard }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -235,14 +263,16 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq dash busybox lz4 zip unzip cpio jq python3-tk xvfb >/dev/null
           python3 -m pip install --user --break-system-packages lz4
-      - name: The whole test suite
+      - name: The test modules of this shard
         if: ${{ inputs.suites == 'full' }}
         run: |
           set -o pipefail
+          mods=$(python3 tests/shard.py "$SHARDS" "$SHARD")
+          echo "shard $SHARD/$SHARDS: $mods"
           cd tests
-          python3 -m unittest discover -s . -p "test_*.py" -v 2>&1 | tee "$RUNNER_TEMP/pytest.log"
-      - name: The quick tests
-        if: ${{ inputs.suites != 'full' }}
+          python3 -m unittest -v $mods 2>&1 | tee "$RUNNER_TEMP/pytest.log"
+      - name: The quick tests (one shard only)
+        if: ${{ inputs.suites != 'full' && matrix.shard == 0 }}
         run: |
           set -o pipefail
           cd tests
@@ -251,7 +281,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verify-pytest
+          name: verify-pytest-shard-${{ matrix.shard }}
           if-no-files-found: warn
           path: ${{ runner.temp }}/pytest.log
 
@@ -289,10 +319,25 @@ jobs:
               cat "$RUNNER_TEMP/artifacts/verify-bundle/SHA256SUMS"
               echo '```'
             fi
-            for f in chroot-suite pytest; do
-              log="$RUNNER_TEMP/artifacts/verify-${f%%-*}/$f.log"
+            log="$RUNNER_TEMP/artifacts/verify-chroot/chroot-suite.log"
+            if [ -f "$log" ]; then
+              echo "## migration suite (last lines)"
+              echo '```'
+              tail -n 25 "$log"
+              echo '```'
+            fi
+            echo "## tests combined"
+            echo '```'
+            for log in "$RUNNER_TEMP"/artifacts/verify-pytest-shard-*/pytest.log; do
               [ -f "$log" ] || continue
-              echo "## $f (last lines)"
+              shard=$(basename "$(dirname "$log")")
+              echo "$shard: $(grep -E '^(Ran |OK|FAILED)' "$log" | tail -2 | tr '\n' ' ')"
+            done
+            echo '```'
+            for log in "$RUNNER_TEMP"/artifacts/verify-pytest-shard-*/pytest.log; do
+              [ -f "$log" ] || continue
+              shard=$(basename "$(dirname "$log")")
+              echo "## $shard (last lines)"
               echo '```'
               tail -n 25 "$log"
               echo '```'
