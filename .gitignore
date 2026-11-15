@@ -50,3 +50,6 @@ upstream/out-*/
 tests/mu300-test-*/
 # the release smoke test's boards (tools/smoke.py; tools/smoke.example.json is the example)
 /tools/smoke.json
+
+# the signed regulatory database pair the release ships (rootfs/overlay/lib/firmware)
+!rootfs/overlay/lib/firmware/

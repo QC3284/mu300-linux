@@ -37,6 +37,12 @@ needs etc/mu300/image-manifest.gz
 for u in $(printf '%s\n' "$UNIONS" | tr ',' ' '); do
     needs "opt/mu300/lib/image-manifests/$u.gz"
 done
+# the regulatory database has to be the signed pair of the release: the package ships only the database, an
+# upgrade leaves the signature of the base image behind, and the kernel here is built with
+# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y - a database whose signature does not verify makes cfg80211 fall back to
+# the world regdomain (5 GHz ch36 NO-IR, hostapd AP-DISABLED: the v2026.11.08.5 device test).
+sh "$TOOLS/check-regdb.sh" "$IMG" || fail=1
+
 # the helper is a static AArch64 binary: one built by the amd64 kbuild container (or with the host's cc) cannot run
 # in the image at all, and the update would fall back to the list of places it was supposed to replace
 tar -xzf "$IMG" -C "$T" ./opt/mu300/bin/mu300-carry 2>/dev/null || true

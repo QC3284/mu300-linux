@@ -10968,3 +10968,19 @@ data-preserving path is their diff OTA (`unisoc-diff-ota-2`, release-file diff a
 touched), so the on-device updater's carry is what makes ours equivalent.
 
 
+
+
+**A WiFi AP that would not start (2026-11-15): the image shipped a database and another version signature.** The
+v2026.11.08.5 image carried the 2026.09.03 `regulatory.db` (6308 B, sha256 `7ed5b718a04b2ab7fd780debe3cd16594767984529c50d51b4eaf98e1be4c476`)
+under the 2026.05.30 `regulatory.db.p7s` (1085 B, `c941c08f51c93e46722293b85631604c3740d86c3de0c75f79aef50d2e919179`): the base
+image we relabel was built with the older pair, and the package upgrade replaced only the database (`apk info -L wireless-regdb`
+lists `lib/firmware/regulatory.db` and no signature; the feed package database is a different build, 6308 B against the release
+tarball 6348 B). The kernel is built with `CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`, so the pair failed `openssl smime -verify`,
+cfg80211 fell back to the world regdomain, 5 GHz ch36 became NO-IR and hostapd disabled the AP (device-eng4 .5 acceptance; the
+old pair of the base image verifies fine). The tree now carries the signed pair of the wireless-regdb 2026.09.03 release itself
+(`rootfs/overlay/lib/firmware/regulatory.db` 6348 B `7e236caecd939c8ec98be4870bf30422f28ffef2565a38aaaa2d9ddabd0c2641`,
+`regulatory.db.p7s` 1085 B `50332f0db09b8bcc719235ec4985c27377f2cc2f42abb7b5dcf951866c5a888a`, from the sources.openwrt.org
+tarball `b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d`, signer CN=wens); `tools/make-release-layout.sh`
+copies it over the upgraded image, and the new `tools/check-regdb.sh`, called by `tools/check-update-audit.sh`, refuses an image
+whose pair does not verify (`tests/test_regdb_gate.py`). The image database is therefore the release file and differs from the
+package record; only the signature matters to the kernel.

@@ -50,6 +50,18 @@ if [ "${MU300_APK_UPGRADE:-1}" = 1 ]; then
     [ ! -f "$OUT/r/dev/null" ] || rm -f "$OUT/r/dev/null"   # apk made a regular one in the chroot, not a device
     echo "packages installed: $(grep -c '^P:' "$OUT/r/lib/apk/db/installed" 2>/dev/null || echo '?')"
 fi
+# The regulatory database: the wireless-regdb package ships only regulatory.db, the kernel here is built with
+# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y, and the upgrade above replaces the database while the signature of the
+# base image stays (the v2026.11.08.5 image carried the 2026.09.03 database under the 2026.05.30 signature:
+# cfg80211 fell back to the world regdomain, 5 GHz ch36 became NO-IR and hostapd disabled the AP). The tree
+# carries the pair of the wireless-regdb release itself (2026.09.03, signed by CN=wens); tools/check-regdb.sh
+# verifies it in the audit before the image is packed.
+for _rf in lib/firmware/regulatory.db lib/firmware/regulatory.db.p7s; do
+    [ -f "$TREE/rootfs/overlay/$_rf" ] || { echo "regulatory database file missing from the tree: $_rf" >&2; exit 1; }
+    mkdir -p "$OUT/r/lib/firmware"
+    cp "$TREE/rootfs/overlay/$_rf" "$OUT/r/$_rf"
+    chmod 644 "$OUT/r/$_rf"
+done
 printf 'sdcard\ngpt-root\ntheme=%s\n' "$THEME" > "$OUT/r/features"
 # The boot directory's tag names the release the kernel came from; the panel offers an update while it differs from the
 # installed image-version. A release that ships a boot image writes it here.

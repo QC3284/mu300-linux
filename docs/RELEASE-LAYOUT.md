@@ -22,8 +22,20 @@ changes nothing, unless the old behaviour is asked for on purpose with `MU300_UP
 
 The layout then runs `tools/check-update-audit.sh` on the finished rootfs asset: the helper is there, executable,
 static and AArch64 (an x86-64 helper built on an amd64 host is refused), the updater and `etc/mu300/image-manifest.gz`
-are there, the image carries exactly the unions it ships, and `tools/image-manifest.py check` passes. `tools/make-release.sh`
-runs the same script for its images.
+are there, the image carries exactly the unions it ships, the regulatory database pair verifies
+(`tools/check-regdb.sh`), and `tools/image-manifest.py check` passes. `tools/make-release.sh` runs the same script
+for its images.
+
+## The image must carry a signed regulatory database
+
+`make-release-layout.sh` copies the signed pair of the wireless-regdb release — `lib/firmware/regulatory.db` and
+`lib/firmware/regulatory.db.p7s` from `rootfs/overlay/lib/firmware` — over the upgraded image, and
+`tools/check-update-audit.sh` runs `tools/check-regdb.sh` on the finished rootfs asset: the pair must verify
+(`openssl smime -verify`). The kernel is built with `CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`, so an image carrying a
+database with another version signature boots with the world regdomain (5 GHz ch36 NO-IR, hostapd AP-DISABLED: the
+v2026.11.08.5 device test). The wireless-regdb package ships only `regulatory.db`, so the package upgrade replaces the
+database and leaves the signature of the image it was relabelled from behind; the tree carries the pair of the release
+itself (2026.09.03, signed by CN=wens).
 
 ## Built 2026-10-24 (from rootfs `aad9ca47`)
 
