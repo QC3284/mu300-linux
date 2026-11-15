@@ -108,8 +108,11 @@ jobs:
       - name: "Gate A: the layout refuses a helper built on the runner"
         run: |
           set -eu
+          # a file that is no AArch64 ELF at all: on an arm64 runner /bin/true is aarch64 and only
+          # the linking check would catch it; the arch check is what has to refuse this one
+          printf 'not an ELF\n' > "$RUNNER_TEMP/not-an-elf"
           if MU300_TAG="$TAG" MU300_THEME=aurora MU300_ROOTFS_SHA256="$BASE_ROOTFS_SHA256" \
-               MU300_APK_UPGRADE=0 MU300_CARRY=/bin/true \
+               MU300_APK_UPGRADE=0 MU300_CARRY="$RUNNER_TEMP/not-an-elf" \
                bash tools/make-release-layout.sh "$RUNNER_TEMP/base/$BASE_ROOTFS" "$RUNNER_TEMP/gate-a" "$PWD" \
                > "$RUNNER_TEMP/gate-a.log" 2>&1; then
             echo "gate A failed: the layout accepted an x86-64 helper"; exit 1
@@ -122,7 +125,8 @@ jobs:
           set -eu
           mkdir -p "$RUNNER_TEMP/gateb"
           tar -xzf "$RUNNER_TEMP/out/mu300-immortalwrt-rootfs.tar.gz" -C "$RUNNER_TEMP/gateb"
-          cp /bin/true "$RUNNER_TEMP/gateb/opt/mu300/bin/mu300-carry"
+          printf 'not an ELF\n' > "$RUNNER_TEMP/gateb/opt/mu300/bin/mu300-carry"
+          chmod 755 "$RUNNER_TEMP/gateb/opt/mu300/bin/mu300-carry"
           ( cd "$RUNNER_TEMP/gateb" && tar -czf "$RUNNER_TEMP/gate-b.tar.gz" \
               ./opt/mu300/bin/mu300-carry ./opt/mu300/bin/mu300-update ./opt/mu300/bin/mu300-user-packages \
               ./etc/mu300/image-manifest.gz ./opt/mu300/lib/image-manifests/immortalwrt.gz \
