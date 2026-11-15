@@ -113,7 +113,7 @@ return view.extend({
 			intervalMs = pollSeconds(uci.get('unisoc_modem', 'main', 'home_refresh_interval')) * 1000;
 		});
 		/* Read the full status once now; never run the sysinfo and status collections twice at the same time. */
-		var first = L.resolveDefault(M.callStatus()).then(function(st) {
+		var first = L.resolveDefault(M.callStatus('0')).then(function(st) {
 			self.update(st || {});
 		});
 		/* LuCI poll.add() truncates intervals to whole seconds. Use a one-shot
@@ -122,7 +122,7 @@ return view.extend({
 		var fails = 0;
 		function refresh() {
 			if (!document.documentElement.contains(root)) return;
-			Promise.resolve(M.callStatus()).then(function(st) {
+			Promise.resolve(M.callStatus('0')).then(function(st) {
 				fails = st && st.info ? 0 : fails + 1;
 				self.update(st || {});
 			}, function() { fails++; }).finally(function() {
@@ -570,6 +570,8 @@ return view.extend({
 
 	update: function(st) {
 		var i = st.info || {};
+		/* A snapshot without the info object must not blank the static cards: keep the last one. */
+		if (!i.ts && this.lastInfo && this.lastInfo.ts) i = this.lastInfo;
 		this.lastInfo = i;
 		if (i.ts && this._bootEl) {
 			this._bootEl.classList.remove('mud-booting');
@@ -589,6 +591,10 @@ return view.extend({
 				sig_src: s.sig_src, sig: s.sig, lte: s.lte, nr: s.nr
 			}) : s;
 		}
+		/* A round with no cellular reading (the first after a restart, or one that could not
+		 * answer) must not blank the cards: a null is "nothing new", an error object is not
+		 * data either - keep what the cards show. */
+		if ((!c || c.error) && this.lastCell) c = this.lastCell;
 		this.lastCell = c;
 		/* Slow-tier data (neighbors/carrier/identity) is redrawn only when the whole cache's timestamp changes */
 		var fullTs = (st.cell && st.cell.ts) || 0;
@@ -682,7 +688,8 @@ return view.extend({
 			M.set('rx', M.fmtBytes(net.rx)); M.set('tx', M.fmtBytes(net.tx));
 			this.lastNet = { ts: i.ts, rx: net.rx, tx: net.tx };
 		}
-		this.paintUsage(i.traffic || null);
+		// the fast provider reports the summary; older replies (and the author's view.json) carry traffic
+		this.paintUsage(i.traffic_summary || i.traffic || null);
 		/* a newer release: the updater's own note (mu300-update notice, at boot and every 6 hours), a link to System > Update */
 		M.v('update').style.display = i.update ? '' : 'none';
 		if (i.update) M.set('update', _('Version %s is out: update').format(i.update));

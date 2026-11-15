@@ -330,7 +330,7 @@ return view.extend({
 	/* The carrier and the neighbors are slow metadata; the live signal is never read from here. */
 	loadServingMeta: function() {
 		var self = this;
-		return L.resolveDefault(M.callStatus()).then(function(st) {
+		return L.resolveDefault(M.callStatus('0')).then(function(st) {
 			self.servingMeta = (st || {}).cell || {};
 		});
 	},

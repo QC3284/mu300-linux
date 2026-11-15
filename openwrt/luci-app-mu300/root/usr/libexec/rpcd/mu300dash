@@ -196,6 +196,29 @@ fast_busy() {
 }
 age_of() { [ -s "$1" ] && echo $(( $(now) - $(date -r "$1" +%s 2>/dev/null || echo 0) )) || echo -1; }
 
+# Short copies of the replies the pages poll faster than the shell adapters answer
+# (cpu_get ~530 ms, sms_list ~290 ms, lock_get ~160 ms, traffic_get ~150 ms): the
+# pages poll every 1.5-2 s, so a copy younger than 2 s is the previous poll's answer
+# and the adapter does not run again. /run (never the flash image), root only.
+CACHE=$MU300_DASH_CACHE
+[ -n "$CACHE" ] || CACHE=/run/mu300-dash-cache
+CACHE_TTL=$MU300_DASH_CACHE_TTL
+[ -n "$CACHE_TTL" ] || CACHE_TTL=2
+cache_get() {  # cache_get NAME [TTL]: the stored reply, when younger than TTL s (default 2)
+    local f=$CACHE/$1 a t=2
+    [ $# -lt 2 ] || t=$2
+    a=$(age_of "$f")
+    [ "$a" -ge 0 ] && [ "$a" -le "$t" ] || return 1
+    cat "$f"
+}
+cache_put() {  # cache_put NAME: the reply on stdin becomes the stored one
+    local f=$CACHE/$1
+    private_dir "$CACHE" || return 1
+    cat > "$f.$$" && mv -f "$f.$$" "$f"
+}
+cache_drop() { rm -f "$CACHE/$1" 2>/dev/null; }
+cache_drop_prefix() { rm -f "$CACHE/$1"* 2>/dev/null; }
+
 m_status() {
     local info cage sage busy=0 fbusy=0
     info=$(json_obj "$("$DASH/dashboard-info" 2>/dev/null)") || info='{"error":"Dashboard info failed"}'
@@ -547,7 +570,7 @@ m_lock_set() {
 # sms_job tells how it went); sync runs detached because CMGL walks the SIM.
 
 SMS_ID='[0-9]{1,6}'
-m_sms_list() {
+m_sms_list_now() {
     local page out sms_store sms_used sms_total sms_seen
     inp '@.page'; page=${V:-1}
     allowed "$page" "$SMS_ID" || { refuse 'Invalid page'; return; }
@@ -602,6 +625,21 @@ m_sms_list() {
                     (n++ ? "," : ""), id, jesc(st), jesc(dir), jesc(peer), jesc(tm), jesc(prev)
         }
         END { if (NR) print "]}"; else print "{\"error\":\"No output\"}" }'
+}
+
+# The SMS page's own poll: the parsed pool copy above, 2 s; a send, delete or sync
+# drops it so the next poll reads the pool again.
+m_sms_list() {
+    local page out sim=$MU300_SIM_SLOT
+    inp '@.page'; page=$V
+    [ -n "$page" ] || page=1
+    case $page in *[!0-9]*) page=1 ;; esac
+    [ -n "$sim" ] || sim=0
+    out=$(cache_get "sms-list-$sim-$page" $CACHE_TTL 2>/dev/null) && { printf '%s\n' "$out"; return 0; }
+    out=$(m_sms_list_now)
+    printf '%s\n' "$out"
+    case $out in '{"error"'*) return 0 ;; esac
+    json_obj "$out" >/dev/null && printf '%s\n' "$out" | cache_put "sms-list-$sim-$page" 2>/dev/null
 }
 
 m_sms_show() {
@@ -694,6 +732,7 @@ m_sms_job() {
 }
 
 m_sms_send() {
+    cache_drop_prefix sms-list-
     local num text
     inp '@.num'; num=$V
     inp '@.text'; text=$V
@@ -735,6 +774,7 @@ m_sms_send() {
 }
 
 m_sms_delete() {
+    cache_drop_prefix sms-list-
     local id sim out
     inp '@.id'; id=$V
     inp '@.sim'; sim=$V
@@ -754,6 +794,7 @@ m_sms_delete() {
 }
 
 m_sms_sync() {
+    cache_drop_prefix sms-list-
     ( setsid "$SMS" sync </dev/null >/dev/null 2>&1 & )
     printf '{"ok":1,"started":1}\n'
 }
@@ -904,6 +945,7 @@ m_forward_log_clear() { reply_obj "$("$FWDA" logclear 2>/dev/null)" 'The forward
 CPUA=${MU300_CPU_ADAPTER:-$DASH/cpu}
 m_cpu_get_core() { reply_obj "$("$CPUA" get 2>/dev/null)" 'The CPU adapter gave no valid reply'; }
 m_cpu_set() {
+    cache_drop cpu
     local profile
     inp '@.profile'; profile=$V
     allowed "$profile" '(saving|balanced|performance)' || { refuse 'Invalid CPU profile'; return; }
@@ -911,6 +953,7 @@ m_cpu_set() {
 }
 # cpu_tune: a core online or offline, or CPU0's low latency; the adapter and mu300-cpu check them again
 m_cpu_tune() {
+    cache_drop cpu
     local op cpu state
     inp '@.op'; op=$V
     inp '@.cpu'; cpu=$V
@@ -1183,7 +1226,7 @@ m_sim_get_core() { reply_obj "$("$SIMCTL" status --json 2>/dev/null)" 'SIM contr
 
 # the panel's lock_get adds what the modem can be written to, and the two voice switches
 # (the card's saved choices: files only, no AT in the request path)
-m_lock_get() {
+m_lock_get_union() {
     local out nr lte v en
     out=$(m_lock_get_core 2>/dev/null)
     json_obj "$out" >/dev/null || { printf '%s\n' "${out:-{\"error\":\"Lock read failed\"}}"; return; }
@@ -1203,6 +1246,24 @@ m_lock_get() {
     nv=$([ -n "$v" ] && printf '%s' "$v" | jsonfilter -e "@.slots[${MU300_SIM_SLOT:-0}].vonr" 2>/dev/null)
     printf '%s,"write_caps":{"nr":"%s","lte":"1,3,5,8,34,38,39,40,41"},"volte":%s,"vonr":%s}\n' \
         "${out%?}" "$nr" "$(en "$nl")" "$(en "$nv")"
+}
+
+# The lock page's cached read: 2 s, and never a fresh=1 request (that one asks the
+# modem). lock_set/apply paths do not read through this copy.
+m_lock_get() {
+    local fresh out key sim=$MU300_SIM_SLOT
+    inp '@.fresh'; fresh=$V
+    [ -n "$sim" ] || sim=0
+    key="lock-$sim"
+    if [ "$fresh" != 1 ]; then
+        out=$(cache_get "$key" $CACHE_TTL 2>/dev/null) && { printf '%s\n' "$out"; return 0; }
+    fi
+    out=$(m_lock_get_union)
+    printf '%s\n' "$out"
+    if [ "$fresh" != 1 ]; then
+        case $out in '{"error"'*) return 0 ;; esac
+        json_obj "$out" >/dev/null && printf '%s\n' "$out" | cache_put "$key" 2>/dev/null
+    fi
 }
 
 # the panel's lock_status: our lock applies detached and records its result in the cache
@@ -1248,7 +1309,7 @@ m_sim_get() {
 
 # the panel's data usage: the union of our page's counters (mu300-traffic) and the author's
 # traffic service (unisoc.traffic: config, status, months) - the two ledgers stay separate
-m_traffic_get() {
+m_traffic_get_union() {
     local ours auth cfg status months slot
     inp '@.slot'; slot=${V:-0}
     allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
@@ -1263,8 +1324,21 @@ m_traffic_get() {
     printf '%s,"config":%s,"status":%s,"months":%s}\n' "${ours%?}" "${cfg:-null}" "${status:-null}" "${months:-null}"
 }
 
+# The data usage page's own poll: the union copy above, 2 s (traffic_set/clear drop it).
+m_traffic_get() {
+    local slot out
+    inp '@.slot'; slot=$V
+    case $slot in 0|1) ;; *) slot=0 ;; esac
+    out=$(cache_get "traffic-$slot" $CACHE_TTL 2>/dev/null) && { printf '%s\n' "$out"; return 0; }
+    out=$(m_traffic_get_union)
+    printf '%s\n' "$out"
+    case $out in '{"error"'*) return 0 ;; esac
+    json_obj "$out" >/dev/null && printf '%s\n' "$out" | cache_put "traffic-$slot" 2>/dev/null
+}
+
 # the panel's traffic_set/clear carry the author's payload; our page keeps its op/value form
 m_traffic_set() {
+    cache_drop_prefix traffic-
     local payload slot
     inp '@.payload'; payload=$V
     if [ -z "$payload" ]; then m_traffic_set_core; return; fi
@@ -1274,6 +1348,7 @@ m_traffic_set() {
     reply_obj "$(ubus -t 5 call unisoc.traffic set "{\"payload\":$(json_str "$payload"),\"slot\":$slot}" 2>/dev/null)" 'The data usage service gave no valid reply'
 }
 m_traffic_clear() {
+    cache_drop_prefix traffic-
     local confirm slot
     inp '@.confirm'; confirm=$V
     inp '@.slot'; slot=${V:-0}
@@ -1372,10 +1447,17 @@ m_v50_sim_get() { reply_obj "$("${MU300_V50_SIM:-/opt/mu300/bin/mu300-v50-sim}" 
 # the panel's cpu_get/cpu_apply: the author CPU snapshot merged with our profile fields
 m_cpu_get() {
     local out
+    out=$(cache_get cpu $CACHE_TTL 2>/dev/null) && { printf '%s\n' "$out"; return 0; }
     out=$("$DASH/panel-cpu-get" 2>/dev/null)
-    if json_obj "$out" >/dev/null; then printf '%s' "$out"; else m_cpu_get_core; fi
+    if json_obj "$out" >/dev/null; then
+        printf '%s\n' "$out"
+        printf '%s\n' "$out" | cache_put cpu 2>/dev/null
+    else
+        m_cpu_get_core
+    fi
 }
 m_cpu_apply() {
+    cache_drop cpu
     local payload
     inp '@.payload'; payload=$V
     [ -n "$payload" ] && [ ${#payload} -le 4096 ] || { refuse 'Invalid CPU settings'; return; }

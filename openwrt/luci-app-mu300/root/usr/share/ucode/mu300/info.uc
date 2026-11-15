@@ -31,6 +31,17 @@ function spawn(cmd) {
     pipe.close();
     return true;
 };
+
+// A short command whose answer is data (the SIM selector's own account, the VPN
+// module's orphan check): fs.popen forks, and only a snapshot that is not cached
+// runs it (mu300status keeps that copy).
+function runcmd(cmd) {
+    let pipe=fs.popen(cmd, 'r');
+    if(!pipe)return '';
+    let out=pipe.read('all') || '';
+    pipe.close();
+    return out;
+};
 export function sim_state(slot) {
     if(!(slot in ['0','1']))return 'unknown';
     let row=obj('/run/mu300-registration/sim'+slot+'.json');
@@ -80,7 +91,7 @@ function board() {
 };
 export function power() {
     const base='/sys/class/power_supply';
-    let model=board(), battery=null, usb=null;
+    let model=board(), battery=null, usb=null, usb_dir=null;
     let names=['battery','sc27xx-fgu',...(fs.lsdir(ROOT+base) || [])], seen={};
     for(let name in names) {
         if(seen[name])continue; seen[name]=true;
@@ -93,14 +104,23 @@ export function power() {
         }
         if(name in ['usb','ac','bq256xx-charger'] || match(kind,/^(USB|Mains)/)) {
             let on=num(rd(p+'/online'));
-            if(on==1)usb=1; else if(on==0 && usb==null)usb=0;
+            if(on==1){if(usb_dir==null)usb_dir=p; usb=1;}
+            else if(on==0 && usb==null)usb=0;
         }
     }
     let volts=battery?num(rd(battery+'/voltage_now')):null;
+    let amps=battery?num(rd(battery+'/current_now')):null;
+    let in_volts=usb_dir?num(rd(usb_dir+'/voltage_now')):null;
+    let in_amps=usb_dir?num(rd(usb_dir+'/current_now')):null;
+    if(in_amps==null && usb_dir)in_amps=num(rd(usb_dir+'/input_current_now'));
+    // watts: |V x I| in W with two decimals, as dashboard-info printed them (never from a zero voltage)
+    let watts=(v,a)=>(v!=null && a!=null && v>0)?+sprintf('%.2f',(v<0?-v:v)*a/1000000000000.0):null;
     return {present:battery?1:0,capacity:battery?num(rd(battery+'/capacity')):null,
         status:battery?text(rd(battery+'/status')):null,
         volt:volts!=null && volts>0?+sprintf('%.2f',volts/1000000.0):null,
-        ua:battery?num(rd(battery+'/current_now')):null,usb};
+        ua:amps,w:watts(volts,amps),usb,
+        in_volt:in_volts!=null && in_volts>0?+sprintf('%.2f',in_volts/1000000.0):null,
+        in_ua:in_amps,in_w:watts(in_volts,in_amps)};
 };
 export function boot() {
     let state=rd('/etc/mu300/default-boot') || rd('/run/mu300/default-boot') || 'android';
@@ -230,13 +250,72 @@ export function info(slot) {
     }
     let urc=fs.stat(ROOT+'/run/mu300-at/urc/stty_nr0.log');
     let ht=replace(wifi.htmode || '',/[^0-9]/g,'');
+    // ---- the dashboard's own additions to the author snapshot (the LuCI home page reads
+    // them; other consumers ignore unknown keys). Same sources dashboard-info used, read
+    // here without its per-command forks.
+    let sim=null;
+    if(executable('/opt/mu300/bin/mu300-sim')) {
+        let st=null;
+        try { st=json(runcmd('/opt/mu300/bin/mu300-sim status --json')); } catch(e) { st=null; }
+        if(type(st)=='object') {
+            let a=st.active, w=st.default, s1=st.slot1_supported;
+            if((a==1 || a==2) && (w==1 || w==2) && (s1==0 || s1==1))sim={slot:a-1,wanted:w-1,slot1_supported:s1};
+            if(sim!=null && type(st.v50)=='object')sim.v50=1;
+        }
+    }
+    // the note mu300-update leaves when a check finds a newer release
+    let update=null, note=getenv('MU300_NOTICE') || '/run/mu300/update-available';
+    for(let line in split(rd(note),'\n')) {
+        let m=match(line,/^mu300-linux (v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[1-9][0-9]?)?) is out /);
+        if(m){update=m[1];break;}
+    }
+    if(update!=null && !match(update,/^v[0-9]{4}\.(0[1-9]|1[0-2])\.(0[1-9]|[12][0-9]|3[01])(\.[1-9][0-9]?)?$/))update=null;
+    // the VPN module: enabled in its config, the selected profile's engine, its link and
+    // the kill-switch orphan state (the module's own function, run in its shell)
+    let vpn={enabled:0,engine:null,up:0,orphaned:0};
+    for(let line in split(rd('/etc/mu300/vpn.conf'),'\n')) if(line=='ENABLE=1')vpn.enabled=1;
+    let vact=rd('/etc/mu300/vpn/active');
+    if(match(vact,/^[a-z0-9-]{1,32}$/)) {
+        for(let line in split(rd('/etc/mu300/vpn/profiles/'+vact+'/meta'),'\n')) {
+            let m=match(line,/^TYPE=(.*)$/);
+            if(m){let e=replace(m[1],/^'|'$/g,''); if(match(e,/^[A-Za-z0-9._-]{1,32}$/))vpn.engine=e; break;}
+        }
+    }
+    if(vpn.engine==null) for(let line in split(rd('/etc/mu300/vpn.conf'),'\n')) {
+        let m=match(line,/^ENGINE=(.*)$/);
+        if(m){vpn.engine=replace(m[1],/^'|'$/g,''); break;}
+    }
+    let vif=rd('/run/mu300-vpn/iface');
+    if(match(vif,/^[A-Za-z0-9_.-]{1,32}$/) && exists('/sys/class/net/'+vif))vpn.up=1;
+    else if(exists('/sys/class/net/xtun') || exists('/sys/class/net/sbtun'))vpn.up=1;
+    if(exists('/opt/mu300/lib/vpn-orphan.sh') &&
+       trim(runcmd('/bin/sh -c ". /opt/mu300/lib/vpn-orphan.sh 2>/dev/null && vpn_killswitch_orphaned /opt/mu300/bin/mu300-vpn >/dev/null 2>&1 && echo 1"'))=='1')vpn.orphaned=1;
+    // data roaming, as dashboard-info read it: the card's own option (slot 1 has its own)
+    // and the marker mobile-data leaves when it holds data back
+    let roaming={allowed:1,held:0}, rkey=(active_slot=='1')?'roaming_internal':'roaming';
+    let rraw=c.get('network',iface,rkey);
+    if(rraw!=null && rraw!='' && (rraw in ['0','off','no','false']))roaming.allowed=0;
+    if(exists(getenv('MU300_ROAM_HELD') || '/run/mu300/data-roaming-held'))roaming.held=1;
+    // the data usage summary the home card paints (the plan ledger's own counters)
+    let tsum={};
+    for(let line in split(rd('/run/mu300/traffic/summary'),'\n')) {
+        let m=match(line,/^([a-z_]+)=(.*)$/);
+        if(m)tsum[m[1]]=m[2];
+    }
+    let tint=(v)=>{let s=v==null?'':''+v; return match(s,/^(0|[1-9][0-9]*)$/)?+s:0;};
+    let tlevel=(tsum.level in ['ok','warn','over','none'])?tsum.level:null;
+    let traffic_summary=tlevel!=null?{level:tlevel,today:tint(tsum.today_rx)+tint(tsum.today_tx),
+        used:tint(tsum.used),cap:tint(tsum.cap),warn:tint(tsum.warn),clock:tint(tsum.clock)}:null;
+    let capabilities={vpn:(executable('/opt/mu300/bin/mu300-vpn') && executable('/etc/init.d/mu300-vpn'))?1:0,
+        dualboot:executable('/opt/mu300/bin/mu300-next-boot')?1:0,
+        bootlock:(exists('/mnt/mu300-disk/.mu300/boot-lock') || exists('/.mu300/boot-lock'))?1:0};
     return {ts:now,uptime:int(rd('/proc/uptime')),host:text(c.get('system','@system[0]','hostname') || rd('/proc/sys/kernel/hostname')),
         model:text(rd('/tmp/sysinfo/model') || replace(rd('/proc/device-tree/model'),/\x00/g,'')),fw,kernel,
         cpu:{n:length(filter(split(rd('/proc/cpuinfo'),'\n'),line=>!!match(line,/^processor[ \t]*:/))),total,idle:(num(cpu[4]) || 0)+(num(cpu[5]) || 0),freqs},
         mem:{total_kb:mem.MemTotal ?? null,avail_kb:mem.MemAvailable ?? null},storage,temps,power:power(),
         net:{mobile:net(mobile),sipa_eth0:net(mobile),brlan:net(lan),wlan0:net(wd),usb0:net(usb)},
         wan:{up:wan.up?1:0,uptime:wan.uptime ?? null,proto:text(wan.proto),device:mobile,apn:selected_apn,
-            ip4:wan['ipv4-address']?.[0]?.address ?? null,ip6:address(rows6,mobile,true),dns:text(join(', ',dns))},
+            ip4:wan['ipv4-address']?.[0]?.address ?? null,ip6:address(rows6,mobile,true),dns:text(join(', ',dns)),roaming},
         wifi:{available:wifi.available?1:0,enabled:wifi.enabled?1:0,pending:wifi.pending?1:0,section:text(wifi.section),radio:text(wifi.radio),
             error:text(wifi.error),up:wifi.up && hapd.status=='ENABLED' && exists('/sys/class/net/'+wd)?1:0,
             ssid:text(wifi.ssid),channel:text(wifi.channel),band:text(wifi.band),width:ht?substr(ht,0,2)+' MHz':null,
@@ -245,8 +324,9 @@ export function info(slot) {
         lan:{leases:length(leases),ip:address(rows4,lan,false),list:leases},
         modem:{data_sim:active_slot in ['0','1']?int(active_slot):null,alive:atd || (urc && now-urc.mtime<240)?1:0,atd:atd?1:0,data_paused:exists('/run/mu300-mobile-data-down')?1:0,
             imeis:equipment(atd,cfg('sim_slots','1')),sims:map(['0','1'],n=>({slot:int(n),state:atd?sim_state(n):'unknown'}))},
-        boot:boot(),capabilities:{dualboot:executable('/opt/mu300/bin/mu300-next-boot')?1:0},
-        conns:conntrack(),traffic:obj('/run/unisoc-modem-traffic/'+(traffic_slot=='1'?'sim1/':'')+'view.json')};
+        boot:boot(),capabilities,
+        conns:conntrack(),data_device:mobile,sim,update,vpn,traffic_summary,
+        traffic:obj('/run/unisoc-modem-traffic/'+(traffic_slot=='1'?'sim1/':'')+'view.json')};
 };
 
 function ident_fix(o) {

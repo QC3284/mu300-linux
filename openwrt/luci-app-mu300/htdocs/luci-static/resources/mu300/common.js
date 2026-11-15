@@ -17,7 +17,11 @@
  * a lock reading behind it, and when the browser gave up on the request (20 s) every call in it failed together - the
  * whole page went blank while one AT command was stuck. */
 
-var callStatus = rpc.declare({ object: 'mu300dash', method: 'status', expect: { '': {} }, nobatch: true });
+/* The dashboard snapshot comes from the ucode provider (mu300status), the object the author's firmware serves:
+ * it builds the info snapshot natively instead of running the shell dashboard-info (1,244 ms measured, 27-39 ms
+ * this way), so the first paint is quick and the poll does not hold the page. mu300dash.status stays for the
+ * compatibility CLI and for older pages that still ask it. */
+var callStatus = rpc.declare({ object: 'mu300status', method: 'status', params: [ 'slot' ], expect: { '': {} }, nobatch: true });
 var callSignal = rpc.declare({ object: 'mu300dash', method: 'signal', expect: { '': {} }, nobatch: true });
 var callSysinfo = rpc.declare({ object: 'mu300dash', method: 'sysinfo', expect: { '': {} }, nobatch: true });
 var callAct    = rpc.declare({ object: 'mu300dash', method: 'act', params: [ 'op', 'arg' ], expect: { '': {} }, nobatch: true });
