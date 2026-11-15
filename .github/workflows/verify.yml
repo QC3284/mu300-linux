@@ -1,0 +1,295 @@
+name: Verify
+
+# Full verification on GitHub runners: the bundle is built the way tools/make-release-layout.sh builds a release,
+# the migration suite runs in a chroot of the built image, and the whole test suite and the release gates run.
+# The host keeps focused checks only (one test file, one migration case); use this for a full run.
+#
+#   gh workflow run verify.yml -f ref=release-20261031 -R QC3284/mu300-linux
+#
+# Dispatch only: a push trigger would spend runner minutes on every work-in-progress commit. The workflow file
+# lives on the default branch, where a dispatchable workflow has to be; the ref input is the branch or tag that
+# gets checked out and verified, so this file on main verifies a release branch.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to verify
+        required: true
+        default: release-20261031
+        type: string
+      tag:
+        description: Tag stamped into the test image (empty means v<UTC date>.99)
+        required: false
+        default: ""
+        type: string
+      suites:
+        description: "full: migration suite and whole test suite; focused: bundle, gates and the quick tests"
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - focused
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ inputs.ref }}
+  cancel-in-progress: true
+
+env:
+  BASE_RELEASE: v2026.10.25.4
+  BASE_ROOTFS: mu300-openwrt-rootfs.tar.gz
+  BASE_ROOTFS_SHA256: 6c767152e80afcd5b2aec1b7eaba9dc64e11b52d411a7c20c98c22cbc951db77
+  KERNEL_RELEASE: v2026.10.31.3
+  KERNEL_ASSET: mu300-kernel-7.2.tar.gz
+  KERNEL_SHA256: d3b37629fab48873192152530c173c0455263156b648a760ec87f8c69e65054b
+
+jobs:
+  bundle:
+    name: Build the bundle and run the gates
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lz4 cpio zip unzip openssl binutils >/dev/null
+          sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
+          docker version --format "docker {{.Server.Version}}"
+      - name: Tag
+        id: tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          [ -n "$TAG" ] || TAG="v$(date -u +%Y.%m.%d).99"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "verifying $(git rev-parse HEAD) as $TAG"
+      - name: The published base image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/base"
+          gh release download "$BASE_RELEASE" -R "$GITHUB_REPOSITORY" -p "$BASE_ROOTFS" -D "$RUNNER_TEMP/base" --clobber
+          got=$(sha256sum "$RUNNER_TEMP/base/$BASE_ROOTFS" | cut -d" " -f1)
+          [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
+      - name: Build
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          MU300_TAG="$TAG" MU300_THEME=aurora MU300_ROOTFS_SHA256="$BASE_ROOTFS_SHA256" MU300_APK_UPGRADE=1 \
+            bash tools/make-release-layout.sh "$RUNNER_TEMP/base/$BASE_ROOTFS" "$RUNNER_TEMP/out" "$PWD" \
+            | tee "$RUNNER_TEMP/build.log"
+          rm -rf "$RUNNER_TEMP/out/stage"
+      - name: The device-proven kernel bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/kernel"
+          gh release download "$KERNEL_RELEASE" -R "$GITHUB_REPOSITORY" -p "$KERNEL_ASSET" -D "$RUNNER_TEMP/kernel" --clobber
+          got=$(sha256sum "$RUNNER_TEMP/kernel/$KERNEL_ASSET" | cut -d" " -f1)
+          [ "$got" = "$KERNEL_SHA256" ] || { echo "the kernel bundle is $got, not $KERNEL_SHA256"; exit 1; }
+          cp "$RUNNER_TEMP/kernel/$KERNEL_ASSET" "$RUNNER_TEMP/out/"
+      - name: SHA256SUMS
+        run: |
+          cd "$RUNNER_TEMP/out"
+          rm -f SHA256SUMS
+          sha256sum mu300-immortalwrt-rootfs.tar.gz mu300-update mu300-kernel-7.2.tar.gz > SHA256SUMS
+          printf "%s  mu300-release\n" "$(printf "%s\n" "$TAG" | sha256sum | cut -d" " -f1)" >> SHA256SUMS
+          grep -v " mu300-release$" SHA256SUMS | sha256sum -c -
+          cat SHA256SUMS
+      - name: "Gate A: the layout refuses a helper built on the runner"
+        run: |
+          set -eu
+          if MU300_TAG="$TAG" MU300_THEME=aurora MU300_ROOTFS_SHA256="$BASE_ROOTFS_SHA256" \
+               MU300_APK_UPGRADE=0 MU300_CARRY=/bin/true \
+               bash tools/make-release-layout.sh "$RUNNER_TEMP/base/$BASE_ROOTFS" "$RUNNER_TEMP/gate-a" "$PWD" \
+               > "$RUNNER_TEMP/gate-a.log" 2>&1; then
+            echo "gate A failed: the layout accepted an x86-64 helper"; exit 1
+          fi
+          grep -q "not an AArch64 ELF" "$RUNNER_TEMP/gate-a.log"
+          rm -rf "$RUNNER_TEMP/gate-a"
+          echo "gate A passed: $(grep -m1 "not an AArch64 ELF" "$RUNNER_TEMP/gate-a.log")"
+      - name: "Gate B: the audit refuses an image with one"
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/gateb"
+          tar -xzf "$RUNNER_TEMP/out/mu300-immortalwrt-rootfs.tar.gz" -C "$RUNNER_TEMP/gateb"
+          cp /bin/true "$RUNNER_TEMP/gateb/opt/mu300/bin/mu300-carry"
+          ( cd "$RUNNER_TEMP/gateb" && tar -czf "$RUNNER_TEMP/gate-b.tar.gz" \
+              ./opt/mu300/bin/mu300-carry ./opt/mu300/bin/mu300-update ./opt/mu300/bin/mu300-user-packages \
+              ./etc/mu300/image-manifest.gz ./opt/mu300/lib/image-manifests/immortalwrt.gz \
+              ./lib/firmware/regulatory.db ./lib/firmware/regulatory.db.p7s )
+          if MU300_AUDIT_TOOLS="$PWD/tools" sh tools/check-update-audit.sh "$RUNNER_TEMP/gate-b.tar.gz" \
+               opt/mu300/bin/busybox immortalwrt,openwrt,openwrt-luci > "$RUNNER_TEMP/gate-b.log" 2>&1; then
+            echo "gate B failed: the audit accepted an x86-64 helper"; exit 1
+          fi
+          grep -q "not an AArch64 ELF" "$RUNNER_TEMP/gate-b.log"
+          echo "gate B passed: $(grep -m1 -E "not an AArch64 ELF|dynamically linked" "$RUNNER_TEMP/gate-b.log")"
+      - name: The real bundle audit (includes the regulatory database signature)
+        run: |
+          MU300_AUDIT_TOOLS="$PWD/tools" sh tools/check-update-audit.sh \
+            "$RUNNER_TEMP/out/mu300-immortalwrt-rootfs.tar.gz" opt/mu300/bin/busybox immortalwrt,openwrt,openwrt-luci \
+            | tee "$RUNNER_TEMP/audit.log"
+      - name: Collect the logs
+        if: always()
+        run: |
+          for f in build gate-a gate-b audit; do
+            [ ! -f "$RUNNER_TEMP/$f.log" ] || cp "$RUNNER_TEMP/$f.log" "$RUNNER_TEMP/out/"
+          done
+          ls -l "$RUNNER_TEMP/out"
+      - name: Upload the bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-bundle
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/out/
+
+  migration:
+    name: Migration suite in the chroot
+    needs: bundle
+    if: ${{ inputs.suites == 'full' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0  # the suite takes the old mu300-user-packages from its commit in this history
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lz4 cpio zip unzip >/dev/null
+          sudo git config --system --add safe.directory "$GITHUB_WORKSPACE"
+      - name: The bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: verify-bundle
+          path: ${{ runner.temp }}/bundle
+      - name: The published base image, as the installed system
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/base"
+          gh release download "$BASE_RELEASE" -R "$GITHUB_REPOSITORY" -p "$BASE_ROOTFS" -D "$RUNNER_TEMP/base" --clobber
+          got=$(sha256sum "$RUNNER_TEMP/base/$BASE_ROOTFS" | cut -d" " -f1)
+          [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
+      - name: Run the migration suite
+        run: |
+          MU300_VERIFY_RUNTIME=direct sh tools/verify/chroot-suite.sh \
+            "$RUNNER_TEMP/bundle/mu300-immortalwrt-rootfs.tar.gz" \
+            "$RUNNER_TEMP/base/$BASE_ROOTFS" \
+            "$RUNNER_TEMP/chroot-work" "$PWD" | tee "$RUNNER_TEMP/chroot-suite.log"
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-chroot
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/chroot-suite.log
+
+  pytest:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq dash busybox lz4 zip unzip cpio jq python3-tk xvfb >/dev/null
+          python3 -m pip install --user --break-system-packages lz4
+      - name: The whole test suite
+        if: ${{ inputs.suites == 'full' }}
+        run: |
+          cd tests
+          python3 -m unittest discover -s . -p "test_*.py" -v 2>&1 | tee "$RUNNER_TEMP/pytest.log"
+      - name: The quick tests
+        if: ${{ inputs.suites != 'full' }}
+        run: |
+          cd tests
+          python3 -m unittest -v test_regdb_gate test_ndp_learn test_device_scripts.Os 2>&1 | tee "$RUNNER_TEMP/pytest.log"
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-pytest
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/pytest.log
+
+  summary:
+    name: Summary
+    needs: [bundle, migration, pytest]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/artifacts
+      - name: Write the summary
+        env:
+          REF: ${{ inputs.ref }}
+          TAG: ${{ needs.bundle.outputs.tag }}
+          SUITES: ${{ inputs.suites }}
+          BUNDLE: ${{ needs.bundle.result }}
+          MIGRATION: ${{ needs.migration.result }}
+          PYTEST: ${{ needs.pytest.result }}
+        run: |
+          {
+            echo "# Verification $TAG"
+            echo
+            echo "- ref: $REF"
+            echo "- suites: $SUITES"
+            echo "- bundle and gates: $BUNDLE"
+            echo "- migration suite: $MIGRATION"
+            echo "- tests: $PYTEST"
+            echo
+            if [ -f "$RUNNER_TEMP/artifacts/verify-bundle/SHA256SUMS" ]; then
+              echo "## Bundle"
+              echo "```"
+              cat "$RUNNER_TEMP/artifacts/verify-bundle/SHA256SUMS"
+              echo "```"
+            fi
+            for f in chroot-suite pytest; do
+              log="$RUNNER_TEMP/artifacts/verify-${f%%-*}/$f.log"
+              [ -f "$log" ] || continue
+              echo "## $f (last lines)"
+              echo "```"
+              tail -n 25 "$log"
+              echo "```"
+            done
+          } > "$RUNNER_TEMP/summary.md"
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-summary
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/summary.md
+      - name: Fail if a required job failed
+        if: always()
+        env:
+          BUNDLE: ${{ needs.bundle.result }}
+          MIGRATION: ${{ needs.migration.result }}
+          PYTEST: ${{ needs.pytest.result }}
+        run: |
+          [ "$BUNDLE" = success ] || { echo "the bundle job did not pass"; exit 1; }
+          [ "$PYTEST" = success ] || { echo "the test job did not pass"; exit 1; }
+          [ "$MIGRATION" = success ] || [ "$MIGRATION" = skipped ] || { echo "the migration job did not pass"; exit 1; }
