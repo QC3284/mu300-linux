@@ -40,6 +40,9 @@ systems() {
         case $n in lost+found|.*|*.old|*.new|*.broken) continue ;; esac
         is_system "$n" && printf '%s ' "$n"
     done
+    # the glob does not end on a system: the update keeps restore-<date>/ in the disk area, and a trailing
+    # non-system made the loop fail, which is the function's status - set -e then killed found=$(systems)
+    return 0
 }
 
 list() {

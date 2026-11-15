@@ -2595,6 +2595,10 @@ class Os(ShellTest):
             init.parent.mkdir(parents=True)
             init.write_text('#!/bin/sh\n'); init.chmod(0o755)
             (self.disk / name / 'etc').mkdir()
+        # what sorts last in the disk area is not always a system: the update keeps restore-<date>/ here
+        junk = self.disk / 'restore-20261108' / 'user-data'
+        junk.mkdir(parents=True)
+        (junk / 'file').write_text('x\n')
         self.root = self.tmp / 'root'
         (self.root / 'etc' / 'mu300').mkdir(parents=True)
         (self.root / 'etc' / 'mu300' / 'default-boot').write_text('linux\n')
@@ -2632,6 +2636,16 @@ class Os(ShellTest):
             r = self.os(shell)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('openwrt-luci: installed', r.stdout)
+    def test_a_directory_that_is_not_a_system_does_not_break_the_listing(self):
+        # the glob ends with whatever sorts last: a directory that is no system (a restore-<date>/ kept by the
+        # update) used to make systems() return 1, and set -e then killed found=$(systems) in list()
+        shutil.rmtree(self.disk / 'ubuntu')  # an OpenWrt-only disk: the restore/ directory sorts last
+        for shell in self.each_shell():
+            r = self.os(shell)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn('openwrt-luci: installed', r.stdout)
+            self.assertNotIn('restore-20261108', r.stdout)
+
     def test_a_kept_copy_cannot_be_chosen(self):
         for shell in self.each_shell():
             r = self.os(shell, 'openwrt-luci.old')
