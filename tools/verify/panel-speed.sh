@@ -16,6 +16,8 @@
 set -eu
 R=${1:?usage: panel-speed.sh CHROOT_DIR [REPO]}
 REPO=${2:-$(cd "$(dirname "$0")/../.." && pwd)}
+# a chroot-suite work directory holds the root under chroot/: accept it as well
+[ -x "$R/usr/bin/ucode" ] || [ ! -x "$R/chroot/usr/bin/ucode" ] || R=$R/chroot
 [ -x "$R/usr/bin/ucode" ] || { echo "panel-speed: $R is not an image root" >&2; exit 1; }
 TMP=$R/tmp
 mkdir -p "$TMP"
