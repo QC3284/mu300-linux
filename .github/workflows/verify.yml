@@ -271,17 +271,17 @@ jobs:
             echo
             if [ -f "$RUNNER_TEMP/artifacts/verify-bundle/SHA256SUMS" ]; then
               echo "## Bundle"
-              echo "```"
+              echo '```'
               cat "$RUNNER_TEMP/artifacts/verify-bundle/SHA256SUMS"
-              echo "```"
+              echo '```'
             fi
             for f in chroot-suite pytest; do
               log="$RUNNER_TEMP/artifacts/verify-${f%%-*}/$f.log"
               [ -f "$log" ] || continue
               echo "## $f (last lines)"
-              echo "```"
+              echo '```'
               tail -n 25 "$log"
-              echo "```"
+              echo '```'
             done
           } > "$RUNNER_TEMP/summary.md"
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
