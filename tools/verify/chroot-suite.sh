@@ -33,7 +33,7 @@ case ${MU300_VERIFY_RUNTIME:-direct} in
         docker run --rm --privileged --platform linux/arm64 -v "$V:/rfs" "${MU300_VERIFY_DOCKER_IMAGE:-ubuntu:26.04}" \
             /bin/sh -c "mount -t proc proc /rfs/proc; mount -t sysfs sys /rfs/sys; mount --bind /dev /rfs/dev; exec chroot /rfs /bin/sh /tmp/t/driver.sh" 2>&1 | tee "$LOG" ;;
     direct)
-        sudo sh -c "
+        sudo MU300_VERIFY_DEBUG="${MU300_VERIFY_DEBUG:-0}" sh -c "
             mount -t proc proc \"$V/proc\" || exit 1
             mount -t sysfs sys \"$V/sys\" || exit 1
             mount --bind /dev \"$V/dev\" || exit 1
