@@ -189,6 +189,8 @@ jobs:
           got=$(sha256sum "$RUNNER_TEMP/base/$BASE_ROOTFS" | cut -d" " -f1)
           [ "$got" = "$BASE_ROOTFS_SHA256" ] || { echo "the base rootfs is $got, not $BASE_ROOTFS_SHA256"; exit 1; }
       - name: Run the migration suite
+        env:
+          MU300_VERIFY_DEBUG: 1
         run: |
           set -o pipefail
           MU300_VERIFY_RUNTIME=direct sh tools/verify/chroot-suite.sh \
