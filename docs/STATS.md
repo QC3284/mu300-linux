@@ -1,7 +1,7 @@
 # Repository & Community Statistics — `QC3284/mu300-linux`
 
 <!-- STATS:START -->
-> *Last updated: **2026-11-06 06:28:33 UTC** (tracked automatically via GitHub Actions)*
+> *Last updated: **2026-11-16 06:10:24 UTC** (tracked automatically via GitHub Actions)*
 
 ### Overview
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | ⭐ **Stars** | **1** | Stargazers |
 | 🍴 **Forks** | **0** | Forks (0% fork-to-star ratio) |
-| 📥 **Release Asset Downloads** | **436** | 154 OS/Kernel images, 282 checksums |
+| 📥 **Release Asset Downloads** | **607** | 249 OS/Kernel images, 358 checksums |
 | 👥 **Page Views (Archived)** | **1,154** | ~487 unique visitors |
 | 💻 **Git Clones (Archived)** | **668** | ~291 unique cloners |
 
@@ -38,10 +38,26 @@
 
 | Release | Asset | Size | Downloads |
 |---|---|---|---|
-| **v2026.10.31.3** | `latest-argon` | 29 B | **4** |
-|  | `latest-aurora` | 29 B | **31** |
-|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **27** |
+| **v2026.11.07.3** | `latest-argon` | 29 B | **2** |
+|  | `latest-aurora` | 29 B | **47** |
+|  | `mu300-immortalwrt-rootfs.tar.gz` | 28.2 MB | **43** |
+|  | `mu300-kernel-7.2.tar.gz` | 20.4 MB | **1** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 28.2 MB | **2** |
+|  | `mu300-update` | 294.4 KB | **1** |
+|  | `SHA256SUMS` | 441 B | **2** |
+|  | `SHA256SUMS.sig` | 134 B | **2** |
+| **v2026.11.07.1** | `latest-argon` | 29 B | **1** |
+|  | `latest-aurora` | 29 B | **10** |
+|  | `mu300-immortalwrt-rootfs.tar.gz` | 28.0 MB | **9** |
 |  | `mu300-kernel-7.2.tar.gz` | 20.4 MB | **2** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 28.0 MB | **0** |
+|  | `mu300-update` | 294.4 KB | **1** |
+|  | `SHA256SUMS` | 441 B | **3** |
+|  | `SHA256SUMS.sig` | 134 B | **3** |
+| **v2026.10.31.3** | `latest-argon` | 29 B | **5** |
+|  | `latest-aurora` | 29 B | **34** |
+|  | `mu300-immortalwrt-rootfs.tar.gz` | 27.9 MB | **31** |
+|  | `mu300-kernel-7.2.tar.gz` | 20.4 MB | **14** |
 |  | `mu300-openwrt-rootfs.tar.gz` | 27.9 MB | **2** |
 |  | `mu300-update` | 294.4 KB | **2** |
 |  | `SHA256SUMS` | 441 B | **3** |
@@ -58,7 +74,7 @@
 |  | `latest-argon` | 29 B | **1** |
 |  | `latest-aurora` | 29 B | **29** |
 |  | `mu300-openwrt-rootfs-argon.tar.gz` | 29.7 MB | **1** |
-|  | `mu300-openwrt-rootfs.tar.gz` | 27.8 MB | **30** |
+|  | `mu300-openwrt-rootfs.tar.gz` | 27.8 MB | **52** |
 |  | `mu300-update` | 281.7 KB | **2** |
 |  | `SHA256SUMS` | 434 B | **5** |
 |  | `SHA256SUMS.sig` | 151 B | **5** |
