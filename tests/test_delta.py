@@ -416,11 +416,12 @@ class Block(ShellTest):
             self.assertNotIn('not written again', r.stdout)
 
     def test_not_enough_room_changes_nothing(self):
-        self.fresh()
-        before = snapshot(self.old)
-        self.stub('df', 'printf "Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 900000 899000 1000 99%% /x\\n"')
         # (a busybox shell runs its own df applet instead of the stub: skip the shells where it cannot win)
         for shell in self.observable_shells('df'):
+            # every shell starts from a fresh download: a refused apply removes the downloaded files
+            self.fresh()
+            before = snapshot(self.old)
+            self.stub('df', 'printf "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 900000 899000 1000 99%% /x\n"')
             r = self.up(shell, 'apply_one ubuntu v2')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('not enough free space on the Linux partition', r.stderr)

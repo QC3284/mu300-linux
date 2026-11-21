@@ -894,6 +894,7 @@ class MobileData(ShellTest):
     # too), so these run under bash only; under alpine they still use busybox's tail, wc, sleep and awk.
     # `at` is replaced by the modem below, which answers from a table and writes each command it was sent to
     # $STUBLOG/at as "<seconds since the start> <command>".
+    ROAMING_STUB_DEFAULT = True
     MODEM = r'''
 at() {
     echo "$SECONDS $1" >> "$STUBLOG/at"
@@ -967,8 +968,10 @@ at() {
                   'case ${SMMSWAP:-OK} in none) echo "mu300-at: no answer from the daemon" >&2; exit 1 ;;\n'
                   '    busy) echo "mu300-at: busy" >&2; exit 1 ;; esac\n'
                   'echo "${SMMSWAP:-OK}"')
-        # the dial's one judge: check exits $T_ROAM_RC (0 = allowed), get answers home by default
-        if not (self.tmp / 'roaming').exists():
+        # the dial's one judge: check exits $T_ROAM_RC (0 = allowed), get answers home by default.
+        # ROAMING_STUB_DEFAULT is True on MobileData (every dial test needs a judge) and False on DataRoaming,
+        # whose tests unlink the stub to model a missing judge and must not get it resurrected.
+        if getattr(self, 'ROAMING_STUB_DEFAULT', False) and not (self.tmp / 'roaming').exists():
             (self.tmp / 'roaming').write_text('#!/bin/sh\n'
                 'case ${1:-} in\n'
                 '  check) echo "check ${2:-}" >> "$STUBLOG/roaming"; exit "${T_ROAM_RC:-0}" ;;\n'
@@ -1927,6 +1930,7 @@ class DataRoaming(ShellTest):
     cache), never from an AT read. mobile-data is sourced as in MobileData (its lib() and modem); the modem here also
     answers AT+C5GREG? and AT+CGACT?, `uci` answers the two options from $T_ROAM0 / $T_ROAM1, and the adapter is a
     stub ($T_ROAM_RC for check, $T_ROAM_STATE for get) because its real path is the image's."""
+    ROAMING_STUB_DEFAULT = False
     lib = MobileData.lib
     MODEM = MobileData.MODEM.replace(
         "        'AT+CFUN?')",

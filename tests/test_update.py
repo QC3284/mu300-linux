@@ -657,7 +657,7 @@ class FromStock(UpdateBase):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
             subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
+            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', MU300_UPDATE_KEEP='list', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'
             self.assertEqual((new / 'opt/mu300/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
@@ -698,7 +698,7 @@ class FromStock(UpdateBase):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
             subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
+            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', MU300_UPDATE_KEEP='list', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             cfg = self.disk / 'openwrt/etc/config'
             self.assertEqual((cfg / 'network').read_bytes(), b'mine')          # the device's settings win
@@ -754,7 +754,7 @@ class FromStock(UpdateBase):
                 (good / f).write_bytes(data)
             stage.mkdir(exist_ok=True)
             subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
+            r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', MU300_UPDATE_KEEP='list', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'
             self.assertEqual((new / 'opt/mu300/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
