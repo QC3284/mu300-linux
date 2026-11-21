@@ -54,7 +54,7 @@ LOCK=${MU300_SMS_LOCK:-/run/mu300-smsd.lock}
 while ! mkdir "$LOCK" 2>/dev/null; do
     owner=$(cat "$LOCK/pid" 2>/dev/null || true)
     if [ -n "$owner" ] && [ -d "/proc/$owner" ] &&
-       tr '\0' ' ' < "/proc/$owner/cmdline" 2>/dev/null | grep -q mu300-smsd; then
+       { tr '\0' ' ' < "/proc/$owner/cmdline"; } 2>/dev/null | grep -q mu300-smsd; then
         echo "mu300-smsd: pid $owner is already pooling into $POOL" >&2
         exit 0
     fi

@@ -38,6 +38,7 @@ proto_config_add_boolean() { rec proto_config_add_boolean "$@"; }
 proto_config_add_array() { rec proto_config_add_array "$@"; }
 proto_notify_error() { rec proto_notify_error "$@"; }
 proto_block_restart() { rec proto_block_restart "$@"; }
+proto_set_available() { rec proto_set_available "$@"; }
 proto_setup_failed() { rec proto_setup_failed "$@"; }
 proto_add_dynamic_defaults() { rec proto_add_dynamic_defaults; }
 json_get_vars() { apn=$T_APN; pdptype=$T_PDPTYPE; peerdns=$T_PEERDNS; ipv6=$T_IPV6; apn_internal=${T_APN_INTERNAL:-}; pdptype_internal=${T_PDPTYPE_INTERNAL:-}
@@ -64,9 +65,10 @@ class Mu300cell(ShellTest):
         bindir.mkdir()
         self.conf = self.tmp / 'proc' / 'net' / 'ipv6' / 'conf' / 'sipa_eth0'
         self.conf.mkdir(parents=True)
+        (self.tmp / 'run').mkdir()
         text = PROTO.read_text()
         text = text.replace('/opt/mu300/bin', str(bindir)).replace('/tmp/mu300cell.err', str(self.tmp / 'err')) \
-                   .replace('/proc/sys', str(self.tmp / 'proc'))
+                   .replace('/proc/sys', str(self.tmp / 'proc')).replace('/run', str(self.tmp / 'run'))
         self.script_copy = self.tmp / 'mu300cell.sh'
         self.script_copy.write_text(text)
         self.stub('sleep', 'echo "sleep $*" >> "$STUBLOG/calls"')
@@ -233,16 +235,18 @@ exit 0''')
             self.assertIn('proto_block_restart wan', calls)
             self.assertNotIn('sleep 20', calls)
 
-    def test_held_for_roaming_is_retried_a_minute_later_without_a_log_line(self):
-        """FINDINGS 120: exit 4 is data held back for roaming. DATA_ROAMING, netifd tries again after a minute (the
-        way data comes back at home), no restart block, no address, and no log line of its own (mobile-data said it
-        once)."""
+    def test_roaming_hold_marks_the_interface_unavailable_for_recovery_not_retry(self):
+        """FINDINGS 120 first said exit 4, DATA_ROAMING, retried every minute. Superseded by the author's r20261106
+        roaming model (adopted with it): mobile-data exits 8, ROAMING_DISABLED, no restart block, no retry loop -
+        the interface is unavailable and mu300-network-recovery brings it back when roaming-policy changes or the
+        card moves home. mobile-data said it once; this script logs nothing."""
         for shell in self.each_shell():
-            calls = self.run_proto(shell, 'proto_mu300cell_setup', out='', rc=4, err='', ok=1)
-            self.assertIn('proto_notify_error wan DATA_ROAMING', calls)
+            calls = self.run_proto(shell, 'proto_mu300cell_setup', out='', rc=8, err='', ok=1)
+            self.assertIn('proto_notify_error wan ROAMING_DISABLED', calls)
             self.assertNotIn('proto_block_restart wan', calls)
-            self.assertIn('sleep 60', calls)
-            self.assertLess(calls.index('sleep 60'), calls.index('proto_setup_failed wan'))
+            self.assertIn('proto_set_available wan 0', calls)
+            self.assertEqual((self.tmp / 'run' / 'mu300cell-wan.registration-wait').read_text().strip(), '0')
+            self.assertFalse([c for c in calls if c.startswith('sleep')], calls)
             self.assertFalse([c for c in calls if c.startswith(('proto_send_update', 'logger', 'proto_init_update'))], calls)
 
     def test_ipv6_bearer_still_adds_extendprefix_interface(self):

@@ -113,7 +113,7 @@ case ${1:-} in --route|--boot-route)
         [ "$mode" = --boot-route ] || fail sim_not_ready
     fi
     # Clear only transient serving/identity snapshots, never SMS or traffic.
-    cache=${MU300_DASH_CACHE_ROOT:-/tmp/unisoc-modem}
+    cache=${MU300_DASH_CACHE_ROOT:-${MU300_DASH_DIR:-/var/run/unisoc-modem}}
     [ "$stack" != 1 ] || cache=$cache/sim1
     rm -f "$cache/sig.json" "$cache/cell.json" "$cache/lock.json"
     state_dir=$(cfg state_dir); state_dir=${state_dir:-/etc/unisoc-modem/lock-state.d}

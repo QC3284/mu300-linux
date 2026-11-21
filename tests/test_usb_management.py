@@ -26,7 +26,12 @@ class USBManagement(ShellTest):
         self.usb_bus.mkdir()
         self.rescan_marker = self.tmp / 'rescan-done'
         self.stub('uci', '''
-cmd=$1; [ "$cmd" = -q ] && { shift; cmd=$1; }; shift
+cmd=$1
+while [ "${cmd#-}" != "$cmd" ]; do
+  [ "$cmd" = -t ] && shift
+  shift; cmd=$1
+done
+shift
 case "$cmd" in
   get)
     case "$1" in
@@ -34,15 +39,18 @@ case "$cmd" in
       unisoc_modem.usb.*) key=${1##*.}; [ -f "$STUBLOG/uci.$key" ] && cat "$STUBLOG/uci.$key" ;;
       unisoc_modem.main.lan_device) echo br-lan ;;
       network.*.ports) [ -f "$STUBLOG/ports" ] && cat "$STUBLOG/ports" ;;
+      network.*.type) echo bridge ;;
     esac ;;
   set)
     key=${1%%=*}; val=${1#*=}; printf '%s' "$val" > "$STUBLOG/uci.${key##*.}" ;;
-  show) [ "$1" = network ] && echo "network.@device[0].name='br-lan'" ;;
+  show) [ "$1" = network ] && echo "network.lan.name='br-lan'" ;;    # bridge_section picks network.lan; net_snapshot needs its type via get
   add_list) printf '%s' "${1##*=}" > "$STUBLOG/ports" ;;
   commit) echo "$1" >> "$STUBLOG/commits" ;;
 esac
 ''')
         self.stub('logger', ':')
+        self.stub('ubus', '[ "$1" = -t ] && shift 2; [ "$1" = call ] && shift; echo "{\\"interface\\":[]}"')
+        self.stub('jsonfilter', 'while [ "$1" != -e ]; do shift; done; case "$2" in "@.interface") echo "[]" ;; *) echo "" ;; esac')
         helper = self.tmp / 'safe-role'
         helper.write_text('#!/bin/sh\nprintf "%s\\n" "$1" > "$MU300_USB_ROLE_FILE"\n')
         helper.chmod(0o755)
@@ -55,6 +63,8 @@ esac
 
     def call_usb(self, shell, *args, **env):
         base = dict(MU300_USB_ROLE_FILE=self.role,
+                    MU300_USB_ROLE_STATE=self.tmp / 'role-state',
+                    MU300_USB_NET_LOCK=self.tmp / 'net.lock',
                     MU300_USB_NET_FILE=self.net_file,
                     MU300_USB_APPLIED_FILE=self.applied,
                     MU300_USB_NET_CLASS=self.net_class,
@@ -190,8 +200,8 @@ esac
             self.role.write_text('device\n')
             # without an adapter command, the F50 writes the raw role switch
             raw = self.script(shell, USB, 'set-role', 'host', '0',
-                              MU300_USB_ROLE_FILE=self.role, MU300_USB_DEVICE='f50',
-                              MU300_USB_NET_FILE=self.net_file)
+                              MU300_USB_ROLE_FILE=self.role, MU300_USB_ROLE_STATE=self.tmp / 'role-state',
+                              MU300_USB_DEVICE='f50', MU300_USB_NET_FILE=self.net_file)
             self.assertEqual(json.loads(raw.stdout)['ok'], 1)
             self.wait_text(self.role, 'host')
 
@@ -202,8 +212,8 @@ esac
             self.reset()
             self.role.write_text('device\n')
             raw = self.script(shell, USB, 'set-role', 'host', '0',
-                              MU300_USB_ROLE_FILE=self.role, MU300_USB_DEVICE='v50',
-                              MU300_USB_NET_FILE=self.net_file)
+                              MU300_USB_ROLE_FILE=self.role, MU300_USB_ROLE_STATE=self.tmp / 'role-state',
+                              MU300_USB_DEVICE='v50', MU300_USB_NET_FILE=self.net_file)
             self.assertEqual(json.loads(raw.stdout)['ok'], 1, raw.stdout)
             self.wait_text(self.role, 'host')
             self.assertFalse((self.tmp / 'mu300-usb').exists())
@@ -224,10 +234,15 @@ esac
         usbdev.mkdir(parents=True)
         nic = self.net_class / 'eth0'
         nic.mkdir()
+        (nic / 'type').write_text('1\n')
         (nic / 'device').symlink_to(usbdev, target_is_directory=True)
         (nic / 'carrier').write_text('1\n')
         other = self.net_class / 'sipa_eth0'
         other.mkdir()
+        (other / 'type').write_text('1\n')
+        platform_dev = self.tmp / 'platform-dev'
+        platform_dev.mkdir()
+        (other / 'device').symlink_to(platform_dev, target_is_directory=True)
         (other / 'carrier').write_text('1\n')
         gadget = self.net_class / 'rndis0'
         gadget.mkdir()
@@ -263,6 +278,7 @@ esac
         usbdev.mkdir(parents=True)
         nic = self.net_class / 'eth0'
         nic.mkdir()
+        (nic / 'type').write_text('1\n')
         (nic / 'device').symlink_to(usbdev, target_is_directory=True)
         (self.tmp / 'ports').write_text('usb0 eth0')
         for shell in self.each_shell():

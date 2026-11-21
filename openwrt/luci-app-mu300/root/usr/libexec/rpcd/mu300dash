@@ -1229,7 +1229,9 @@ m_sim_get_core() { reply_obj "$("$SIMCTL" status --json 2>/dev/null)" 'SIM contr
 m_lock_get_union() {
     local out nr lte v en
     out=$(m_lock_get_core 2>/dev/null)
-    json_obj "$out" >/dev/null || { printf '%s\n' "${out:-{\"error\":\"Lock read failed\"}}"; return; }
+    # re-serialise through jsonfilter before splicing the extra keys: whatever the lock adapter prints, the reply
+    # stays one JSON object (trailing garbage is dropped, raw control characters escaped)
+    out=$(json_obj "$out" 2>/dev/null) || { printf '{"error":"Lock read failed"}\n'; return; }
     nr=$(printf '%s' "$out" | jsonfilter -e '@.caps.nr' 2>/dev/null)
     [ -n "$nr" ] || nr=
     lte=$(printf '%s' "$out" | jsonfilter -e '@.caps.lte' 2>/dev/null)
@@ -1345,7 +1347,10 @@ m_traffic_set() {
     inp '@.slot'; slot=${V:-0}
     allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
     [ ${#payload} -le 4096 ] || { refuse 'Request too large'; return; }
-    reply_obj "$(ubus -t 5 call unisoc.traffic set "{\"payload\":$(json_str "$payload"),\"slot\":$slot}" 2>/dev/null)" 'The data usage service gave no valid reply'
+    local req out
+    req="{\"payload\":$(json_str "$payload"),\"slot\":$slot}"
+    out=$(ubus -t 5 call unisoc.traffic set "$req" 2>/dev/null)
+    reply_obj "$out" 'The data usage service gave no valid reply'
 }
 m_traffic_clear() {
     cache_drop_prefix traffic-
@@ -1354,7 +1359,10 @@ m_traffic_clear() {
     inp '@.slot'; slot=${V:-0}
     allowed "$slot" '[01]' || { refuse 'Invalid SIM slot'; return; }
     case "$confirm" in true) confirm=true ;; *) confirm=false ;; esac
-    reply_obj "$(ubus -t 5 call unisoc.traffic clear "{\"confirm\":$confirm,\"slot\":$slot}" 2>/dev/null)" 'The data usage service gave no valid reply'
+    local req out
+    req="{\"confirm\":$confirm,\"slot\":$slot}"
+    out=$(ubus -t 5 call unisoc.traffic clear "$req" 2>/dev/null)
+    reply_obj "$out" 'The data usage service gave no valid reply'
 }
 
 # the panel's forwarding methods carry a profile or a whole payload; our page keeps its fields
@@ -1440,7 +1448,10 @@ m_sim_dsds_set() {
         true:true|false:true) ;;
         *) refuse 'Invalid radio request'; return ;;
     esac
-    reply_obj "$("$DASH/data-sim" start "dsds-$([ "$enabled" = true ] && echo 1 || echo 0)" 2>/dev/null)" 'The SIM control adapter gave no valid reply'
+    local arg out
+    arg="dsds-$([ "$enabled" = true ] && echo 1 || echo 0)"
+    out=$("$DASH/data-sim" start "$arg" 2>/dev/null)
+    reply_obj "$out" 'The SIM control adapter gave no valid reply'
 }
 m_v50_sim_get() { reply_obj "$("${MU300_V50_SIM:-/opt/mu300/bin/mu300-v50-sim}" status 2>/dev/null)" 'The V50 card control gave no valid reply'; }
 
@@ -1665,7 +1676,7 @@ call)
         status|cells|signal|act|at|at_history|lock_get|lock_set|lock_status|sms_*|traffic_*)
             inp '@.slot'; if [ -n "$V" ]; then
                 if ! command -v sim_scope >/dev/null 2>&1 || ! sim_scope "$V"; then
-                    refuse 'SIM 卡槽不可用'
+                    refuse 'SIM slot unavailable'
                     exit 0
                 fi
             fi ;;

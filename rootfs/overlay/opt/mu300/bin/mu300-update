@@ -191,8 +191,9 @@ mirror_fell_back() {
     say_run 'mirror unreachable: the rest comes from github.com\n'
     return 0
 }
-# fetch_base TAG: the directory this run takes release TAG's files from (MU300_RELEASE_URL is the whole base, the
-# tag included, as it always was; MU300_DOWNLOAD_URL is the one the tag is added to)
+# fetch_base TAG: the directory this run takes release TAG's files from. The tag is added to every chain entry -
+# MU300_RELEASE_URL and MU300_DOWNLOAD_URL alike - so each entry names the directory the release files live in,
+# without the tag (the code is the truth; the old "tag included" sentence was wrong)
 # The download source may be a COMMA-SEPARATED LIST of mirrors (MU300_DOWNLOAD_URL / MU300_RELEASE_URL): each entry is
 # tried in order, and github.com is the last resort. FETCH_CHAIN_INDEX counts the entries already tried this run, so a
 # mirror_fell_back step moves to the next entry instead of jumping straight to github.com.
@@ -4775,7 +4776,7 @@ source_show() {
     _st=$(source_state MU300_DOWNLOAD_URL); _so=${_st%% *}; _sv=${_st#* }
     case $_so in
         env) if [ -n "${MU300_RELEASE_URL:-}" ]; then
-                 printf 'release files  %s  (MU300_RELEASE_URL: the whole base, the release tag is not added)\n' "$_sv"
+                 printf 'release files  %s  (MU300_RELEASE_URL: another server, the release tag is added like to every chain entry)\n' "$_sv"
              else printf 'release files  %s  (environment)\n' "$_sv"; fi ;;
         file) printf 'release files  %s  (%s)\n' "$_sv" "$SOURCE_CONF" ;;
         *) printf 'release files  %s  (default)\n' "https://github.com/$REPO/releases/download" ;;

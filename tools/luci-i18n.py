@@ -80,7 +80,7 @@ BACKEND_DYNAMIC_OK = {('mu300dash', 'refuse', '"$2"'),   # reply_obj passing its
 # CJK: only these files may contain it (repository paths; with --root, only po/ of that copy)
 CJK = re.compile('[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]')
 CJK_SCOPE = ['openwrt', 'rootfs/overlay', 'boot', 'tools', 'install.sh', 'uninstall.sh']
-CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-mu300/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*|rootfs/overlay/opt/mu300/lib/cpu-voltage-warning\.txt|rootfs/overlay/opt/mu300/lib/image-manifests/[^/]+\.gz)$')   # (compressed data: no text to look at)
+CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-mu300/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*|rootfs/overlay/opt/mu300/lib/cpu-voltage-warning\.txt|rootfs/overlay/opt/mu300/lib/image-manifests/[^/]+\.gz|rootfs/overlay/opt/mu300/bin/sml-voltage-check|rootfs/overlay/usr/lib/lua/luci/i18n/mu300\..*\.lmo)$')   # (compiled artifacts: no text to look at)
 
 PLACEHOLDER = re.compile(r'%(?:%|[-+#0]*\d*(?:\.\d+)?[a-zA-Z])')
 
@@ -342,6 +342,8 @@ def _backend(m, path, rel, name):
                           '"# i18n:" line above it')
         covered = False
         for x in SH_HELPER.finditer(line):
+            if name.endswith('.uc'):
+                break                       # ucode: 'error' there is a plain variable, not the device-usb helper
             helper = x.group(1)
             words = SH_WORD.findall(line, x.end())
             if len(words) < HELPERS[helper]:

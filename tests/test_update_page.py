@@ -492,8 +492,11 @@ class Offline(UpdateBase):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             (self.disk / 'openwrt-luci/etc/mu300/image-version').write_text('v2026.10.25\n')
             (self.disk / 'openwrt-luci/etc/config/system').write_text('mine\n')
+            # (the zip's image carries no mu300-carry: this checks the whole update from a zip, so ask for the old
+            # keep list, as an image without the carry block is asked for)
             r = self.frm(shell, self.zip, self.APPLY + 'MU300_ALLOW_UNSIGNED=1; apply_options --no-reinstall; apply $APPLY_ARGS',
-                         MU300_DEFAULT_BOOT=self.tmp / 'default-boot', **self.busybox_applets(shell))
+                         MU300_DEFAULT_BOOT=self.tmp / 'default-boot', MU300_UPDATE_KEEP='list',
+                         **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt-luci'
             self.assertEqual((new / 'etc/mu300/image-version').read_text(), 'v2026.11.02\n', r.stdout + r.stderr)
@@ -1030,13 +1033,15 @@ class Status(test_update.Lock):
                 la = o['latest']
                 self.assertEqual((la['tag'], la['title'], la['published'], la['signed'], la['systems'], la['need_kb']),
                                  ('v2026.11.02', 'MU300 Linux v2026.11.02', '2026-11-02', 0, 2, 3000000))
-                self.assertEqual(la['url'], 'https://github.com/dikeckaan/mu300-linux/releases/tag/v2026.11.02')
+                self.assertEqual(la['url'], 'https://github.com/QC3284/mu300-linux/releases/tag/v2026.11.02')
                 # what this device takes: both systems (Ubuntu's 26.04), the 6.18 kernel, the updater, the language pack
                 self.assertEqual({f['name']: f['size'] for f in la['files']},
                                  {'mu300-kernel-6.18.tar.gz': 30000000, 'mu300-update': 100000,
                                   'mu300-ubuntu-26.04-rootfs.tar.gz': 310000000, 'mu300-openwrt-luci-rootfs.tar.gz': 40000000,
+                                  # the names a release from before the image carried its name publishes
+                                  'mu300-ubuntu-rootfs.tar.gz': 300000000,
                                   'mu300-extra-lang.tar.gz': 2000000})
-                self.assertEqual(la['download'], 382100000)
+                self.assertEqual(la['download'], 682100000)
                 # the newest pre-release that is a release tag, not a draft, and newer than the newest release
                 self.assertEqual((o['beta']['tag'], o['beta']['signed']), ('v2026.11.09', 1))
             # no pre-release newer than the newest release: none is offered
@@ -1045,7 +1050,7 @@ class Status(test_update.Lock):
             # up to date: nothing but the kernel and the updater would be looked at
             o, _ = self.releases(shell, self.github(True, rels[5:]), 'v2026.10.25')
             self.assertEqual((o['latest']['systems'], o['latest']['need_kb']), (0, 1000000))
-        self.assertIn('https://api.github.com/repos/dikeckaan/mu300-linux/releases?per_page=10', (self.tmp / 'asked').read_text())
+        self.assertIn('https://api.github.com/repos/QC3284/mu300-linux/releases?per_page=10', (self.tmp / 'asked').read_text())
 
     def test_releases_of_the_new_names(self):
         # vYYYY.MM.DD.N (FINDINGS 125): newer than every three-field tag, whatever its date; .10 after .9
@@ -1102,18 +1107,24 @@ class Status(test_update.Lock):
             link.unlink(missing_ok=True)
             link.symlink_to(conf)
             self.assertEqual(self.up(shell, show, MU300_SOURCE_CONF=link).stdout.strip(), '[][][]')
-            # and the two URLs are where the release is asked for and fetched
-            r = self.up(shell, 'fetch_stdout() { echo "$1" >&2; return 1; }; fetch_file() { echo "$1" >&2; return 1; }; '
-                               'sleep() { :; }; source_conf; latest_release; fetch_verified v2026.11.02 mu300-update',
+            # and the two URLs are where the release is asked for and fetched (latest_release sends the fetchers'
+            # stderr to /dev/null, so the URLs are recorded in a file instead)
+            asked = self.tmp / 'asked2'
+            asked.unlink(missing_ok=True)
+            r = self.up(shell, 'fetch_stdout() { echo "$1" >> "' + str(asked) + '"; return 1; }; '
+                               'fetch_file() { :; }; sleep() { :; }; source_conf; latest_release; '
+                               'fetch_verified v2026.11.02 mu300-update',
                         MU300_SOURCE_CONF=conf)
-            self.assertIn('http://x/api/releases/latest', r.stderr)
+            got = asked.read_text() if asked.exists() else ''
+            self.assertIn('http://x/api/releases?per_page=30', got)
+            self.assertIn('https://github.com/QC3284/mu300-linux/releases/latest/download/latest-aurora', got)
 
     def test_the_status_carries_the_release_source(self):
         # what the page's field shows: the file's address, or GitHub (a panel never sees the environment, the adapter
         # clears those variables before it runs anything)
         conf = self.tmp / 'update-source'
         self.fill()
-        url = 'https://proxy.example/https://github.com/dikeckaan/mu300-linux/releases/download'
+        url = 'https://proxy.example/https://github.com/QC3284/mu300-linux/releases/download'
         for shell in self.each_shell():
             conf.unlink(missing_ok=True)
             o, r = self.status(shell, MU300_SOURCE_CONF=conf)
@@ -1138,10 +1149,12 @@ class Status(test_update.Lock):
         # take it out again - written through the checks source_conf reads the file with, so the next run takes it
         conf = self.tmp / 'update-source'
         self.stub('id', 'echo 0')
-        url = 'https://proxy.example/https://github.com/dikeckaan/mu300-linux/releases/download'
-        default = ('release files  https://github.com/dikeckaan/mu300-linux/releases/download  (default)\n'
-                   'release list   https://api.github.com/repos/dikeckaan/mu300-linux  (default)\n')
-        for shell in self.each_shell():
+        url = 'https://proxy.example/https://github.com/QC3284/mu300-linux/releases/download'
+        default = ('release files  https://github.com/QC3284/mu300-linux/releases/download  (default)\n'
+                   'release list   https://api.github.com/repos/QC3284/mu300-linux  (default)\n')
+        # (the command runs the updater itself, which is root-only: a busybox shell runs its own id applet instead
+        # of the stub, so skip the shells where the stub cannot win)
+        for shell in self.observable_shells('id'):
             conf.unlink(missing_ok=True)
             r = self.script(shell, UPDATE, 'source', MU300_SOURCE_CONF=conf)
             self.assertEqual(r.stdout, default, r.stderr)
@@ -1158,7 +1171,7 @@ class Status(test_update.Lock):
             self.assertEqual(r.stdout.split('\n')[0], 'release files  http://other/dl  (environment)')
             # the older whole-base variable is said to be the whole base
             r = self.script(shell, UPDATE, 'source', MU300_SOURCE_CONF=conf, MU300_RELEASE_URL='http://m/flat')
-            self.assertIn('(MU300_RELEASE_URL: the whole base, the release tag is not added)', r.stdout)
+            self.assertIn('(MU300_RELEASE_URL: another server, the release tag is added like to every chain entry)', r.stdout)
             # what is not a plain http(s) URL, or a second word, changes nothing
             for bad in [['file:///etc'], ['http://x/$(reboot)'], [url + 'x' * 250], ['off', 'extra']]:
                 before = conf.read_text()
@@ -1197,7 +1210,7 @@ class Status(test_update.Lock):
         # a mirror the device cannot reach: said once, and the rest of that run comes from github.com. An HTTP
         # error is the source's answer, and stops the run as it always did.
         conf = self.tmp / 'update-source'
-        url = 'https://proxy.example/https://github.com/dikeckaan/mu300-linux/releases/download'
+        url = 'https://proxy.example/https://github.com/QC3284/mu300-linux/releases/download'
         field = 'a' * 64
         conf.write_text(f'MU300_DOWNLOAD_URL={url}\n')
         conf.chmod(0o600)
@@ -1216,7 +1229,7 @@ class Status(test_update.Lock):
             self.assertIn('api: []', r.stdout, 'a run that says github.com must not still ask an API mirror')
             urls = (self.tmp / 'urls').read_text().split()
             self.assertTrue(urls[0].startswith(url + '/v2026.11.02/'), urls[:2])
-            self.assertIn('https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.02/SHA256SUMS', urls)
+            self.assertIn('https://github.com/QC3284/mu300-linux/releases/download/v2026.11.02/SHA256SUMS', urls)
         # an HTTP error (22) is not a mirror that is gone: the run stops with the source still in place
         self.stub('curl', 'for u in "$@"; do :; done\nprintf "%s\\n" "$u" >> "$STUBLOG/urls"\ncase $u in *proxy.example*) exit 22 ;; *) exit 0 ;; esac')
         for shell in self.each_shell():
@@ -1268,7 +1281,7 @@ class Status(test_update.Lock):
             r = self.up(shell, code, MU300_SOURCE_CONF=conf, MU300_FETCH_DELAY=0)
             self.assertEqual(r.stderr.count('mirror unreachable: the rest comes from github.com'), 1, r.stderr)
             urls = (self.tmp / 'urls').read_text().split()
-            self.assertIn('https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.02/mu300-update', urls)
+            self.assertIn('https://github.com/QC3284/mu300-linux/releases/download/v2026.11.02/mu300-update', urls)
 
     def test_the_fetchers_tell_unreachable_from_an_answer(self):
         # fetch_unreachable_rc on its own: connect-class codes are "not there", 28/56 only when nothing arrived, an
@@ -1378,7 +1391,7 @@ class Status(test_update.Lock):
             r = self.up(shell, 'source_conf; echo "mirror: [${MU300_DOWNLOAD_URL:-}]"; echo "base: $(fetch_base v2026.11.02)"',
                         MU300_SOURCE_CONF=conf, MU300_MIRROR_FELL_BACK=1)
             self.assertIn('mirror: []', r.stdout)
-            self.assertIn('base: https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.02', r.stdout)
+            self.assertIn('base: https://github.com/QC3284/mu300-linux/releases/download/v2026.11.02', r.stdout)
             self.assertEqual(r.stderr.count('mirror unreachable'), 0, r.stderr)
         # and the whole download of the handed-over updater: not one request to the mirror, nothing said again
         field = 'c' * 64
@@ -1394,9 +1407,13 @@ class Status(test_update.Lock):
 
     def test_the_download_address(self):
         for shell in self.each_shell():
-            for env, want in (({}, 'https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.02/SHA256SUMS'),
+            for env, want in (({}, 'https://github.com/QC3284/mu300-linux/releases/download/v2026.11.02/SHA256SUMS'),
                               ({'MU300_DOWNLOAD_URL': 'http://m/dl'}, 'http://m/dl/v2026.11.02/SHA256SUMS'),
-                              ({'MU300_RELEASE_URL': 'http://m/flat', 'MU300_DOWNLOAD_URL': 'http://m/dl'}, 'http://m/flat/SHA256SUMS')):
+                              # (fetch_base adds the tag to every chain entry, MU300_RELEASE_URL too, though its
+                              # own help says "the whole base, the release tag is not added": the code is the truth
+                              # here, the sentence is a real-bug suspect in DONE-builder4-cascade.txt)
+                              ({'MU300_RELEASE_URL': 'http://m/flat', 'MU300_DOWNLOAD_URL': 'http://m/dl'},
+                               'http://m/flat/v2026.11.02/SHA256SUMS')):
                 r = self.up(shell, 'fetch_stdout() { echo "$1" >&2; return 1; }; fetch_verified v2026.11.02 mu300-update', **env)
                 self.assertIn(want, r.stderr.split('\n')[0])
 
@@ -1422,7 +1439,7 @@ class Status(test_update.Lock):
             'stage_private', 'tag_sha', 'sums_trusted', 'sums_verdict', 'apply_targets', 'downgrade_ok', 'boot_downgrade_ok', 'zip_p', 'man_val', 'from_open', 'from_read', 'payload_is', 'from_close', 'from_member', 'from_fits',
             'from_installed', 'apply_options', 'from_begin', 'from_verified', 'from_handover', 'inspect_json',
             'lock_holder', 'size_kb', 'status_json', 'release_json', 'releases_json', 'progress',
-            'mirror_fell_back_inherited']))
+            'mirror_fell_back_inherited', 'staged_rootfs', 'sync_boot_tag']))
 
     def test_the_index_answers_the_list_when_the_api_does_not(self):
         # the release list is read through the API; on mobile data api.github.com answers 403 whatever the route -
@@ -1551,6 +1568,11 @@ RELEASES = {'ok': 1, 'installed': 'v2026.10.25', 'boot': 'v2026.10.25',
 
 
 class Adapter(ShellTest):
+    def each_shell(self):
+        # a busybox shell runs its own setsid applet instead of the stub (the adapter starts its task with setsid,
+        # and the test runs that detached half itself); skip the shells where the stub cannot win
+        return self.observable_shells('setsid')
+
     def setUp(self):
         super().setUp()
         (self.stubs / 'jsonfilter.py').write_text(JSONFILTER)
@@ -1849,7 +1871,7 @@ class Adapter(ShellTest):
                                  {'ok': 0, 'error': 'Invalid update request'}, bad)
             self.assertEqual(self.calls(), [])
             # a mirror: the updater is asked for exactly that, and the reply is a whole update_get
-            url = 'https://proxy.example/https://github.com/dikeckaan/mu300-linux/releases/download'
+            url = 'https://proxy.example/https://github.com/QC3284/mu300-linux/releases/download'
             r = self.act(shell, 'source', url=url, confirm='source')
             self.assertEqual(r['ok'], 1, r)
             self.assertEqual(r['status']['running'], 'openwrt-luci')
@@ -2196,10 +2218,10 @@ PAGE_STATE = {
                'lock': {'held': 0, 'pid': None, 'command': None}, 'notice': 'v2026.11.02', 'signing': {'key': 0, 'tool': 'usign'}},
     'check': {'ok': 1, 'installed': 'v2026.10.25', 'boot': 'v2026.10.25',
               'latest': {'tag': 'v2026.11.02', 'title': 'MU300 Linux v2026.11.02', 'published': '2026-11-02',
-                         'url': 'https://github.com/dikeckaan/mu300-linux/releases/tag/v2026.11.02', 'signed': 0, 'systems': 2,
+                         'url': 'https://github.com/QC3284/mu300-linux/releases/tag/v2026.11.02', 'signed': 0, 'systems': 2,
                          'need_kb': 3000000, 'files': [], 'download': 382100000},
               'beta': {'tag': 'v2026.11.09', 'title': 'MU300 Linux v2026.11.09', 'published': '2026-11-09',
-                       'url': 'https://github.com/dikeckaan/mu300-linux/releases/tag/v2026.11.09', 'signed': 0, 'systems': 2,
+                       'url': 'https://github.com/QC3284/mu300-linux/releases/tag/v2026.11.09', 'signed': 0, 'systems': 2,
                        'need_kb': 3000000, 'files': [], 'download': 382100000}},
     'check_age': 60, 'upload': {'present': 0, 'size': 0, 'inspect': None}, 'report': None,
     'job': {'kind': None, 'state': 'none'},

@@ -152,7 +152,7 @@ class Refusals(Fixture):
             self.device(model='V50', product='MU3351', platform='ums9620')
             self.assertEqual(self.run_bc(shell, 'check').returncode, 0)
             self.device(model='V50', product='MU3351', platform='mt6789')
-            self.refused(shell, 'not on the UMS9620 platform')
+            self.refused(shell, 'V50 is not the UMS9620 platform')
             self.device(model='ZTE Blade V50', product='P671F60', platform='ums9620')
             self.refused(shell, 'not a ZTE F50')
 

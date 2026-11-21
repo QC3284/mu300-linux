@@ -940,6 +940,10 @@ at() {
         text = text.replace('/lib/modules/', f'{self.tmp}/lib-modules/')
         text = text.replace('/opt/mu300/bin/bootmark', f'{self.tmp}/bootmark')
         text = self.adjust_lib(text)
+        # the data-roaming judge (author model, r20261106): a stub beside the other dial stubs, allowed by default
+        # (T_ROAM_RC=0) so the pre-roaming dial tests keep their exact command sequences. DataRoaming's setUp
+        # installs its richer stub at the same path before any lib() call; existence keeps it.
+        text = text.replace('/usr/libexec/unisoc-modem/roaming', str(self.tmp / 'roaming'))
         if not (self.tmp / 'bootmark').exists():
             ko = self.tmp / 'lib-modules' / os.uname().release / 'sipa-dele.ko'
             ko.parent.mkdir(parents=True, exist_ok=True)
@@ -953,12 +957,28 @@ at() {
             (self.tmp / f).unlink(missing_ok=True)
         self.stub('mu300-led', 'echo "$*" >> "$STUBLOG/led"')
         self.stub('sipa-dele-start', 'echo "- sipa-dele-start wait=$MU300_DELE_WAIT" >> "$STUBLOG/at"\n'
-                  'echo "sipa-dele-start: stub"\nexit "${DELE_RC:-0}"')
+                  'echo "sipa-dele-start: stub"\n'
+                  '# a successful load leaves the module in /proc/modules (the dial double-checks, eb643182)\n'
+                  'if [ "${DELE_RC:-0}" = 0 ] && [ -n "${DELE_MODULES:-}" ]; then\n'
+                  '  printf "sipa_dele 16384 0 - Live 0x0000000000000000 (O)\\n" >> "$DELE_MODULES"\n'
+                  'fi\nexit "${DELE_RC:-0}"')
         self.stub('mu300-at', '[ "$1" = -t ] && shift 2\necho "nr1 $1" >> "$STUBLOG/at"\n'
                   'echo "dir=$MU300_AT_DIR wait=$MU300_AT_LOCK_WAIT" > "$STUBLOG/nr1env"\n'
                   'case ${SMMSWAP:-OK} in none) echo "mu300-at: no answer from the daemon" >&2; exit 1 ;;\n'
                   '    busy) echo "mu300-at: busy" >&2; exit 1 ;; esac\n'
                   'echo "${SMMSWAP:-OK}"')
+        # the dial's one judge: check exits $T_ROAM_RC (0 = allowed), get answers home by default
+        if not (self.tmp / 'roaming').exists():
+            (self.tmp / 'roaming').write_text('#!/bin/sh\n'
+                'case ${1:-} in\n'
+                '  check) echo "check ${2:-}" >> "$STUBLOG/roaming"; exit "${T_ROAM_RC:-0}" ;;\n'
+                '  get) printf \'{"ok":1,"slot":%s,"enabled":1,"roaming":%s,"blocked":0}\\n\' '
+                '"${SIM_SLOT:-0}" "${T_ROAM_STATE:-0}" ;;\n'
+                '  set) exit 0 ;;\n'
+                '  *) exit 1 ;;\n'
+                'esac\n')
+            (self.tmp / 'roaming').chmod(0o755)
+        env.setdefault('DELE_MODULES', str(self.tmp / 'proc-modules'))
         r = self.sh(['bash'], f'MU300_LIB=1; . "{lib}"\n{modem or self.MODEM}\nSECONDS=0\n{code}', **env)
         sent = (self.tmp / 'at').read_text().splitlines() if (self.tmp / 'at').exists() else []
         return r, sent
@@ -1022,7 +1042,7 @@ at() {
         cmds = [s.split(' ', 1)[1] for s in sent]
         # K58: the IMS bearer SMS needs, once the radio is on and before the registration wait
         self.assertLess(cmds.index('AT+CFUN?'), cmds.index('AT+CAVIMS=1'), cmds)
-        self.assertLess(cmds.index('AT+CAVIMS=1'), cmds.index('AT+CEREG?'), cmds)
+        self.assertLess(cmds.index('AT+CAVIMS=1'), cmds.index('AT+CEREG?;+C5GREG?'), cmds)
         self.assertEqual(cmds.count('AT+CGACT=1,1'), 2, cmds)
         self.assertNotIn('AT+CGACT?', cmds)
         self.assertFalse([c for c in cmds if c.startswith('AT+CGACT=0')], cmds)
@@ -1043,10 +1063,12 @@ at() {
         cmds = [s.split(' ', 1)[1] for s in sent]
         self.assertEqual(cmds.count('sipa-dele-start wait=20'), 1, cmds)
         dele = cmds.index('sipa-dele-start wait=20')
-        last_cereg = len(cmds) - 1 - cmds[::-1].index('AT+CEREG?')
+        last_cereg = len(cmds) - 1 - cmds[::-1].index('AT+CEREG?;+C5GREG?')
         self.assertLess(last_cereg, dele, cmds)                    # after the registration
         self.assertLess(dele, cmds.index('AT+CGACT=1,1'), cmds)    # before the PDP context
         # the loader refuses (the packet domain never came up, or insmod failed): no CGACT, exit 1, said why
+        # (the successful dial above left the delegate in /proc/modules; this scenario is the module not loaded)
+        (self.tmp / 'proc-modules').unlink(missing_ok=True)
         r, sent = self.lib('up_locked', DELE_RC=1, **env)
         cmds = [s.split(' ', 1)[1] for s in sent]
         self.assertEqual(r.returncode, 1, r.stdout)

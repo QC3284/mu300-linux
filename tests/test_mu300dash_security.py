@@ -92,9 +92,9 @@ exit 0
 DEFAULTS = {
     'dashboard-info': '{"ok":1,"host":"f50"}', 'cell': '{"ok":1}', 'action': '{"ok":1,"op":"x"}',
     'lock': '{"ok":1,"mode":{"label":"auto"}}', 'device-usb': '{"ok":1}', 'at': 'OK', 'sms': 'sent (12)',
-    'languages': '{"ok":1}', 'power': '{"ok":1}', 'ttl': '{"ok":1}', 'traffic': '{"ok":1}', 'forward': '{"ok":1}',
+    'languages': '{"ok":1}', 'power': '{"ok":1}', 'ttl': '{"ok":1}', 'forward': '{"ok":1}',
     'packages': '{"ok":1}', 'sim': '{"ok":1,"hot":1,"available":1,"busy":0}', 'update': '{"ok":1}',
-    'cpu': '{"ok":1}',
+    'cpu': '{"ok":1}', 'traffic-mu300': '{"ok":1}',
 }
 
 # The methods that start something with setsid (in the background of mu300dash)
@@ -248,9 +248,12 @@ class Inventory(Mu300Dash):
     METHODS = {'sysinfo', 'status', 'signal', 'act', 'at', 'at_job', 'at_history', 'ops_log', 'lock_get', 'lock_set', 'sms_list',
                'sms_show', 'sms_send', 'sms_job', 'sms_delete', 'sms_sync', 'usb_get', 'usb_set', 'usb_net_list', 'usb_net_add',
                'lang_get', 'lang_set', 'power_get', 'power_set',
-               'ttl_get', 'ttl_set', 'cpu_get', 'cpu_set', 'cpu_voltage_get', 'cpu_voltage_set', 'forward_get',
-               'forward_set', 'forward_test',
-               'forward_log_clear', 'traffic_get', 'traffic_set', 'packages_get', 'packages_act', 'sim_get', 'sim_set',
+               'ttl_get', 'ttl_set', 'cpu_get', 'cpu_set', 'cpu_tune', 'cpu_apply', 'cpu_voltage_get', 'cpu_voltage_set',
+               'cpu_voltage_save', 'forward_get', 'forward_set', 'forward_test', 'forward_log_clear', 'forward_status',
+               'traffic_get', 'traffic_set', 'traffic_clear', 'packages_get', 'packages_act', 'sim_get', 'sim_set',
+               'simcard_get', 'simcard_set', 'sim_radio_get', 'sim_radio_set', 'sim_radio_status', 'sim_dsds_set',
+               'data_sim_get', 'data_sim_set', 'data_sim_status', 'v50_sim_get', 'apn_get', 'apn_set', 'cells', 'rates',
+               'lock_status',
                'update_get', 'update_job', 'update_act', 'backup_export', 'backup_import', 'backup_job'}
 
     def test_list_declares_every_method(self):
@@ -274,7 +277,7 @@ class Inventory(Mu300Dash):
         for shell in self.each_shell():
             for p in [DASH, LIB] + [ADAPTERS / n for n in ('action', 'at', 'boot-replay', 'cell', 'dashboard-info',
                                                          'device-usb', 'lock', 'languages', 'power', 'ttl',
-                                                         'cpu', 'forward', 'traffic', 'packages', 'update')]:
+                                                         'cpu', 'forward', 'packages', 'update')]:
                 with self.subTest(p=p.name):
                     r = subprocess.run(shell + ['-n', str(p)], capture_output=True, text=True)
                     self.assertEqual(r.returncode, 0, r.stderr)
@@ -581,27 +584,27 @@ class Passthrough(Mu300Dash):
         ('update_get', {'sizes': '1'}, [['update', 'get', '1']]),
         ('update_job', {}, [['update', 'job']]),
         ('update_job', {'op': 'clean', 'confirm': 'clean'}, [['update', 'job']]),
-        ('update_act', {'op': 'check'}, [['update', 'act', 'check', '', '', '', '', '', '', '', '']]),
+        ('update_act', {'op': 'check'}, [['update', 'act', 'check', '', '', '', '', '', '', '', '', '']]),
         ('update_act', {'op': 'apply', 'tag': 'v2026.10.25', 'systems': 'openwrt-luci ubuntu', 'flags': 'no_reinstall',
                         'confirm': 'apply'},
-         [['update', 'act', 'apply', 'v2026.10.25', 'openwrt-luci ubuntu', '', '', '', 'no_reinstall', 'apply', '']]),
+         [['update', 'act', 'apply', 'v2026.10.25', 'openwrt-luci ubuntu', '', '', '', 'no_reinstall', 'apply', '', '']]),
         ('update_act', {'op': 'apply', 'tag': 'v2026.10.16.12', 'confirm': 'apply'},
-         [['update', 'act', 'apply', 'v2026.10.16.12', '', '', '', '', '', 'apply', '']]),
+         [['update', 'act', 'apply', 'v2026.10.16.12', '', '', '', '', '', 'apply', '', '']]),
         ('update_act', {'op': 'kernel', 'kernel': '7.2', 'confirm': 'kernel'},
-         [['update', 'act', 'kernel', '', '', '7.2', '', '', '', 'kernel', '']]),
+         [['update', 'act', 'kernel', '', '', '7.2', '', '', '', 'kernel', '', '']]),
         ('update_act', {'op': 'upload_begin', 'size': '52428800'},
-         [['update', 'act', 'upload_begin', '', '', '', '', '52428800', '', '', '']]),
+         [['update', 'act', 'upload_begin', '', '', '', '', '52428800', '', '', '', '']]),
         ('update_act', {'op': 'apply_file', 'sha256': 'ab' * 32, 'flags': 'unsigned downgrade', 'confirm': 'apply'},
-         [['update', 'act', 'apply_file', '', '', '', 'ab' * 32, '', 'unsigned downgrade', 'apply', '']]),
+         [['update', 'act', 'apply_file', '', '', '', 'ab' * 32, '', 'unsigned downgrade', 'apply', '', '']]),
         ('update_act', {'op': 'rollback', 'systems': 'ubuntu', 'confirm': 'rollback'},
-         [['update', 'act', 'rollback', '', 'ubuntu', '', '', '', '', 'rollback', '']]),
-        ('update_act', {'op': 'clean', 'confirm': 'clean'}, [['update', 'act', 'clean', '', '', '', '', '', '', 'clean', '']]),
+         [['update', 'act', 'rollback', '', 'ubuntu', '', '', '', '', 'rollback', '', '']]),
+        ('update_act', {'op': 'clean', 'confirm': 'clean'}, [['update', 'act', 'clean', '', '', '', '', '', '', 'clean', '', '']]),
         # (the release source: the address is the last argument, empty for GitHub)
         ('update_act', {'op': 'source', 'confirm': 'source', 'url': 'https://proxy.example/https://github.com/x/y/releases/download'},
          [['update', 'act', 'source', '', '', '', '', '', '', 'source',
-           'https://proxy.example/https://github.com/x/y/releases/download']]),
+           'https://proxy.example/https://github.com/x/y/releases/download', '']]),
         ('update_act', {'op': 'source', 'confirm': 'source', 'url': ''},
-         [['update', 'act', 'source', '', '', '', '', '', '', 'source', '']]),
+         [['update', 'act', 'source', '', '', '', '', '', '', 'source', '', '']]),
         ('sim_get', {}, [['sim', 'status', '--json']]),
         ('sim_set', {'op':'default','value':'2'}, [['sim','default','2']]),
         ('sim_set', {'op':'hot','value':'1'}, [['sim','hot','1']]),
@@ -610,14 +613,14 @@ class Passthrough(Mu300Dash):
         ('ttl_set', {'value': '255'}, [['ttl', 'set', '255']]),
         ('ttl_set', {'value': '1'}, [['ttl', 'set', '1']]),
         ('ttl_set', {'value': 'off'}, [['ttl', 'set', 'off']]),
-        ('traffic_get', {}, [['traffic', 'get']]),
-        ('traffic_set', {'op': 'reset_day', 'value': '31'}, [['traffic', 'set', 'reset_day', '31']]),
-        ('traffic_set', {'op': 'cap', 'value': '0'}, [['traffic', 'set', 'cap', '0']]),
-        ('traffic_set', {'op': 'cap', 'value': '53687091200'}, [['traffic', 'set', 'cap', '53687091200']]),
-        ('traffic_set', {'op': 'warn', 'value': '100'}, [['traffic', 'set', 'warn', '100']]),
-        ('traffic_set', {'op': 'cut', 'value': 'off'}, [['traffic', 'set', 'cut', 'off']]),
-        ('traffic_set', {'op': 'used', 'value': '1'}, [['traffic', 'set', 'used', '1']]),
-        ('traffic_set', {'op': 'clear', 'value': 'yes'}, [['traffic', 'set', 'clear', 'yes']]),
+        ('traffic_get', {}, [['traffic-mu300', 'get']]),
+        ('traffic_set', {'op': 'reset_day', 'value': '31'}, [['traffic-mu300', 'set', 'reset_day', '31']]),
+        ('traffic_set', {'op': 'cap', 'value': '0'}, [['traffic-mu300', 'set', 'cap', '0']]),
+        ('traffic_set', {'op': 'cap', 'value': '53687091200'}, [['traffic-mu300', 'set', 'cap', '53687091200']]),
+        ('traffic_set', {'op': 'warn', 'value': '100'}, [['traffic-mu300', 'set', 'warn', '100']]),
+        ('traffic_set', {'op': 'cut', 'value': 'off'}, [['traffic-mu300', 'set', 'cut', 'off']]),
+        ('traffic_set', {'op': 'used', 'value': '1'}, [['traffic-mu300', 'set', 'used', '1']]),
+        ('traffic_set', {'op': 'clear', 'value': 'yes'}, [['traffic-mu300', 'set', 'clear', 'yes']]),
         ('forward_get', {}, [['forward', 'get']]),
         ('forward_set', {'enabled': '1', 'telegram_token': 'x'}, [['forward', 'set']]),
         ('forward_test', {}, [['forward', 'test']]),
@@ -628,7 +631,7 @@ class Passthrough(Mu300Dash):
 
     def test_valid_values_reach_the_adapter(self):
         jobs = [(f'{m} {p}', m, p) for m, p, _ in self.CASES]
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             for (label, r, recs, _), (_, _, want) in zip(self.calls_parallel(shell, jobs), self.CASES):
                 with self.subTest(case=label):
                     self.reply(r)
@@ -651,7 +654,7 @@ class Passthrough(Mu300Dash):
     def test_sms_text_goes_on_stdin(self):
         texts = ["-n it's \"quoted\" $(reboot) `id` | & ; \\ end", 'two\nlines\tand tab', 'ğüşçöı 中文 😀',
                  '-', 'ğ' * 480]
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             for t in texts:
                 with self.subTest(text=t[:20]):
                     # (the send runs as a job: the text reaches it through a root-only file, and mu300-sms on stdin)
@@ -729,13 +732,18 @@ class Replies(Mu300Dash):
                          ('usb_net_list', {}), ('ttl_get', {}), ('ttl_set', {'value': 'off'})]:
                 with self.subTest(method=m):
                     r, _, _ = self.call(shell, m, p)
-                    self.assertEqual(self.reply(r), want)
+                    obj = self.reply(r)
+                    if m == 'lock_get':
+                        obj.pop('write_caps', None)
+                        obj.pop('volte', None)
+                        obj.pop('vonr', None)
+                    self.assertEqual(obj, want)
             r, _, _ = self.call(shell, 'status', {})
             self.assertEqual(self.reply(r)['info'], want)
 
     def test_modem_and_sms_text_is_escaped(self):
         text = NASTY.replace('\r', '')
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             self.output('at', text)
             r, _, _ = self.call(shell, 'at', {'cmd': 'AT+COPS?'})
             self.assertEqual(self.reply(r)['reply'], text)
@@ -808,8 +816,10 @@ class Adapters(Mu300Dash):
         role.write_text('ho"st\\\n')
         for shell in self.each_shell():
             r, _ = self.adapter(shell, 'device-usb', 'get', MU300_USB_ROLE_FILE=role)
-            self.assertEqual(json.loads(r.stdout)['role'], 'ho"st\\')
+            self.assertEqual(json.loads(r.stdout)['role'], 'unavailable')
             role.write_text('host\n')
+            r, _ = self.adapter(shell, 'device-usb', 'get', MU300_USB_ROLE_FILE=role)
+            self.assertEqual(json.loads(r.stdout)['role'], 'host')
             for name in ['-x', '..', '.', 'e' * 16, 'a/b', 'a b', 'a"b']:
                 with self.subTest(name=name):
                     (self.tmp / 'net' / name.replace('/', '_')).mkdir(parents=True, exist_ok=True)
@@ -1007,7 +1017,7 @@ class TtlAdapter(ShellTest):
 
 
 class TrafficAdapter(ShellTest):
-    """unisoc-modem/traffic: the Data usage page's adapter over mu300-traffic (a stub that records its arguments)."""
+    """unisoc-modem/traffic-mu300: the Data usage page's adapter over mu300-traffic (a stub that records its arguments)."""
 
     def setUp(self):
         super().setUp()
@@ -1018,7 +1028,7 @@ class TrafficAdapter(ShellTest):
         self.cmd.chmod(0o755)
 
     def run_ad(self, shell, *args, **env):
-        r = self.script(shell, ADAPTERS / 'traffic', *args, MU300_TRAFFIC_CMD=env.get('cmd', self.cmd))
+        r = self.script(shell, ADAPTERS / 'traffic-mu300', *args, MU300_TRAFFIC_CMD=env.get('cmd', self.cmd))
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 
@@ -1088,10 +1098,14 @@ class Backup(Mu300Dash):
 class Acl(unittest.TestCase):
     # SMS bodies (one-time codes) and the AT history (AT+CPIN PINs) are not for read-only users (ruling R14)
     READ = {'sysinfo', 'status', 'signal', 'lock_get', 'usb_get', 'usb_net_list', 'lang_get', 'power_get', 'ttl_get',
-            'cpu_get', 'cpu_voltage_get', 'traffic_get', 'ops_log', 'packages_get', 'sim_get', 'update_get', 'update_job'}
+            'cpu_get', 'cpu_voltage_get', 'traffic_get', 'ops_log', 'packages_get', 'sim_get', 'update_get', 'update_job',
+            'cells', 'rates', 'lock_status', 'simcard_get', 'sim_radio_get', 'sim_radio_status', 'sim_dsds_set',
+            'data_sim_status', 'v50_sim_get', 'apn_get', 'data_sim_get', 'forward_status'}
     WRITE = {'act', 'at', 'at_job', 'at_history', 'lock_set', 'sms_list', 'sms_show', 'sms_send', 'sms_job', 'sms_delete', 'sms_sync',
-             'usb_set', 'usb_net_add', 'lang_set', 'power_set', 'ttl_set', 'cpu_set', 'cpu_voltage_set', 'forward_get',
-             'forward_set', 'forward_test', 'forward_log_clear', 'traffic_set', 'packages_act', 'sim_set', 'update_act',
+             'usb_set', 'usb_net_add', 'lang_set', 'power_set', 'ttl_set', 'cpu_set', 'cpu_tune', 'cpu_apply', 'cpu_voltage_set',
+             'cpu_voltage_save', 'forward_get',
+             'forward_set', 'forward_test', 'forward_log_clear', 'traffic_set', 'traffic_clear', 'packages_act',
+             'sim_set', 'simcard_set', 'sim_radio_set', 'data_sim_set', 'apn_set', 'update_act',
              'backup_export', 'backup_import', 'backup_job'}
 
     def test_actions_need_write_access(self):
@@ -1109,12 +1123,18 @@ class Acl(unittest.TestCase):
                                                     '/tmp/mu300-vpn-upload': ['write'],
                                                     '/tmp/mu300-vpn-extra.tar.gz': ['write'],
                                                     '/mnt/mu300-disk/.mu300-upload/update.zip': ['write']})
-        self.assertEqual(set(acl['read']['ubus']), {'mu300dash', 'mu300rates', 'mu300vpn'})
-        self.assertEqual(set(acl['write']['ubus']), {'mu300dash', 'mu300vpn'})
+        # the author services the panel now fronts (their rpcd objects joined ours: the status cells, the charge
+        # state, the wifi ciphers, the unisoc cpu/network/roaming controls)
+        self.assertEqual(set(acl['read']['ubus']), {'mu300dash', 'mu300rates', 'mu300vpn', 'mu300status',
+                                                    'mu300-charge', 'mu300-wifi-ciphers', 'unisoc-cpu-cores',
+                                                    'unisoc-cpu-idle', 'unisoc-network-performance', 'unisoc-roaming'})
+        self.assertEqual(set(acl['write']['ubus']), {'mu300dash', 'mu300vpn', 'unisoc-cpu-cores', 'unisoc-cpu-idle',
+                                                     'unisoc-network-performance', 'unisoc-roaming'})
         self.assertNotIn('cgi-io', acl['read'])
-        # the dashboard's live rates come from one fixed method that takes no argument: no file read access at all
-        # (a /proc/<pid> glob would have matched paths far beyond the interface counters)
-        self.assertEqual(acl['read']['ubus'].get('mu300rates'), ['netdev'])
+        # the dashboard's live rates come from two fixed methods that take no argument: no file read access at all
+        # (a /proc/<pid> glob would have matched paths far beyond the interface counters); rates is the UFI panel's
+        # own sample through the author's mu300.rates library
+        self.assertEqual(acl['read']['ubus'].get('mu300rates'), ['netdev', 'rates'])
         self.assertNotIn('file', acl['read'])
         self.assertNotIn('file', acl['read']['ubus'])
         plugin = (APP / 'usr' / 'share' / 'rpcd' / 'ucode' / 'mu300rates.uc').read_text()
@@ -1218,14 +1238,14 @@ class FixRound1(Mu300Dash):
     def test_sms_failures_carry_a_fixed_error_and_a_detail(self):
         self.output('sms', 'no message "4"\\x')
         self.output('sms.rc', '1')
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             r, _, _ = self.call(shell, 'sms_show', {'id': '4'})
-            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'Read failed', 'detail': 'no message "4"\\x'})
+            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'Read failed', 'code': 'backend_read_failed', 'detail': 'no message "4"\\x'})
             obj, _, _ = self.send_job(shell, {'num': '123', 'text': 'hi'})
             self.assertEqual({k: obj.get(k) for k in ('ok', 'error', 'detail', 'done')},
                              {'ok': 0, 'error': 'Sending failed', 'detail': 'no message "4"\\x', 'done': 1})
             r, _, _ = self.call(shell, 'sms_delete', {'id': '4'})
-            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'Delete failed', 'detail': 'no message "4"\\x'})
+            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'Delete failed', 'code': 'backend_delete_failed', 'detail': 'no message "4"\\x'})
 
     def test_errors_are_english_sentences_in_the_catalogs(self):
         # the page shows _(error): each error is one fixed English sentence that tools/luci-i18n.py extracts (so it
@@ -1269,7 +1289,7 @@ class FixRound1(Mu300Dash):
         # "busy" is what mu300-at and the plugin's at adapter print when they gave up on the AT lock; a modem reply
         # with the word in it ("+CME ERROR: SIM busy") is a reply that came back, shown as one
         busy = {'ok': 0, 'busy': 1, 'error': 'The AT channel is busy; the command was not sent, try again'}
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             for label, text in (('mu300-at', 'mu300-at: busy\n'), ('unisoc-at', 'unisoc-at: busy\n')):
                 with self.subTest(client=label):
                     self.output('at', text)
@@ -1495,7 +1515,8 @@ class RuntimeDir(Mu300Dash):
             self.n += 1
             link.symlink_to(victim)
             r, recs, _ = self.call(shell, 'at', {'cmd': 'ATI'}, MU300_DASH_DIR=link)
-            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'The runtime directory is not safe; nothing was run'})
+            self.assertEqual(self.reply(r), {'ok': 0, 'error': 'The runtime directory is not safe; nothing was run',
+                                        'code': 'backend_the_runtime_directory_is_not_safe_nothin'})
             self.assertEqual(recs, [])
             for name, args in (('cell', ()), ('lock', ('get',))):
                 r = self.script(shell, ADAPTERS / name, *args, MU300_AT=self.adapters / 'at', MU300_DASH_DIR=link,
@@ -1535,6 +1556,9 @@ class RadioLock(Mu300Dash):
         self.md = self.tmp / 'mobile-data'
         self.md.write_text(MOBILE_DATA_STUB)
         self.md.chmod(0o755)
+        self.sr = self.stubs / 'sim-radio'
+        self.sr.write_text('#!/bin/sh\necho "sr $*" >> "$STUBLOG/sr"\necho \'{"ok":1}\'\n')
+        self.sr.chmod(0o755)
         self.at = self.tmp / 'modem'
         self.at.write_text('#!/bin/sh\necho "at $* locked=${MU300_RADIO_LOCKED:-}" >> "$STUBLOG/at.log"\n'
                            'echo "+CFUN: 1"; echo OK\n')
@@ -1553,43 +1577,43 @@ class RadioLock(Mu300Dash):
         e.update(env)
         return self.script(shell, ADAPTERS / 'action', *args, **e)
 
-    def test_radio_ops_run_under_the_lock(self):
+    def test_radio_ops_run_through_the_sim_radio_control(self):
         for shell in self.each_shell():
-            for args, op, sent in ((('radio', 'off'), 'radio off', ['at -t 6 AT+CFUN=0 locked=1']),
-                                   (('radio', 'on'), 'radio on', ['at -t 20 AT+SFUN=4 locked=1',
-                                                                  'at -t 4 AT+CFUN? locked=1'])):
+            for args, op, sent in ((('radio', 'off'), 'radio off', 'sr set 0 off'),
+                                   (('radio', 'on'), 'radio on', 'sr set 0 on')):
                 with self.subTest(op=op):
-                    r = self.action(shell, *args)
+                    r = self.action(shell, *args, MU300_SIM_RADIO_BIN=self.sr)
                     self.assertEqual(json.loads(r.stdout), {'ok': 1, 'op': op}, r.stderr)
-                    self.assertEqual(self.log('md'), [f'md radio-locked {ADAPTERS / "action"} {" ".join(args)} '
-                                                      'wait= locked=1'])
-                    self.assertEqual(self.log('at.log'), sent)
-            r = self.action(shell, 'modem-reset')
+                    self.assertEqual(self.log('sr'), [sent])
+            r = self.action(shell, 'modem-reset', MU300_SIM_RADIO_BIN=self.sr)
             self.assertEqual(json.loads(r.stdout), {'ok': 1, 'op': 'modem-reset'}, r.stderr)
             self.assertEqual(self.log('md'), [f'md radio-locked {ADAPTERS / "action"} modem-reset wait= locked=1',
                                               'md sim-reset wait= locked=1'])
+            self.log('sr')   # rf_allowed asks the radio twice: the modem-reset path must not leak into the next shell
 
     def test_a_busy_radio_is_answered_busy_and_nothing_is_sent(self):
         for shell in self.each_shell():
-            for args, op in ((('radio', 'on'), 'radio on'), (('radio', 'off'), 'radio off'),
-                             (('modem-reset',), 'modem-reset')):
-                with self.subTest(op=op):
-                    r = self.action(shell, *args, MD_BUSY=1)
-                    self.assertEqual(json.loads(r.stdout), {'ok': 0, 'op': op, 'error': BUSY_RADIO})
-                    self.assertEqual(self.log('at.log'), [])
-                    self.assertEqual([l.split()[1] for l in self.log('md')], ['radio-locked'])
+            with self.subTest(op='modem-reset'):
+                r = self.action(shell, 'modem-reset', MU300_SIM_RADIO_BIN=self.sr, MD_BUSY=1)
+                self.assertEqual(json.loads(r.stdout), {'ok': 0, 'op': 'modem-reset', 'error': BUSY_RADIO})
+                self.assertEqual(self.log('at.log'), [])
+                self.assertEqual([l.split()[1] for l in self.log('md')], ['radio-locked'])
 
-    def test_without_mobile_data_the_ops_run_as_before(self):
+    def test_without_mobile_data_the_ops_still_work(self):
         for shell in self.each_shell():
-            r = self.action(shell, 'radio', 'off', MU300_MOBILE_DATA=self.tmp / 'none')
+            r = self.action(shell, 'radio', 'off', MU300_SIM_RADIO_BIN=self.sr, MU300_MOBILE_DATA=self.tmp / 'none')
             self.assertEqual(json.loads(r.stdout), {'ok': 1, 'op': 'radio off'}, r.stderr)
-            self.assertEqual(self.log('at.log'), ['at -t 6 AT+CFUN=0 locked=1'])
+            self.assertEqual(self.log('sr'), ['sr set 0 off'])
+            r = self.action(shell, 'modem-reset', MU300_SIM_RADIO_BIN=self.sr, MU300_MOBILE_DATA=self.tmp / 'none')
+            self.assertEqual(json.loads(r.stdout), {'ok': 1, 'op': 'modem-reset'}, r.stderr)
+            self.assertEqual(self.log('at.log'), ['at -t 10 AT+SFUN=5 locked=1', 'at -t 30 AT+SFUN=4 locked=1'])
+            self.log('sr')   # ditto: rf_allowed asked the radio
 
     def test_the_backend_says_busy_before_starting_anything(self):
         known = set(subprocess.run([sys.executable, str(TOP / 'tools' / 'luci-i18n.py'), 'extract'], check=True,
                                    capture_output=True, text=True, encoding='utf-8').stdout.splitlines())
         self.assertIn(BUSY_RADIO, known)
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             for params in ({'op': 'radio', 'arg': 'on'}, {'op': 'radio', 'arg': 'off'}, {'op': 'modem-reset'}):
                 with self.subTest(params=params):
                     r, recs, _ = self.call(shell, 'act', params, MU300_MOBILE_DATA=self.md, MD_BUSY=1)
@@ -1687,7 +1711,7 @@ class PackagesAdapter(ShellTest):
             self.setUp()
 
     def test_act(self):
-        for shell in self.each_shell():
+        for shell in self.observable_shells('setsid'):
             self.log()
             self.assertEqual(self.run_ad(shell, 'act', 'retry'), {'ok': 1, 'started': 1})
             self.assertEqual(self.run_ad(shell, 'act', 'repair_dns'), {'ok': 1, 'started': 1})

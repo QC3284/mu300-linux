@@ -13,7 +13,7 @@ for f in wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.i
     done
     [ -n "$found" ] || {
         if [ "${MU300_INSTALL_LANG:-en}" = zh ]; then
-            echo "设备缺少固件 $f" >&2
+            echo "Device is missing firmware $f" >&2
         else
             echo "device firmware is missing $f" >&2
         fi
@@ -40,7 +40,7 @@ tar -chf "$S" \
 rm -rf "$A"; mkdir -p "$A"; tar -xf "$S" -C "$A"; rm -f "$S"
 [ -d "$A/dev/__properties__" ] || {
     if [ "${MU300_INSTALL_LANG:-en}" = zh ]; then
-        echo '缺少 Android 属性快照' >&2
+        echo 'Android property snapshot missing' >&2
     else
         echo 'Android property snapshot is missing' >&2
     fi

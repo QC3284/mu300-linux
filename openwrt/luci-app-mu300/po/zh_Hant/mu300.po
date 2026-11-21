@@ -58,6 +58,9 @@ msgstr "CPU"
 msgid "Terminal"
 msgstr "終端機"
 
+msgid "Shell"
+msgstr "終端機"
+
 msgid "Terminal settings"
 msgstr "終端機設定"
 
@@ -87,6 +90,18 @@ msgstr "MU300 控制中心：狀態儀表板、網路鎖定、AT 終端機、簡
 
 msgid "Terminal: a root shell on the device in the browser"
 msgstr "終端機：在瀏覽器中使用裝置的 root shell"
+
+msgid "Read wireless cipher capabilities"
+msgstr "讀取無線加密能力"
+
+msgid "View and explicitly control CPU online state"
+msgstr "檢視並明確控制 CPU 上線狀態"
+
+msgid "CPU0 deep idle on supported UMS9620 devices"
+msgstr "在支援的 UMS9620 裝置上啟用 CPU0 深度休眠"
+
+msgid "TCP congestion control settings"
+msgstr "TCP 壅塞控制設定"
 
 msgid "China Mobile"
 msgstr "中國移動"
@@ -1699,6 +1714,9 @@ msgstr "重試"
 msgid "Dismiss the note"
 msgstr "關閉提示"
 
+msgid "Packages this image shipped with"
+msgstr "本映像自帶的軟體套件"
+
 msgid "started"
 msgstr "已啟動"
 
@@ -2537,6 +2555,21 @@ msgstr "最新發行版"
 
 msgid "Release notes"
 msgstr "版本資訊"
+
+msgid "Theme"
+msgstr "主題"
+
+msgid "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+msgstr "切換到 %s 主題版本？整個系統將被該版本映像檔替換（約 29 MB），您的檔案和設定會保留，面板將以另一主題重新載入。"
+
+msgid "Switching to the %s variant."
+msgstr "正在切換到 %s 主題版本。"
+
+msgid "Switch to the %s variant"
+msgstr "切換到 %s 主題版本"
+
+msgid "replaces the system (about 29 MB); now: %s"
+msgstr "將替換系統（約 29 MB）；目前：%s"
 
 msgid "Download"
 msgstr "下載"
@@ -3390,11 +3423,17 @@ msgstr "正在從數據機讀取鎖定狀態；請幾秒後重試"
 msgid "Lock read failed"
 msgstr "讀取鎖定狀態失敗"
 
-msgid "Unknown lock kind"
-msgstr "未知的鎖定類型"
-
 msgid "Invalid value for this lock kind"
 msgstr "此鎖定類型的值無效"
+
+msgid "Mobile data integration is not provided by this platform"
+msgstr "此平台未提供行動數據整合"
+
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "模組未接受該設定，未儲存任何內容"
+
+msgid "Unknown lock kind"
+msgstr "未知的鎖定類型"
 
 msgid "Invalid page"
 msgstr "頁碼無效"
@@ -3546,9 +3585,6 @@ msgstr "無效的更新要求"
 msgid "The backup tool gave no valid reply"
 msgstr "備份工具沒有給出有效的回覆"
 
-msgid "Mobile data integration is not provided by this platform"
-msgstr "此平台未提供行動數據整合"
-
 msgid "The SIM settings could not be read"
 msgstr "無法讀取 SIM 卡設定"
 
@@ -3562,8 +3598,53 @@ msgstr "已有射頻設定正在執行"
 msgid "Invalid SIM setting"
 msgstr "SIM 設定無效"
 
-msgid "The modem did not take the setting; nothing was saved"
-msgstr "模組未接受該設定，未儲存任何內容"
+msgid "The APN adapter gave no valid reply"
+msgstr "APN 介面卡未回傳有效應答"
+
+msgid "The SIM control adapter gave no valid reply"
+msgstr "SIM 控制介面卡未回傳有效應答"
+
+msgid "Invalid lock job"
+msgstr "無效的鎖定任務"
+
+msgid "Invalid SIM slot"
+msgstr "無效的 SIM 卡槽"
+
+msgid "Unable to read cellular status"
+msgstr "無法讀取行動網路狀態"
+
+msgid "data_usage_unavailable"
+msgstr "流量統計服務不可用"
+
+msgid "Request too large"
+msgstr "請求過大"
+
+msgid "The data usage service gave no valid reply"
+msgstr "流量統計服務未回傳有效應答"
+
+msgid "Invalid forwarding profile"
+msgstr "無效的轉發設定檔"
+
+msgid "Invalid APN request"
+msgstr "無效的 APN 請求"
+
+msgid "Invalid SIM target"
+msgstr "無效的 SIM 目標"
+
+msgid "Invalid SIM job"
+msgstr "無效的 SIM 任務"
+
+msgid "The SIM radio control gave no valid reply"
+msgstr "SIM 射頻控制未回傳有效應答"
+
+msgid "Invalid radio request"
+msgstr "無效的射頻請求"
+
+msgid "The V50 card control gave no valid reply"
+msgstr "V50 卡控制未回傳有效應答"
+
+msgid "Invalid CPU settings"
+msgstr "CPU 設定無效"
 
 # Dual SIM controls.
 msgid "SIM control failed"
@@ -3573,11 +3654,11 @@ msgstr "SIM 控制失敗"
 msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
 msgstr "請啟用熱切換；通道尚未準備好時請重新啟動，操作進行中請等待。"
 
-msgid "Request too large"
-msgstr "請求過大"
-
 msgid "The runtime directory is not safe; nothing was run"
 msgstr "執行階段目錄不安全；未執行任何操作"
+
+msgid "SIM slot unavailable"
+msgstr "SIM 卡槽不可用"
 
 msgid "No such method"
 msgstr "沒有此方法"
@@ -3781,6 +3862,18 @@ msgstr "無法關閉 CPU 電壓偏移"
 msgid "The stress test could not be started"
 msgstr "無法啟動壓力測試"
 
+msgid "cpu_cores_busy"
+msgstr "CPU 設定忙碌中"
+
+msgid "CPU0 deep idle setting is busy"
+msgstr "CPU0 深度休眠設定忙碌中"
+
+msgid "CPU setting is busy, please try again later"
+msgstr "CPU 設定忙碌中，請稍後重試"
+
+msgid "dual_sim_unavailable"
+msgstr "此裝置沒有第二個 SIM 卡槽"
+
 msgid "USB role adapter is not executable"
 msgstr "USB 角色轉接程式不可執行"
 
@@ -3795,9 +3888,6 @@ msgstr "USB 角色切換失敗"
 
 msgid "USB role switch was refused by platform safety checks"
 msgstr "USB 角色切換遭平台安全檢查拒絕"
-
-msgid "Cannot create USB boot settings directory"
-msgstr "無法建立 USB 開機設定目錄"
 
 msgid "Cannot write USB boot settings"
 msgstr "無法寫入 USB 開機設定"
@@ -3820,6 +3910,9 @@ msgstr "無法停用 USB 網路開機原則"
 msgid "Cannot commit USB role policy"
 msgstr "無法提交 USB 角色原則"
 
+msgid "Could not record the USB role switch result"
+msgstr "無法記錄 USB 角色切換結果"
+
 msgid "USB network mode is unavailable in host role"
 msgstr "主機角色下無法使用 USB 網路模式"
 
@@ -3835,17 +3928,26 @@ msgstr "無法提交 USB 網路原則"
 msgid "USB host mode is required"
 msgstr "需要 USB 主機模式"
 
+msgid "USB network setting is busy, please try again later"
+msgstr "USB 網卡設定忙碌中，請稍後重試"
+
+msgid "There are unsaved changes: handle them first and try again"
+msgstr "設定有未儲存變更，請先處理後重試"
+
+msgid "Could not save the USB network auto-join setting"
+msgstr "無法儲存 USB 網卡自動加入設定"
+
+msgid "Could not confirm the NIC ownership, please try again later"
+msgstr "無法確認網卡歸屬，請稍後重試"
+
 msgid "Not a USB network interface"
 msgstr "不是 USB 網路介面"
 
-msgid "LAN bridge device section was not found"
-msgstr "找不到 LAN 橋接裝置設定區段"
+msgid "The NIC is already used by another network and cannot join the LAN"
+msgstr "網卡已被其他網路佔用，不可加入 LAN"
 
 msgid "Cannot bring USB network interface up"
 msgstr "無法啟用 USB 網路介面"
-
-msgid "Cannot add interface to LAN bridge"
-msgstr "無法將介面加入 LAN 橋接"
 
 msgid "Cannot save LAN bridge"
 msgstr "無法儲存 LAN 橋接"
@@ -3958,6 +4060,9 @@ msgstr "協定堆疊重新啟動後的回讀結果與自動值不一致"
 msgid "The reset was interrupted"
 msgstr "重設被中斷"
 
+msgid "network_busy"
+msgstr "網路設定忙碌中"
+
 msgid "Reinstalling packages is not available on this system"
 msgstr "此系統不支援重新安裝套件"
 
@@ -4000,6 +4105,9 @@ msgstr "無法啟動工作"
 msgid "The updater gave no valid reply"
 msgstr "更新程式未傳回有效回應"
 
+msgid "Invalid theme"
+msgstr "無效的主題"
+
 msgid "This needs confirmation"
 msgstr "此操作需要確認"
 
@@ -4032,6 +4140,3 @@ msgstr "此檔案比已安裝的版本舊：需要確認"
 
 msgid "The release source was not changed"
 msgstr "發行來源未變更"
-
-msgid "Packages this image shipped with"
-msgstr "本映像自帶的軟體套件"

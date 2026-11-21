@@ -294,7 +294,7 @@ class Rules(unittest.TestCase):
         common = (TOP / 'openwrt/luci-app-mu300/htdocs/luci-static/resources/mu300/common.js').read_text()
         self.assertIn("'flags', 'confirm', 'url'", common)
         dash = (TOP / 'openwrt/luci-app-mu300/root/usr/libexec/rpcd/mu300dash').read_text()
-        self.assertIn('|source|dismiss)', dash)
+        self.assertIn('|source|dismiss|theme_switch)', dash)
         self.assertIn('allowed "$url"', dash)
         adapter = (TOP / 'openwrt/luci-app-mu300/root/usr/libexec/unisoc-modem/update').read_text()
         self.assertIn('"$CMD" source', adapter)

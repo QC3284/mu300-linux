@@ -46,6 +46,11 @@ class SdCard(ShellTest):
         (self.tmp / 'calls').unlink(missing_ok=True)
         return r.stdout, calls
 
+    def each_shell(self):
+        # a busybox shell runs its own mke2fs applet instead of the stub (the host has no such applet in CI, and
+        # the sequence sd_prepare runs is the same shell code in every shell)
+        return self.observable_shells('mke2fs')
+
     def test_blank_card_is_formatted(self):
         self.dev.write_bytes(bytes(4096))
         for shell in self.each_shell():
@@ -554,7 +559,10 @@ class Systems(ShellTest):
         make_tar(self.T / f'mu300-{os}.tar.gz', files)
 
     def run_install(self, shell, fails=False, **env):
-        e = dict(OSES='openwrt-luci', UPDATE='0', PWHASH='', DEFAULT_LINUX='0', BOOT_OS='openwrt-luci', WIPE_LEGACY='0')
+        # (the tarballs the tests build carry no mu300-carry: these check the install and update of a system, so the
+        # update is asked for with the old keep list, as an image without the carry block is)
+        e = dict(OSES='openwrt-luci', UPDATE='0', PWHASH='', DEFAULT_LINUX='0', BOOT_OS='openwrt-luci', WIPE_LEGACY='0',
+                 MU300_UPDATE_KEEP='list')
         e.update(env)
         # sd_unmark and extra_keep_vpn are other blocks of the script (SdCard and Extras test them)
         pre = ('set -e\nsay() { echo "[device] $*"; }\nsd_unmark() { :; }\nextra_keep_vpn() { :; }\nssid=; psk=\n'
@@ -904,7 +912,8 @@ class Stages(ShellTest):
         # the EXIT trap of SD mode: a sync and an unmount after a timeout would wait on the stuck request
         self.stub('sync', 'echo sync >> "$STUBLOG/calls"')
         (self.T / 'android-mount-mu300root.sh').write_text('echo "helper $*" >> "$STUBLOG/calls"\n')
-        for shell in self.each_shell():
+        # (a busybox shell runs its own sync applet instead of the stub: skip the shells where it cannot win)
+        for shell in self.observable_shells('sync'):
             (self.tmp / 'calls').unlink(missing_ok=True)
             r = self.run_fn(shell, 'sd_exit', pre='STALLED=1')
             self.assertIn('rc=0\n', r.stdout, r.stderr)

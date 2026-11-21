@@ -215,13 +215,24 @@ class DaemonsStartAsTheAccount(ShellTest):
         self.stub('mountpoint', 'exit 0')
         self.stub('setpriv', 'echo "setpriv $*" >> "$STUBLOG/calls"')
         self.stub('chroot', 'echo "chroot $*" >> "$STUBLOG/calls"')
+        # the no-account path asks the busybox for a PID namespace first (unshare -p -f --mount-proc): the stub
+        # drops the arguments it does not have here and runs the chroot the daemon ends up in
+        self.stub('busybox', 'exec "$@"')
+        self.stub('unshare', 'while :; do case "$1" in -*) shift ;; *) break ;; esac; done; exec "$@"')
         self.etc = self.tmp / 'etc'
         self.etc.mkdir()
+
+    def each_shell(self):
+        # android-run waits for the chroot's /dev with mountpoint, and a busybox shell runs its own mountpoint
+        # applet instead of the stub: skip the shells where the stub cannot win (there are none on CI, where the
+        # host has no busybox; the sequence is the same shell code in every one)
+        return self.observable_shells('mountpoint')
 
     def run_daemon(self, shell, name):
         calls = self.tmp / 'calls'
         calls.unlink(missing_ok=True)
-        r = self.script(shell, BIN / 'android-run', name, MU300_ETC=self.etc, MU300_ANDROID=self.tmp / 'a')
+        r = self.script(shell, BIN / 'android-run', name, MU300_ETC=self.etc, MU300_ANDROID=self.tmp / 'a',
+                        MU300_BUSYBOX=self.stubs / 'busybox')
         self.assertEqual(r.returncode, 0, r.stderr)
         return calls.read_text().strip()
 
@@ -248,10 +259,15 @@ class DaemonsStartAsTheAccount(ShellTest):
 
     def test_vendor_start_execs_android_run(self):
         text = (BIN / 'android-vendor-start').read_text()
-        self.assertTrue(text.rstrip().endswith('exec /opt/mu300/bin/android-run modem_control'))
+        # modem_control runs through android-run under the start's lock, in the background, while the start waits
+        # for the node it brings up (a second start finds the lock held and leaves it alone)
+        self.assertIn('exec /opt/mu300/bin/android-run modem_control', text)
+        self.assertIn('flock -n 9', text)
         self.assertNotIn('exec chroot', text)
         # the account is there before the nodes are handed out
-        self.assertLess(text.index('# --- account end'), text.index('sh /opt/mu300/bin/ueventd-perms.sh'))
+        # (the script hands the nodes out twice: the account is made before the second pass, after the early one
+        # that only learns which block device is the eMMC)
+        self.assertLess(text.index('# --- account end'), text.rindex('sh /opt/mu300/bin/ueventd-perms.sh'))
 
 
 class Account(ShellTest):

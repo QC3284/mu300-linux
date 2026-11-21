@@ -560,12 +560,12 @@ template_strings() {
             T_CHARGING='Şarj oluyor'; T_DISCHARGING='Pil kullanılıyor'; T_NOT_CHARGING='Şarj olmuyor'; T_FULL='Dolu'
             ;;
         *)
-            T_SUBJECT_TEST='MU300 转发测试'; T_TEST='MU300 短信转发测试'
-            T_SUBJECT_SMS='MU300 短信通知'; T_FROM='短信来自'
-            T_SUBJECT_POWER='MU300 电源通知'; T_POWER='电源状态通知'
-            T_DEVICE='设备'; T_FIRMWARE='固件'; T_UPTIME='运行时间'; T_SECONDS='秒'
-            T_CHARGE_STATUS='充电状态'; T_LEVEL='当前电量'; T_THRESHOLD='电量提醒'
-            T_CHARGING='充电中'; T_DISCHARGING='放电中'; T_NOT_CHARGING='未充电'; T_FULL='已充满'
+            T_SUBJECT_TEST='MU300 forwarding test'; T_TEST='MU300 SMS forwarding test'
+            T_SUBJECT_SMS='MU300 SMS notice'; T_FROM='SMS from'
+            T_SUBJECT_POWER='MU300 power notice'; T_POWER='Power state notice'
+            T_DEVICE='Device'; T_FIRMWARE='Firmware'; T_UPTIME='Uptime'; T_SECONDS='seconds'
+            T_CHARGE_STATUS='Charge state'; T_LEVEL='Battery level'; T_THRESHOLD='Battery alert'
+            T_CHARGING='Charging'; T_DISCHARGING='Discharging'; T_NOT_CHARGING='Not charging'; T_FULL='Full'
             ;;
     esac
 }

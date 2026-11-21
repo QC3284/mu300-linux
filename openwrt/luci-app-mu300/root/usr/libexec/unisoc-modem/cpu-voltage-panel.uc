@@ -61,15 +61,15 @@ function status() {
         recovery:readjson(RUN+'/unisoc-cpu-voltage-recovery.json')?.reason || null};
 }
 function save(input) {
-    if(!valid(input?.offsets)) return {ok:0,error:'CPU 电压配置无效'};
+    if(!valid(input?.offsets)) return {ok:0,error:'Invalid CPU voltage setting'};
     let nonzero=length(filter(input.offsets,n=>n!=0))>0;
-    if(nonzero && (!supported(true) || length(current())!=3)) return {ok:0,error:'当前内核或固件不支持电压调整'};
-    if(!store(CONFIG,{version:1,offsets:input.offsets})) return {ok:0,error:'无法保存 CPU 设置'};
+    if(nonzero && (!supported(true) || length(current())!=3)) return {ok:0,error:'The current kernel or firmware does not support voltage adjustment'};
+    if(!store(CONFIG,{version:1,offsets:input.offsets})) return {ok:0,error:'Could not save the CPU setting'};
     // Explicit saving retries a paused trial only from observed factory voltage.
     // Saving while an offset is active must not erase its boot evidence.
     let armed=readjson(ARMED), domains=current();
     if(armed?.phase=='paused' && length(domains)==3 && !length(filter(domains,d=>d.offset!=0))) {
-        if(!fs.unlink(ARMED)) return {ok:0,error:'无法保存 CPU 设置'};
+        if(!fs.unlink(ARMED)) return {ok:0,error:'Could not save the CPU setting'};
         fs.unlink(RECOVERY);
     }
     return status();
@@ -107,13 +107,13 @@ function bootargs() {
 function confirm() {
     let armed=readjson(ARMED);
     if(!fs.stat(ARMED) || armed?.phase=='paused') return {ok:1};
-    if(!BOOT || armed?.boot!=BOOT || !valid(armed.offsets)) return {ok:0,error:'无法确认 CPU 电压启动状态'};
+    if(!BOOT || armed?.boot!=BOOT || !valid(armed.offsets)) return {ok:0,error:'Could not confirm the CPU voltage boot state'};
     let domains=current();
     if(length(domains)!=3 || length(filter(domains,d=>d.offset!=armed.offsets[d.id])))
-        return {ok:0,error:'CPU 电压读回与启动设置不符'};
+        return {ok:0,error:'CPU voltage readback differs from the boot setting'};
     if(armed.version==2 && armed.phase=='confirmed') return {ok:1};
     if(!store(ARMED,{version:2,boot:BOOT,offsets:armed.offsets,phase:'confirmed'}))
-        return {ok:0,error:'无法确认 CPU 电压启动状态'};
+        return {ok:0,error:'Could not confirm the CPU voltage boot state'};
     return {ok:1};
 }
 let action=ARGV[0]||'get', result;
@@ -122,12 +122,12 @@ try {
     if(action=='get') result=status();
     else if(action=='save') {
         let text=fs.stdin.read(4097);
-        result=length(text)>4096?{ok:0,error:'CPU 电压配置无效'}:save(json(text));
+        result=length(text)>4096?{ok:0,error:'Invalid CPU voltage setting'}:save(json(text));
     } else if(action=='confirm' || action=='shutdown') result=confirm();
-    else result={ok:0,error:'CPU 电压配置无效'};
+    else result={ok:0,error:'Invalid CPU voltage setting'};
 } catch(e) {
     if(action=='boot-args') { print('0,0,0\n'); exit(0); }
-    result={ok:0,error:'CPU 电压配置无效'};
+    result={ok:0,error:'Invalid CPU voltage setting'};
 }
 print(sprintf('%J\n',result));
 exit(result.ok?0:1);

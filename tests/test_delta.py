@@ -405,7 +405,8 @@ class Block(ShellTest):
     def test_an_image_without_the_parts_is_unpacked_whole(self):
         for shell in self.each_shell():
             self.fresh(parts=False)
-            r = self.up(shell, 'apply_one ubuntu v2')
+            # (no parts means no carry block either: the update is asked for with the old keep list)
+            r = self.up(shell, 'apply_one ubuntu v2', MU300_UPDATE_KEEP='list')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertNotIn('not written again', r.stdout)
             self.assertEqual(inode_shared(self.disk / 'ubuntu', self.disk / 'ubuntu.old') - {'var/lib/app/db'}, set())
@@ -415,10 +416,11 @@ class Block(ShellTest):
             self.assertNotIn('not written again', r.stdout)
 
     def test_not_enough_room_changes_nothing(self):
-        for shell in self.each_shell():
-            self.fresh()
-            before = snapshot(self.old)
-            self.stub('df', 'printf "Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 900000 899000 1000 99%% /x\\n"')
+        self.fresh()
+        before = snapshot(self.old)
+        self.stub('df', 'printf "Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/x 900000 899000 1000 99%% /x\\n"')
+        # (a busybox shell runs its own df applet instead of the stub: skip the shells where it cannot win)
+        for shell in self.observable_shells('df'):
             r = self.up(shell, 'apply_one ubuntu v2')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('not enough free space on the Linux partition', r.stderr)

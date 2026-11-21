@@ -343,9 +343,11 @@ class ApplyOne(ShellTest):
             openwrt_old(disk / 'openwrt')
             write(disk / 'openwrt', {'sbin/init': '#!/bin/sh\n'})
             stage.mkdir(parents=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            # (the fake image carries no mu300-carry: these check apply_one's own config migration, so the
+            # update is asked for with the old keep list, as an image without the carry block is)
             r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                        MU300_BIN=BIN)
+                        MU300_BIN=BIN, MU300_UPDATE_KEEP='list')
             self.assertEqual(r.returncode, 0, r.stderr)
             new = disk / 'openwrt'
             self.assertEqual((new / 'etc/mu300/user-packages/wanted').read_text(), 'luci-app-openclash\nluci-theme-argon\n')
@@ -378,9 +380,10 @@ class ApplyOne(ShellTest):
                 write(disk / 'openwrt', {'sbin/init': '#!/bin/sh\n', 'etc/config/attendedsysupgrade': 'stray\n',
                                          'etc/config/uhttpd.apk-new': 'stray\n', 'etc/config/uhttpd': 'mine\n'})
                 stage.mkdir(parents=True)
-                subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+                subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+                # (as above: the image has no carry block)
                 r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                            MU300_BIN=BIN)
+                            MU300_BIN=BIN, MU300_UPDATE_KEEP='list')
                 self.assertEqual(r.returncode, 0, r.stderr)
                 new = disk / 'openwrt'
                 self.assertFalse((new / 'etc/config/uhttpd.apk-new').exists(), keeps)
@@ -410,9 +413,11 @@ class ApplyOne(ShellTest):
             write(old, {'sbin/init': '#!/bin/sh\n',
                         'etc/mu300/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\nsqm-scripts\n'})
             stage.mkdir(parents=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'mu300-immortalwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            # (the fake image carries no mu300-carry: these check apply_one's own config migration, so the
+            # update is asked for with the old keep list, as an image without the carry block is)
             r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                        MU300_BIN=BIN)
+                        MU300_BIN=BIN, MU300_UPDATE_KEEP='list')
             self.assertEqual(r.returncode, 0, r.stderr)
             new = disk / 'openwrt'
             self.assertEqual((new / 'etc/config/sqm').read_text(), 'image sqm\n')
@@ -496,6 +501,11 @@ class Service(ShellTest):
                              '  *) for p; do case $p in -*|install) continue ;; esac; grep -qx "$p" "$STUBLOG/missing" 2>/dev/null && { echo "E: Unable to locate package $p"; exit 100; }; done ;;\n'
                              'esac\nexit 0')
         self.stub('dpkg-query', 'exit 1')
+
+    def each_shell(self):
+        # busybox sh runs its own id applet, so the stub that says root cannot win there: the script's need_root
+        # check would see the host's uid and refuse. The call sequence is the same script logic in every shell.
+        return self.observable_shells('id')
 
     def setup_openwrt(self, server='127.0.0.1#7874', listening=False):
         shutil.rmtree(self.R, ignore_errors=True)

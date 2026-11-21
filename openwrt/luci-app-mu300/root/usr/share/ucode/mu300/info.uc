@@ -350,7 +350,7 @@ function owner(dir) {
 };
 export function status(slot,cells) {
     let c=cursor(CONFIG);
-    if(!(slot in ['0','1']) || (slot=='1' && c.get('unisoc_modem','main','sim_slots')!='2'))return {error:'SIM 卡槽不可用'};
+    if(!(slot in ['0','1']) || (slot=='1' && c.get('unisoc_modem','main','sim_slots')!='2'))return {error:'SIM slot unavailable'};
     // This platform has no slot-1 reader: no mu300-modemd, and /run/mu300-at4 is never created on an F50
     // (mu300-at answers slot-1 AT calls itself now). Asking for the second card answers the author's
     // empty-card shape - no cell, no signal, no ages, not refreshing - instead of starting a collector
@@ -391,7 +391,7 @@ export function status(slot,cells) {
 
 export function sms_head(slot) {
     let c=cursor(CONFIG);
-    if(!(slot in ['0','1']) || (slot=='1' && c.get('unisoc_modem','main','sim_slots')!='2'))return {error:'SIM 卡槽不可用'};
+    if(!(slot in ['0','1']) || (slot=='1' && c.get('unisoc_modem','main','sim_slots')!='2'))return {error:'SIM slot unavailable'};
     let cmd=c.get('unisoc_modem','main','sms_command') || '';
     // Adapter selection is explicit configuration. An external adapter owns
     // its format; never assume its records use the native pool layout.

@@ -58,6 +58,9 @@ msgstr "CPU"
 msgid "Terminal"
 msgstr "टर्मिनल"
 
+msgid "Shell"
+msgstr "Shell"
+
 msgid "Terminal settings"
 msgstr "टर्मिनल सेटिंग्स"
 
@@ -87,6 +90,18 @@ msgstr "MU300 कंट्रोल सेंटर: स्टेटस डै�
 
 msgid "Terminal: a root shell on the device in the browser"
 msgstr "टर्मिनल: ब्राउज़र में डिवाइस का root शेल"
+
+msgid "Read wireless cipher capabilities"
+msgstr "Read wireless cipher capabilities"
+
+msgid "View and explicitly control CPU online state"
+msgstr "View and explicitly control CPU online state"
+
+msgid "CPU0 deep idle on supported UMS9620 devices"
+msgstr "CPU0 deep idle on supported UMS9620 devices"
+
+msgid "TCP congestion control settings"
+msgstr "TCP congestion control settings"
 
 msgid "China Mobile"
 msgstr "China Mobile"
@@ -1699,6 +1714,9 @@ msgstr "फिर से कोशिश करें"
 msgid "Dismiss the note"
 msgstr "सूचना हटाएँ"
 
+msgid "Packages this image shipped with"
+msgstr "Packages this image shipped with"
+
 msgid "started"
 msgstr "शुरू हुआ"
 
@@ -2542,6 +2560,21 @@ msgstr "सबसे नई रिलीज़"
 
 msgid "Release notes"
 msgstr "रिलीज़ नोट्स"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+msgstr "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+
+msgid "Switching to the %s variant."
+msgstr "Switching to the %s variant."
+
+msgid "Switch to the %s variant"
+msgstr "Switch to the %s variant"
+
+msgid "replaces the system (about 29 MB); now: %s"
+msgstr "replaces the system (about 29 MB); now: %s"
 
 msgid "Download"
 msgstr "डाउनलोड"
@@ -3397,11 +3430,17 @@ msgstr "मॉडेम से लॉक पढ़े जा रहे हैं
 msgid "Lock read failed"
 msgstr "लॉक स्थिति पढ़ना विफल"
 
-msgid "Unknown lock kind"
-msgstr "अज्ञात लॉक प्रकार"
-
 msgid "Invalid value for this lock kind"
 msgstr "इस लॉक प्रकार के लिए अमान्य मान"
+
+msgid "Mobile data integration is not provided by this platform"
+msgstr "इस प्लेटफ़ॉर्म पर मोबाइल डेटा एकीकरण उपलब्ध नहीं है"
+
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "मॉडेम ने सेटिंग स्वीकार नहीं की; कुछ भी सहेजा नहीं गया"
+
+msgid "Unknown lock kind"
+msgstr "अज्ञात लॉक प्रकार"
 
 msgid "Invalid page"
 msgstr "अमान्य पेज"
@@ -3553,9 +3592,6 @@ msgstr "अमान्य अपडेट अनुरोध"
 msgid "The backup tool gave no valid reply"
 msgstr "बैकअप टूल ने कोई मान्य उत्तर नहीं दिया"
 
-msgid "Mobile data integration is not provided by this platform"
-msgstr "इस प्लेटफ़ॉर्म पर मोबाइल डेटा एकीकरण उपलब्ध नहीं है"
-
 msgid "The SIM settings could not be read"
 msgstr "SIM सेटिंग्स पढ़ी नहीं जा सकीं"
 
@@ -3569,8 +3605,53 @@ msgstr "SIM रेडियो का बदलाव पहले से चल
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-msgid "The modem did not take the setting; nothing was saved"
-msgstr "मॉडेम ने सेटिंग स्वीकार नहीं की; कुछ भी सहेजा नहीं गया"
+msgid "The APN adapter gave no valid reply"
+msgstr "The APN adapter gave no valid reply"
+
+msgid "The SIM control adapter gave no valid reply"
+msgstr "The SIM control adapter gave no valid reply"
+
+msgid "Invalid lock job"
+msgstr "Invalid lock job"
+
+msgid "Invalid SIM slot"
+msgstr "Invalid SIM slot"
+
+msgid "Unable to read cellular status"
+msgstr "Unable to read cellular status"
+
+msgid "data_usage_unavailable"
+msgstr "The data usage service is unavailable"
+
+msgid "Request too large"
+msgstr "अनुरोध बहुत बड़ा है"
+
+msgid "The data usage service gave no valid reply"
+msgstr "The data usage service gave no valid reply"
+
+msgid "Invalid forwarding profile"
+msgstr "Invalid forwarding profile"
+
+msgid "Invalid APN request"
+msgstr "Invalid APN request"
+
+msgid "Invalid SIM target"
+msgstr "Invalid SIM target"
+
+msgid "Invalid SIM job"
+msgstr "Invalid SIM job"
+
+msgid "The SIM radio control gave no valid reply"
+msgstr "The SIM radio control gave no valid reply"
+
+msgid "Invalid radio request"
+msgstr "Invalid radio request"
+
+msgid "The V50 card control gave no valid reply"
+msgstr "The V50 card control gave no valid reply"
+
+msgid "Invalid CPU settings"
+msgstr "Invalid CPU settings"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
@@ -3580,11 +3661,11 @@ msgstr "SIM control failed"
 msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
 msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
-msgid "Request too large"
-msgstr "अनुरोध बहुत बड़ा है"
-
 msgid "The runtime directory is not safe; nothing was run"
 msgstr "रनटाइम डायरेक्टरी सुरक्षित नहीं है; कुछ भी नहीं चलाया गया"
+
+msgid "SIM slot unavailable"
+msgstr "SIM slot unavailable"
 
 msgid "No such method"
 msgstr "ऐसा कोई मेथड नहीं"
@@ -3788,6 +3869,18 @@ msgstr "CPU वोल्टेज ऑफ़सेट बंद नहीं क�
 msgid "The stress test could not be started"
 msgstr "स्ट्रेस टेस्ट शुरू नहीं किया जा सका"
 
+msgid "cpu_cores_busy"
+msgstr "CPU setting is busy"
+
+msgid "CPU0 deep idle setting is busy"
+msgstr "CPU0 deep idle setting is busy"
+
+msgid "CPU setting is busy, please try again later"
+msgstr "CPU setting is busy, please try again later"
+
+msgid "dual_sim_unavailable"
+msgstr "This device has no second SIM slot"
+
 msgid "USB role adapter is not executable"
 msgstr "USB भूमिका एडेप्टर निष्पादन योग्य नहीं है"
 
@@ -3802,9 +3895,6 @@ msgstr "USB भूमिका बदलना विफल"
 
 msgid "USB role switch was refused by platform safety checks"
 msgstr "प्लेटफ़ॉर्म सुरक्षा जाँचों ने USB भूमिका बदलने से मना कर दिया"
-
-msgid "Cannot create USB boot settings directory"
-msgstr "USB बूट सेटिंग्स डायरेक्टरी नहीं बनाई जा सकती"
 
 msgid "Cannot write USB boot settings"
 msgstr "USB बूट सेटिंग्स नहीं लिखी जा सकतीं"
@@ -3827,6 +3917,9 @@ msgstr "USB नेटवर्क बूट नीति अक्षम नह�
 msgid "Cannot commit USB role policy"
 msgstr "USB भूमिका नीति कमिट नहीं की जा सकती"
 
+msgid "Could not record the USB role switch result"
+msgstr "Could not record the USB role switch result"
+
 msgid "USB network mode is unavailable in host role"
 msgstr "होस्ट भूमिका में USB नेटवर्क मोड उपलब्ध नहीं है"
 
@@ -3842,17 +3935,26 @@ msgstr "USB नेटवर्क नीति कमिट नहीं की 
 msgid "USB host mode is required"
 msgstr "USB होस्ट मोड आवश्यक है"
 
+msgid "USB network setting is busy, please try again later"
+msgstr "USB network setting is busy, please try again later"
+
+msgid "There are unsaved changes: handle them first and try again"
+msgstr "There are unsaved changes: handle them first and try again"
+
+msgid "Could not save the USB network auto-join setting"
+msgstr "Could not save the USB network auto-join setting"
+
+msgid "Could not confirm the NIC ownership, please try again later"
+msgstr "Could not confirm the NIC ownership, please try again later"
+
 msgid "Not a USB network interface"
 msgstr "यह USB नेटवर्क इंटरफ़ेस नहीं है"
 
-msgid "LAN bridge device section was not found"
-msgstr "LAN ब्रिज डिवाइस सेक्शन नहीं मिला"
+msgid "The NIC is already used by another network and cannot join the LAN"
+msgstr "The NIC is already used by another network and cannot join the LAN"
 
 msgid "Cannot bring USB network interface up"
 msgstr "USB नेटवर्क इंटरफ़ेस चालू नहीं किया जा सकता"
-
-msgid "Cannot add interface to LAN bridge"
-msgstr "इंटरफ़ेस को LAN ब्रिज में नहीं जोड़ा जा सकता"
 
 msgid "Cannot save LAN bridge"
 msgstr "LAN ब्रिज सहेजा नहीं जा सकता"
@@ -3965,6 +4067,9 @@ msgstr "स्टैक पुनरारंभ के बाद रीड-ब�
 msgid "The reset was interrupted"
 msgstr "रीसेट बाधित हो गया"
 
+msgid "network_busy"
+msgstr "Network setting is busy"
+
 msgid "Reinstalling packages is not available on this system"
 msgstr "इस सिस्टम पर पैकेज फिर से इंस्टॉल करना उपलब्ध नहीं है"
 
@@ -4006,6 +4111,9 @@ msgstr "टास्क शुरू नहीं हो सका"
 
 msgid "The updater gave no valid reply"
 msgstr "अपडेटर ने कोई मान्य जवाब नहीं दिया"
+
+msgid "Invalid theme"
+msgstr "Invalid theme"
 
 msgid "This needs confirmation"
 msgstr "इसके लिए पुष्टि ज़रूरी है"

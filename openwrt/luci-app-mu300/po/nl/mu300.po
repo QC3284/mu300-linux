@@ -58,6 +58,9 @@ msgstr "CPU"
 msgid "Terminal"
 msgstr "Terminal"
 
+msgid "Shell"
+msgstr "Shell"
+
 msgid "Terminal settings"
 msgstr "Terminalinstellingen"
 
@@ -87,6 +90,18 @@ msgstr "MU300-controlecentrum: statusdashboard, netwerkvergrendelingen, AT-termi
 
 msgid "Terminal: a root shell on the device in the browser"
 msgstr "Terminal: een root-shell op het apparaat in de browser"
+
+msgid "Read wireless cipher capabilities"
+msgstr "Read wireless cipher capabilities"
+
+msgid "View and explicitly control CPU online state"
+msgstr "View and explicitly control CPU online state"
+
+msgid "CPU0 deep idle on supported UMS9620 devices"
+msgstr "CPU0 deep idle on supported UMS9620 devices"
+
+msgid "TCP congestion control settings"
+msgstr "TCP congestion control settings"
 
 msgid "China Mobile"
 msgstr "China Mobile"
@@ -1699,6 +1714,9 @@ msgstr "Opnieuw proberen"
 msgid "Dismiss the note"
 msgstr "Melding sluiten"
 
+msgid "Packages this image shipped with"
+msgstr "Packages this image shipped with"
+
 msgid "started"
 msgstr "gestart"
 
@@ -2542,6 +2560,21 @@ msgstr "Nieuwste release"
 
 msgid "Release notes"
 msgstr "Release-opmerkingen"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+msgstr "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+
+msgid "Switching to the %s variant."
+msgstr "Switching to the %s variant."
+
+msgid "Switch to the %s variant"
+msgstr "Switch to the %s variant"
+
+msgid "replaces the system (about 29 MB); now: %s"
+msgstr "replaces the system (about 29 MB); now: %s"
 
 msgid "Download"
 msgstr "Download"
@@ -3397,11 +3430,17 @@ msgstr "De vergrendelingen worden uit de modem gelezen; probeer het over een paa
 msgid "Lock read failed"
 msgstr "Vergrendeling lezen mislukt"
 
-msgid "Unknown lock kind"
-msgstr "Onbekend type vergrendeling"
-
 msgid "Invalid value for this lock kind"
 msgstr "Ongeldige waarde voor dit type vergrendeling"
+
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Integratie van mobiele data wordt op dit platform niet geboden"
+
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "De modem nam de instelling niet over; er is niets opgeslagen"
+
+msgid "Unknown lock kind"
+msgstr "Onbekend type vergrendeling"
 
 msgid "Invalid page"
 msgstr "Ongeldige pagina"
@@ -3553,9 +3592,6 @@ msgstr "Ongeldig updateverzoek"
 msgid "The backup tool gave no valid reply"
 msgstr "Het back-uphulpmiddel gaf geen geldig antwoord"
 
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Integratie van mobiele data wordt op dit platform niet geboden"
-
 msgid "The SIM settings could not be read"
 msgstr "De SIM-instellingen konden niet worden gelezen"
 
@@ -3569,8 +3605,53 @@ msgstr "Er loopt al een wijziging van de SIM-radio"
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-msgid "The modem did not take the setting; nothing was saved"
-msgstr "De modem nam de instelling niet over; er is niets opgeslagen"
+msgid "The APN adapter gave no valid reply"
+msgstr "The APN adapter gave no valid reply"
+
+msgid "The SIM control adapter gave no valid reply"
+msgstr "The SIM control adapter gave no valid reply"
+
+msgid "Invalid lock job"
+msgstr "Invalid lock job"
+
+msgid "Invalid SIM slot"
+msgstr "Invalid SIM slot"
+
+msgid "Unable to read cellular status"
+msgstr "Unable to read cellular status"
+
+msgid "data_usage_unavailable"
+msgstr "The data usage service is unavailable"
+
+msgid "Request too large"
+msgstr "Verzoek te groot"
+
+msgid "The data usage service gave no valid reply"
+msgstr "The data usage service gave no valid reply"
+
+msgid "Invalid forwarding profile"
+msgstr "Invalid forwarding profile"
+
+msgid "Invalid APN request"
+msgstr "Invalid APN request"
+
+msgid "Invalid SIM target"
+msgstr "Invalid SIM target"
+
+msgid "Invalid SIM job"
+msgstr "Invalid SIM job"
+
+msgid "The SIM radio control gave no valid reply"
+msgstr "The SIM radio control gave no valid reply"
+
+msgid "Invalid radio request"
+msgstr "Invalid radio request"
+
+msgid "The V50 card control gave no valid reply"
+msgstr "The V50 card control gave no valid reply"
+
+msgid "Invalid CPU settings"
+msgstr "Invalid CPU settings"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
@@ -3580,11 +3661,11 @@ msgstr "SIM control failed"
 msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
 msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
-msgid "Request too large"
-msgstr "Verzoek te groot"
-
 msgid "The runtime directory is not safe; nothing was run"
 msgstr "De runtimemap is niet veilig; er is niets uitgevoerd"
+
+msgid "SIM slot unavailable"
+msgstr "SIM slot unavailable"
 
 msgid "No such method"
 msgstr "Methode bestaat niet"
@@ -3788,6 +3869,18 @@ msgstr "De CPU-spanningsoffset kon niet worden uitgeschakeld"
 msgid "The stress test could not be started"
 msgstr "De stresstest kon niet worden gestart"
 
+msgid "cpu_cores_busy"
+msgstr "CPU setting is busy"
+
+msgid "CPU0 deep idle setting is busy"
+msgstr "CPU0 deep idle setting is busy"
+
+msgid "CPU setting is busy, please try again later"
+msgstr "CPU setting is busy, please try again later"
+
+msgid "dual_sim_unavailable"
+msgstr "This device has no second SIM slot"
+
 msgid "USB role adapter is not executable"
 msgstr "USB-roladapter is niet uitvoerbaar"
 
@@ -3802,9 +3895,6 @@ msgstr "Wisselen van USB-rol mislukt"
 
 msgid "USB role switch was refused by platform safety checks"
 msgstr "Wisselen van USB-rol is geweigerd door de veiligheidscontroles van het platform"
-
-msgid "Cannot create USB boot settings directory"
-msgstr "Kan map voor USB-opstartinstellingen niet aanmaken"
 
 msgid "Cannot write USB boot settings"
 msgstr "Kan USB-opstartinstellingen niet schrijven"
@@ -3827,6 +3917,9 @@ msgstr "Kan opstartbeleid voor USB-netwerk niet uitschakelen"
 msgid "Cannot commit USB role policy"
 msgstr "Kan USB-rolbeleid niet doorvoeren"
 
+msgid "Could not record the USB role switch result"
+msgstr "Could not record the USB role switch result"
+
 msgid "USB network mode is unavailable in host role"
 msgstr "USB-netwerkmodus is niet beschikbaar in de hostrol"
 
@@ -3842,17 +3935,26 @@ msgstr "Kan USB-netwerkbeleid niet doorvoeren"
 msgid "USB host mode is required"
 msgstr "USB-hostmodus is vereist"
 
+msgid "USB network setting is busy, please try again later"
+msgstr "USB network setting is busy, please try again later"
+
+msgid "There are unsaved changes: handle them first and try again"
+msgstr "There are unsaved changes: handle them first and try again"
+
+msgid "Could not save the USB network auto-join setting"
+msgstr "Could not save the USB network auto-join setting"
+
+msgid "Could not confirm the NIC ownership, please try again later"
+msgstr "Could not confirm the NIC ownership, please try again later"
+
 msgid "Not a USB network interface"
 msgstr "Geen USB-netwerkinterface"
 
-msgid "LAN bridge device section was not found"
-msgstr "Apparaatsectie van de LAN-bridge niet gevonden"
+msgid "The NIC is already used by another network and cannot join the LAN"
+msgstr "The NIC is already used by another network and cannot join the LAN"
 
 msgid "Cannot bring USB network interface up"
 msgstr "Kan USB-netwerkinterface niet activeren"
-
-msgid "Cannot add interface to LAN bridge"
-msgstr "Kan interface niet aan LAN-bridge toevoegen"
 
 msgid "Cannot save LAN bridge"
 msgstr "Kan LAN-bridge niet opslaan"
@@ -3965,6 +4067,9 @@ msgstr "Het teruglezen na de herstart van de stack komt niet overeen met de auto
 msgid "The reset was interrupted"
 msgstr "Het resetten is onderbroken"
 
+msgid "network_busy"
+msgstr "Network setting is busy"
+
 msgid "Reinstalling packages is not available on this system"
 msgstr "Pakketten opnieuw installeren is op dit systeem niet beschikbaar"
 
@@ -4006,6 +4111,9 @@ msgstr "De taak kon niet worden gestart"
 
 msgid "The updater gave no valid reply"
 msgstr "De updater gaf geen geldig antwoord"
+
+msgid "Invalid theme"
+msgstr "Invalid theme"
 
 msgid "This needs confirmation"
 msgstr "Dit moet worden bevestigd"

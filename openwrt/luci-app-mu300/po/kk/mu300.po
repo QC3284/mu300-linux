@@ -58,6 +58,9 @@ msgstr "CPU"
 msgid "Terminal"
 msgstr "Терминал"
 
+msgid "Shell"
+msgstr "Shell"
+
 msgid "Terminal settings"
 msgstr "Терминал баптаулары"
 
@@ -87,6 +90,18 @@ msgstr "MU300 басқару орталығы: күй тақтасы, желі �
 
 msgid "Terminal: a root shell on the device in the browser"
 msgstr "Терминал: браузердегі құрылғының root қабығы"
+
+msgid "Read wireless cipher capabilities"
+msgstr "Read wireless cipher capabilities"
+
+msgid "View and explicitly control CPU online state"
+msgstr "View and explicitly control CPU online state"
+
+msgid "CPU0 deep idle on supported UMS9620 devices"
+msgstr "CPU0 deep idle on supported UMS9620 devices"
+
+msgid "TCP congestion control settings"
+msgstr "TCP congestion control settings"
 
 msgid "China Mobile"
 msgstr "China Mobile"
@@ -1699,6 +1714,9 @@ msgstr "Қайталау"
 msgid "Dismiss the note"
 msgstr "Ескертуді жабу"
 
+msgid "Packages this image shipped with"
+msgstr "Packages this image shipped with"
+
 msgid "started"
 msgstr "іске қосылды"
 
@@ -2542,6 +2560,21 @@ msgstr "Ең жаңа релиз"
 
 msgid "Release notes"
 msgstr "Релиз ескертпелері"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+msgstr "Switch to the %s variant? The whole system is replaced by that variant's image (about 29 MB), your files and settings are kept, and the panel reloads with the other theme."
+
+msgid "Switching to the %s variant."
+msgstr "Switching to the %s variant."
+
+msgid "Switch to the %s variant"
+msgstr "Switch to the %s variant"
+
+msgid "replaces the system (about 29 MB); now: %s"
+msgstr "replaces the system (about 29 MB); now: %s"
 
 msgid "Download"
 msgstr "Жүктеп алу"
@@ -3397,11 +3430,17 @@ msgstr "Құлыптар модемнен оқылуда; бірнеше сек�
 msgid "Lock read failed"
 msgstr "Бекітуді оқу сәтсіз"
 
-msgid "Unknown lock kind"
-msgstr "Белгісіз бекіту түрі"
-
 msgid "Invalid value for this lock kind"
 msgstr "Бұл бекіту түрі үшін жарамсыз мән"
+
+msgid "Mobile data integration is not provided by this platform"
+msgstr "Бұл платформада мобильді деректер интеграциясы жоқ"
+
+msgid "The modem did not take the setting; nothing was saved"
+msgstr "Модем баптауды қабылдамады; ештеңе сақталмады"
+
+msgid "Unknown lock kind"
+msgstr "Белгісіз бекіту түрі"
 
 msgid "Invalid page"
 msgstr "Жарамсыз бет"
@@ -3553,9 +3592,6 @@ msgstr "Жаңарту сұрауы жарамсыз"
 msgid "The backup tool gave no valid reply"
 msgstr "Сақтық көшірме құралы жарамды жауап бермеді"
 
-msgid "Mobile data integration is not provided by this platform"
-msgstr "Бұл платформада мобильді деректер интеграциясы жоқ"
-
 msgid "The SIM settings could not be read"
 msgstr "SIM баптауларын оқу мүмкін болмады"
 
@@ -3569,8 +3605,53 @@ msgstr "SIM радиосын өзгерту қазірдің өзінде жүр
 msgid "Invalid SIM setting"
 msgstr "Invalid SIM setting"
 
-msgid "The modem did not take the setting; nothing was saved"
-msgstr "Модем баптауды қабылдамады; ештеңе сақталмады"
+msgid "The APN adapter gave no valid reply"
+msgstr "The APN adapter gave no valid reply"
+
+msgid "The SIM control adapter gave no valid reply"
+msgstr "The SIM control adapter gave no valid reply"
+
+msgid "Invalid lock job"
+msgstr "Invalid lock job"
+
+msgid "Invalid SIM slot"
+msgstr "Invalid SIM slot"
+
+msgid "Unable to read cellular status"
+msgstr "Unable to read cellular status"
+
+msgid "data_usage_unavailable"
+msgstr "The data usage service is unavailable"
+
+msgid "Request too large"
+msgstr "Сұрау тым үлкен"
+
+msgid "The data usage service gave no valid reply"
+msgstr "The data usage service gave no valid reply"
+
+msgid "Invalid forwarding profile"
+msgstr "Invalid forwarding profile"
+
+msgid "Invalid APN request"
+msgstr "Invalid APN request"
+
+msgid "Invalid SIM target"
+msgstr "Invalid SIM target"
+
+msgid "Invalid SIM job"
+msgstr "Invalid SIM job"
+
+msgid "The SIM radio control gave no valid reply"
+msgstr "The SIM radio control gave no valid reply"
+
+msgid "Invalid radio request"
+msgstr "Invalid radio request"
+
+msgid "The V50 card control gave no valid reply"
+msgstr "The V50 card control gave no valid reply"
+
+msgid "Invalid CPU settings"
+msgstr "Invalid CPU settings"
 
 # Source-language fallback for untranslated new controls.
 msgid "SIM control failed"
@@ -3580,11 +3661,11 @@ msgstr "SIM control failed"
 msgid "Enable hot switching; reboot if channels are unavailable or wait until idle"
 msgstr "Enable hot switching; reboot if channels are unavailable or wait until idle"
 
-msgid "Request too large"
-msgstr "Сұрау тым үлкен"
-
 msgid "The runtime directory is not safe; nothing was run"
 msgstr "Орындау ортасының каталогы қауіпсіз емес; ештеңе орындалмады"
+
+msgid "SIM slot unavailable"
+msgstr "SIM slot unavailable"
 
 msgid "No such method"
 msgstr "Мұндай әдіс жоқ"
@@ -3788,6 +3869,18 @@ msgstr "CPU кернеуінің ығысуын өшіру мүмкін болм
 msgid "The stress test could not be started"
 msgstr "Стресс-тестті іске қосу мүмкін болмады"
 
+msgid "cpu_cores_busy"
+msgstr "CPU setting is busy"
+
+msgid "CPU0 deep idle setting is busy"
+msgstr "CPU0 deep idle setting is busy"
+
+msgid "CPU setting is busy, please try again later"
+msgstr "CPU setting is busy, please try again later"
+
+msgid "dual_sim_unavailable"
+msgstr "This device has no second SIM slot"
+
 msgid "USB role adapter is not executable"
 msgstr "USB рөлі адаптері орындалатын емес"
 
@@ -3802,9 +3895,6 @@ msgstr "USB рөлін ауыстыру сәтсіз"
 
 msgid "USB role switch was refused by platform safety checks"
 msgstr "USB рөлін ауыстыруды платформаның қауіпсіздік тексерулері қабылдамады"
-
-msgid "Cannot create USB boot settings directory"
-msgstr "USB жүктелу параметрлерінің каталогын жасау мүмкін емес"
 
 msgid "Cannot write USB boot settings"
 msgstr "USB жүктелу параметрлерін жазу мүмкін емес"
@@ -3827,6 +3917,9 @@ msgstr "USB желісінің жүктелу саясатын өшіру мүм
 msgid "Cannot commit USB role policy"
 msgstr "USB рөлі саясатын қолдану мүмкін емес"
 
+msgid "Could not record the USB role switch result"
+msgstr "Could not record the USB role switch result"
+
 msgid "USB network mode is unavailable in host role"
 msgstr "USB желі режимі хост рөлінде қолжетімсіз"
 
@@ -3842,17 +3935,26 @@ msgstr "USB желі саясатын қолдану мүмкін емес"
 msgid "USB host mode is required"
 msgstr "USB хост режимі қажет"
 
+msgid "USB network setting is busy, please try again later"
+msgstr "USB network setting is busy, please try again later"
+
+msgid "There are unsaved changes: handle them first and try again"
+msgstr "There are unsaved changes: handle them first and try again"
+
+msgid "Could not save the USB network auto-join setting"
+msgstr "Could not save the USB network auto-join setting"
+
+msgid "Could not confirm the NIC ownership, please try again later"
+msgstr "Could not confirm the NIC ownership, please try again later"
+
 msgid "Not a USB network interface"
 msgstr "USB желі интерфейсі емес"
 
-msgid "LAN bridge device section was not found"
-msgstr "LAN көпірі құрылғысының бөлімі табылмады"
+msgid "The NIC is already used by another network and cannot join the LAN"
+msgstr "The NIC is already used by another network and cannot join the LAN"
 
 msgid "Cannot bring USB network interface up"
 msgstr "USB желі интерфейсін іске қосу мүмкін емес"
-
-msgid "Cannot add interface to LAN bridge"
-msgstr "Интерфейсті LAN көпіріне қосу мүмкін емес"
 
 msgid "Cannot save LAN bridge"
 msgstr "LAN көпірін сақтау мүмкін емес"
@@ -3965,6 +4067,9 @@ msgstr "Стек қайта іске қосылғаннан кейінгі ке�
 msgid "The reset was interrupted"
 msgstr "Қалпына келтіру үзілді"
 
+msgid "network_busy"
+msgstr "Network setting is busy"
+
 msgid "Reinstalling packages is not available on this system"
 msgstr "Бұл жүйеде пакеттерді қайта орнату қолжетімсіз"
 
@@ -4006,6 +4111,9 @@ msgstr "Тапсырманы бастау мүмкін болмады"
 
 msgid "The updater gave no valid reply"
 msgstr "Жаңарту бағдарламасы жарамды жауап бермеді"
+
+msgid "Invalid theme"
+msgstr "Invalid theme"
 
 msgid "This needs confirmation"
 msgstr "Бұл растауды қажет етеді"

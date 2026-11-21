@@ -28,7 +28,7 @@ function saved() {
     if(raw==null && !fs.stat(CONFIG)) return {version:2};
     let config=json(raw);
     if(config?.version==2) return config;
-    if(config?.version!=1) die('CPU 配置无效');
+    if(config?.version!=1) die('Invalid CPU setting');
     // Read-only compatibility: migrate a combined profile on the next save.
     let converted={version:2};
     if(config.persist===true) {
@@ -47,7 +47,7 @@ function save_scope(config,scope,profile) {
 }
 function baseline(current,zones) {
     let id=trim(fs.readfile(BOOT) || ''), stored=null;
-    if(!length(id)) die('无法读取 CPU 启动基线');
+    if(!length(id)) die('Could not read the CPU boot baseline');
     try { stored=json(fs.readfile(DEFAULTS) || 'null'); } catch(e) {}
     if(stored?.boot==id) {
         // A deferred sensor may appear after S99. Capture newly available trips
@@ -60,7 +60,7 @@ function baseline(current,zones) {
     } else stored={boot:id,changes:map(filter(current,p=>p.writable),p=>({id:p.id,cpus:p.cpus,governor:p.governor,min:p.min,max:p.max})),thermal:thermal.settings(zones)};
     let text=sprintf('%J\n',stored), tmp=DEFAULTS+'.new';
     if(fs.writefile(tmp,text)!=length(text) || !fs.chmod(tmp,384) || !fs.rename(tmp,DEFAULTS)) {
-        fs.unlink(tmp); die('无法保存 CPU 启动基线');
+        fs.unlink(tmp); die('Could not save the CPU boot baseline');
     }
     return stored;
 }
@@ -94,12 +94,12 @@ function set(p,c) {
 function apply(input,replay) {
     let current=policies(), zones=thermal.zones(), byid={}, seen={}, steps;
     for(let p in current) byid[p.id]=p;
-    if(type(input)!='object') return {ok:0,error:'CPU 配置无效'};
+    if(type(input)!='object') return {ok:0,error:'Invalid CPU setting'};
     let scope=input.scope || 'frequency', config=saved();
-    if(scope!='frequency' && scope!='thermal') return {ok:0,error:'CPU 配置无效'};
+    if(scope!='frequency' && scope!='thermal') return {ok:0,error:'Invalid CPU setting'};
     // A stale combined UI must never apply or erase the other section.
     if((scope=='frequency' && input.thermal!=null) || (scope=='thermal' && input.changes!=null))
-        return {ok:0,error:'请刷新页面后分别应用频率或温控设置'};
+        return {ok:0,error:'Refresh the page and apply the frequency or thermal setting separately'};
     if(input.reset===true) {
         let base=baseline(current,zones);
         input=scope=='frequency'?{changes:base.changes,persist:false}:{thermal:base.thermal,persist:false};
@@ -107,14 +107,14 @@ function apply(input,replay) {
     let changes=scope=='frequency'?input.changes:[], trips=scope=='thermal'?input.thermal:[];
     if(type(input.persist)!='bool' || type(changes)!='array' || length(changes)>32 ||
        (scope=='frequency' && !length(changes)) || (scope=='thermal' && !length(trips || [])))
-        return {ok:0,error:'CPU 配置无效'};
+        return {ok:0,error:'Invalid CPU setting'};
     try { steps=thermal.plan(trips,zones); } catch(e) { return {ok:0,error:e.message || ''+e}; }
     for(let c in changes) {
         let p=byid[c?.id];
         if(!p?.writable || seen[c.id] || c.cpus!=p.cpus || type(c.min)!='int' || type(c.max)!='int' ||
            c.min>c.max || c.min<p.hardware_min || c.max>p.hardware_max || index(p.governors,c.governor)<0 ||
            (length(p.frequencies) && (index(p.frequencies,c.min)<0 || index(p.frequencies,c.max)<0)))
-            return {ok:0,error:'CPU 配置无效'};
+            return {ok:0,error:'Invalid CPU setting'};
         seen[c.id]=true;
     }
     baseline(current,zones);
@@ -134,15 +134,15 @@ function apply(input,replay) {
     let changed=[], thermal_changed=[], error=null, rollback=true;
     for(let c in changes) {
         let p=byid[c.id]; push(changed,p);
-        if(!set(p,c)) { error='CPU 配置回读不一致'; break; }
+        if(!set(p,c)) { error='CPU setting readback mismatch'; break; }
     }
     if(!error) for(let step in steps) {
         push(thermal_changed,step);
-        if(!thermal.write(step,false)) { error='温控配置回读不一致'; break; }
+        if(!thermal.write(step,false)) { error='Thermal setting readback mismatch'; break; }
     }
     if(!error && !replay) {
         let profile=scope=='frequency'?{changes:desired}:{thermal:thermal.settings(thermal.zones())};
-        if(!save_scope(config,scope,input.persist?profile:null)) error='无法保存 CPU 设置';
+        if(!save_scope(config,scope,input.persist?profile:null)) error='Could not save the CPU setting';
     }
     if(error) {
         for(let step in reverse(thermal_changed)) if(!thermal.write(step,true)) rollback=false;
@@ -158,7 +158,7 @@ try {
         let flags=persist_flags(saved());
         result={ok:1,policies:policies(),zones:thermal.zones(),persist:flags.persist,thermal_persist:flags.thermal_persist};
     }
-    else if(action=='forget') result=save_scope(saved(),'frequency',null) ? {ok:1,persist:false} : {ok:0,error:'无法保存 CPU 设置'};
+    else if(action=='forget') result=save_scope(saved(),'frequency',null) ? {ok:1,persist:false} : {ok:0,error:'Could not save the CPU setting'};
     else if(action=='boot') {
         baseline(policies(),thermal.zones());
         let config=saved();
@@ -166,14 +166,14 @@ try {
         // Each domain replays independently; missing thermal support must not
         // prevent restoring frequency settings (or vice versa).
         if(config.frequency!=null) try { frequency=apply({scope:'frequency',changes:config.frequency.changes,persist:true},true); }
-            catch(e) { frequency={ok:0,error:'CPU 配置无效'}; }
+            catch(e) { frequency={ok:0,error:'Invalid CPU setting'}; }
         if(config.thermal!=null) try { therm=apply({scope:'thermal',thermal:config.thermal.thermal,persist:true},true); }
-            catch(e) { therm={ok:0,error:'温控配置无效'}; }
+            catch(e) { therm={ok:0,error:'Invalid thermal setting'}; }
         result={ok:frequency.ok && therm.ok?1:0,frequency,thermal:therm};
     } else if(action=='apply') {
         let text=fs.stdin.read(16385);
-        result=length(text)>16384?{ok:0,error:'CPU 配置无效'}:apply(json(text));
-    } else result={ok:0,error:'CPU 配置无效'};
-} catch(e) { result={ok:0,error:'CPU 配置无效'}; }
+        result=length(text)>16384?{ok:0,error:'Invalid CPU setting'}:apply(json(text));
+    } else result={ok:0,error:'Invalid CPU setting'};
+} catch(e) { result={ok:0,error:'Invalid CPU setting'}; }
 print(sprintf('%J\n',result));
 exit(result.ok?0:1);

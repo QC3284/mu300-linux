@@ -24,4 +24,6 @@ if [ -n "$caps" ] && grep -q '^mu300vnd:' "${MU300_ETC:-/etc}/passwd" 2>/dev/nul
     exec setpriv --reuid=mu300vnd --regid=mu300vnd --clear-groups --no-new-privs \
         --inh-caps="$c" --ambient-caps="$c" --bounding-set="$c" chroot $A /vendor/bin/"$1"
 fi
-exec /opt/mu300/bin/busybox unshare -p -f --mount-proc chroot $A /vendor/bin/"$1"
+# (the busybox to ask for a PID namespace with: a test host has no /opt/mu300/bin, so the tests point this at
+# their own stub; on a device it is the image's busybox, as before)
+exec "${MU300_BUSYBOX:-/opt/mu300/bin/busybox}" unshare -p -f --mount-proc chroot $A /vendor/bin/"$1"

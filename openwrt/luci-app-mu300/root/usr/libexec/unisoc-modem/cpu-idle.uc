@@ -11,7 +11,7 @@ function states() {
         if(!match(id,/^state[0-9]+$/))continue;
         let path=base+'/'+id, name=read(path+'/name'), value=read(path+'/disable');
         if(name!='cluster-pd' && !match(name,/^core-sleep-/))continue;
-        if(value!='0' && value!='1')die('无法读取 CPU0 深度休眠状态');
+        if(value!='0' && value!='1')die('Could not read the CPU0 deep idle state');
         push(out,{id,name,disabled:value=='1',path:path+'/disable'});
     }
     return out;
@@ -19,7 +19,7 @@ function states() {
 function profile() {
     if(!fs.stat(CONFIG))return null;
     let v=json(fs.readfile(CONFIG));
-    if(v?.version!=1 || type(v.enabled)!='bool' || length(keys(v))!=2)die('CPU0 深度休眠配置无效');
+    if(v?.version!=1 || type(v.enabled)!='bool' || length(keys(v))!=2)die('Invalid CPU0 deep idle configuration');
     return v;
 }
 function status(nodes) {
@@ -62,18 +62,18 @@ try {
         } else {
             let request=json(fs.readfile('/dev/stdin') || '{}');
             delete request.ubus_rpc_session;
-            if(type(request.enabled)!='bool' || length(keys(request))!=1)die('CPU0 深度休眠请求无效');
-            if(!length(nodes))die('此平台不提供 CPU0 深度休眠开关');
+            if(type(request.enabled)!='bool' || length(keys(request))!=1)die('Invalid CPU0 deep idle request');
+            if(!length(nodes))die('This platform has no CPU0 deep idle switch');
             enabled=request.enabled;
         }
         // Validate any saved file before changing hardware.
         profile();
         if(!write_nodes(nodes,enabled)) {
-            print(sprintf('%J\n',{ok:false,error:'内核未接受 CPU0 深度休眠设置',rollback:restore(nodes)}));exit(1);
+            print(sprintf('%J\n',{ok:false,error:'The kernel rejected the CPU0 deep idle setting',rollback:restore(nodes)}));exit(1);
         }
         if(action=='apply' && !save(enabled)) {
-            print(sprintf('%J\n',{ok:false,error:'无法保存 CPU0 深度休眠设置',rollback:restore(nodes)}));exit(1);
+            print(sprintf('%J\n',{ok:false,error:'Could not save the CPU0 deep idle setting',rollback:restore(nodes)}));exit(1);
         }
         print(sprintf('%J\n',status(states())));
-    } else die('CPU0 深度休眠操作无效');
+    } else die('CPU0 deep idle operation invalid');
 } catch(e) {print(sprintf('%J\n',{ok:false,error:replace(''+e,/\n.*/, '')}));exit(1);}

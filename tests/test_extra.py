@@ -96,6 +96,11 @@ class ExtrasBase(ShellTest):
         self.links.mkdir()
         self.stub('id', 'echo 0')
 
+    def each_shell(self):
+        # busybox sh runs its own id applet, so the stub that says root cannot win there: the script's need_root
+        # check would see the host's uid and refuse. The call sequence is the same script logic in every shell.
+        return self.observable_shells('id')
+
     def up(self, shell, code, **env):
         # (MU300_VPN_UNVERIFIED: the tests' lone module files have no SHA256SUMS; the refusal is tested with it empty)
         e = dict(MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_FETCH_DELAY=0,
@@ -140,7 +145,9 @@ class ExtrasBase(ShellTest):
 
     def serve(self, release='v2026.10.10', assets=None):
         """a release on a 'server': a directory curl (stubbed) reads from, with its SHA256SUMS. The URL's last two
-        parts name the directory and the file (.../vpn-module/SHA256SUMS: the module's 'release')."""
+        parts name the directory and the file (.../vpn-module/SHA256SUMS: the module's 'release'). The stub answers
+        the release list as the newest code asks for it too: the static index asset, the API's per-tag asset names,
+        and the theme probe (curl -w '%{http_code}': a served release answers 206 for the rootfs asset's name)."""
         d = self.tmp / 'server' / release
         d.mkdir(parents=True, exist_ok=True)
         if assets is None:
@@ -148,11 +155,36 @@ class ExtrasBase(ShellTest):
         for name, src in assets.items():
             (d / name).write_bytes(src.read_bytes())
         sums(d, *assets)
-        self.stub('curl', f'out=; url=; while [ $# -gt 0 ]; do case $1 in -o) out=$2; shift ;; -*) ;; *) url=$1 ;; esac; '
-                          f'shift; done; echo "$url" >> "$STUBLOG/urls"; f=${{url##*/}}; r=${{url%/*}}; r=${{r##*/}}; '
-                          f'case $url in */releases/latest) echo \'"tag_name": "v2026.10.10"\'; exit 0 ;; esac; '
-                          f'src="{self.tmp}/server/$r/$f"; [ -f "$src" ] || exit 22; '
-                          f'if [ -n "$out" ]; then cat "$src" > "$out"; else cat "$src"; fi')
+        stack = self.tmp / 'server'
+        tags = ' '.join(sorted(x.name for x in stack.iterdir() if x.is_dir()))
+        stub = r"""out=; url=; probe=0
+while [ $# -gt 0 ]; do case $1 in
+  -o) out=$2; shift ;;
+  -w) probe=1 ;;
+  -*) ;;
+  *) url=$1 ;;
+esac; shift; done
+echo "$url" >> "$STUBLOG/urls"
+case $url in */releases/latest) echo '{"tag_name": "v2026.10.10"}'; exit 0 ;; esac
+case $url in
+  */releases/latest/download/latest-*) echo "mu300-latest 1 v2026.10.10"; exit 0 ;;
+  */releases/tags/*)
+    tag=${url##*/tags/}
+    [ -d "@SERVER@/$tag" ] || exit 22
+    printf '{"tag_name": "%s", "assets": [{"name": "mu300-immortalwrt-rootfs.tar.gz"}]}
+' "$tag"
+    exit 0 ;;
+  */releases?per_page=*)
+    for t in @TAGS@; do printf '{"tag_name": "%s"}
+' "$t"; done
+    exit 0 ;;
+esac
+f=${url##*/}; r=${url%/*}; r=${r##*/}; src="@SERVER@/$r/$f"
+if [ "$probe" = 1 ]; then [ -d "@SERVER@/$r" ] && echo 206 || echo 404; exit 0; fi
+[ -f "$src" ] || exit 22
+if [ -n "$out" ]; then cat "$src" > "$out"; else cat "$src"; fi"""
+        stub = stub.replace('$', chr(36))
+        self.stub('curl', stub.replace('@SERVER@', str(stack)).replace('@TAGS@', tags))
         return d
 
     def serve_module(self, **kw):
@@ -265,7 +297,7 @@ class Extras(ExtrasBase):
             (self.tmp / 'urls').unlink(missing_ok=True)
             self.up(shell, 'fetch_verified v1 x >/dev/null 2>&1', MU300_RELEASE_URL='http://10.0.0.2:8000/rel')
             urls = (self.tmp / 'urls').read_text().split()
-            self.assertEqual(urls[0], 'http://10.0.0.2:8000/rel/SHA256SUMS')
+            self.assertEqual(urls[0], 'http://10.0.0.2:8000/rel/v1/SHA256SUMS')
 
     # ---- mu300-extra: the lang extra from the release ----------------------------------------------------------
     def openwrt_root(self):
@@ -617,7 +649,9 @@ class UpdateWithTheVpn(ExtrasBase):
                 'fetch_verified() { [ -s "$STAGE/$2" ] && return 0; return 2; }; '
                 'boot_update() { return 0; }; is_root() { false; }; '
                 'apply ubuntu')
-        e = dict(MU300_VPN_URL=VPN_URL)
+        # (the fake image has no mu300-carry: the module's own behaviour is what these tests check, so the
+        # update is asked for with the old keep list, as an image without the carry block is)
+        e = dict(MU300_VPN_URL=VPN_URL, MU300_UPDATE_KEEP='list')
         e.update(env)
         return self.up(shell, code, **e)
 

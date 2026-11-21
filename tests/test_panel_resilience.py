@@ -421,8 +421,13 @@ class Backend(sec.Mu300Dash):
                 t0 = time.monotonic()
                 r, recs, _ = self.call(shell, 'lock_get', {}, MU300_DASH_DIR=d, MU300_DASH_LOCK_GET_WAIT='2')
                 self.assertLess(time.monotonic() - t0, 5)
-                self.assertEqual(self.reply(r), {'busy': 1, 'error':
-                                                 'Reading the locks from the modem; try again in a few seconds'})
+                # the panel's lock_get is the union: busy still carries what the modem can be written to and the
+                # two voice switches (the card's saved choices; files only, no AT in the request path)
+                self.assertEqual(self.reply(r), {'busy': 1,
+                                                 'error': 'Reading the locks from the modem; try again in a few seconds',
+                                                 'write_caps': {'nr': '', 'lte': '1,3,5,8,34,38,39,40,41'},
+                                                 'volte': {'enabled': None, 'saved': None, 'source': 'unknown'},
+                                                 'vonr': {'enabled': None, 'saved': None, 'source': 'unknown'}})
                 self.assertEqual(sorted(recs), [['lock', 'get', 'cached'], ['setsid', 'lock', 'refresh']])
         finally:
             reader.kill()
@@ -650,13 +655,16 @@ const st = (age, err) => ({ info: { ts: 10, host: 'mu300' }, sig_age: age,
 V.update(st(3)); const fresh = [ text('stale'), get('mud-stale').style.display ];
 V.update(st(42)); const old = [ text('stale'), get('mud-stale').style.display ];
 V.update(st(600)); const older = text('stale');
-V.update(st(600, true)); const dead = get('mud-stale').style.display;
-return { fresh: fresh, old: old, older: older, dead: dead };'''
+V.update(st(600, true)); const dead = get('mud-stale').style.display; const dead_text = text('stale');
+return { fresh: fresh, old: old, older: older, dead: dead, dead_text: dead_text };'''
         r = self.run_view('home', body)['result']
         self.assertEqual(r['fresh'], ['', 'none'])
         self.assertEqual(r['old'], ['Modem busy: cellular readings from 42 s ago', ''])
         self.assertEqual(r['older'], 'Modem busy: cellular readings from 10 min ago')
-        self.assertEqual(r['dead'], 'none')   # no answer at all: the hero says "No response" already
+        # fd11c988 keeps the last good reading on the cards when a round has no answer, so the banner stays up and
+        # keeps saying how old those readings are; the hero says "No response" already
+        self.assertEqual(r['dead'], '')
+        self.assertEqual(r['dead_text'], 'Modem busy: cellular readings from 10 min ago')
 
     def test_channel_analysis_asks_before_scanning_with_an_access_point(self):
         # LuCI's page scans at once and on every poll, and a scan drops the hotspot's clients on this driver: with an
