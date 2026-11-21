@@ -675,8 +675,11 @@ class Pool(ShellTest):
             shutil.rmtree(self.pool, ignore_errors=True)
             self.put(1, 'read', 'mt', '+905551112233', '2026-10-01 09:00:00', 'first "quoted" \\ text')
             self.put(2, 'unread', 'mt', 'ADANA BLD', '2026-10-02 10:00:00', 'Kargonuz yolda ğüş\nline two')
+            # the SIM storage counters are part of the list; without the pool's storage file
+            # the panel answers -1/0/0 (mu300dash m_sms_list_now)
             self.assertEqual(self.dash(shell, 'sms_list', {}), {
-                'total': 2, 'unread': 1, 'page': 1, 'pages': 1, 'msgs': [
+                'total': 2, 'unread': 1, 'page': 1, 'pages': 1,
+                'sim_used': -1, 'sim_total': 0, 'sim_seen': 0, 'msgs': [
                     {'id': '000002', 'status': 'unread', 'dir': 'mt', 'peer': 'ADANA BLD',
                      'time': '2026-10-02 10:00:00', 'preview': 'Kargonuz yolda ğüş'},
                     {'id': '000001', 'status': 'read', 'dir': 'mt', 'peer': '+905551112233',
@@ -726,7 +729,10 @@ class Pool(ShellTest):
         # fsync (busybox's applet on OpenWrt) and a global sync both write into the AT log, so the order is one list
         self.stub('fsync', 'echo "FSYNC $*" >> "$STUBLOG/at.log"')
         self.stub('sync', 'echo "GLOBAL SYNC $*" >> "$STUBLOG/at.log"')
-        for shell in self.each_shell():
+        shells = self.observable_shells('fsync')
+        if not shells:
+            self.skipTest('a shell builtin shadows the fsync stub: the calls cannot be observed')
+        for shell in shells:
             self.fresh()
             self.cmgr(3, PDU_GSM)
             self.cmgr(7, PDU_UCS2)
@@ -752,6 +758,8 @@ class Pool(ShellTest):
                 self.fresh()
                 self.stub('fsync', 'exit 127')
                 self.stub('sync', f'[ "$1" = --help ] && {{ echo "{helptext}"; exit 0; }}; echo "SYNC $*" >> "$STUBLOG/at.log"')
+                if not self.stub_wins(shell, 'fsync'):
+                    continue    # a busybox builtin runs instead of the stub: not observable, and it cannot fail
                 os.unlink(self.stubs / 'fsync')
                 self.cmgr(3, PDU_GSM)
                 self.run_sms(shell, 'sync')
@@ -1132,7 +1140,10 @@ class Pool(ShellTest):
     def test_a_parked_part_is_on_the_disk_before_the_pool_is_touched(self):
         self.stub('fsync', 'echo "FSYNC $*" >> "$STUBLOG/at.log"')
         self.stub('sync', 'echo "GLOBAL SYNC $*" >> "$STUBLOG/at.log"')
-        for shell in self.each_shell():
+        shells = self.observable_shells('fsync')
+        if not shells:
+            self.skipTest('a shell builtin shadows the fsync stub: the calls cannot be observed')
+        for shell in shells:
             self.fresh()
             r = self.run_sms(shell, 'import-pdu', self.spooled(PDU_GSM))
             self.assertEqual(r.returncode, 0, r.stderr)
@@ -1212,7 +1223,10 @@ class Spool(ShellTest):
         return sorted(p.name for p in d.iterdir()) if d.exists() else []
 
     def test_a_frame_is_written_whole_fsynced_and_root_only(self):
-        for shell in self.each_shell():
+        shells = self.observable_shells('fsync')
+        if not shells:
+            self.skipTest('a shell builtin shadows the fsync stub: the calls cannot be observed')
+        for shell in shells:
             for header in ('+CMT: ,40', '+CMT: "ADANA BLD",56', '+CMT: ,40\r'):
                 with self.subTest(header=header):
                     r = self.spool(shell, f'{header}\n{PDU_GSM}\r\n')
@@ -1865,9 +1879,15 @@ class Wiring(unittest.TestCase):
         self.assertIn('for c in $(cat /in/opt-mu300/lib/path-commands)', src)
         common = (TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'lib' / 'path-commands').read_text().split()
         self.assertNotIn('mu300-sms', common)
-        # the pool programs come from the luci overlay; the shared tree (every system) has none of them
-        for name in ('mu300-sms', 'mu300-smsd'):
-            self.assertFalse((TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / name).exists())
+        # the panel's tool (mu300-sms) is luci-only and the shared tree must not carry a copy of it;
+        # the SMS daemon (mu300-smsd) ships from the shared tree - the release layout overrides the
+        # prebuilt image's older daemon with rootfs/overlay/opt/mu300/bin/mu300-smsd and its init
+        # (tools/make-release-layout.sh), and that init starts a second instance only where a slot-1
+        # AT reader exists
+        self.assertFalse((TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-sms').exists())
+        self.assertTrue((TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-smsd').exists())
+        self.assertIn('-p /run/mu300-at4/cmd',
+                      (TOP / 'rootfs' / 'overlay' / 'etc' / 'init.d' / 'mu300-smsd').read_text())
         self.assertFalse((TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-smsd').exists())
 
 

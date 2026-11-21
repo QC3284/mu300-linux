@@ -82,6 +82,22 @@ class ShellTest(unittest.TestCase):
                               text=True, env=self.env(**env), timeout=60)
 
     def each_shell(self):
-        for s in self.shells:
-            with self.subTest(shell=' '.join(s)):
-                yield s
+        # A plain list, not a generator: a generator holding an open subTest context across
+        # the yield is closed by GC after the test method returns, when unittest has already
+        # cleared _outcome, so subTest.__exit__ crashes on Python 3.12+ (AttributeError) and
+        # storms on 3.13+ (RuntimeError: generator ignored GeneratorExit).
+        return self.shells
+
+    def stub_wins(self, shell, name):
+        """True when 'command -v NAME' under SHELL resolves to the stub of NAME. A busybox ash whose
+        busybox has NAME as an applet runs the builtin instead of the PATH stub: the call then happens
+        for real, can neither be observed in the log nor made to fail, and a builtin that succeeds also
+        keeps a script from reaching its fallback. The call sequence is the same script logic in every
+        shell, so tests that watch a command skip the shells where the stub cannot win."""
+        r = subprocess.run(shell + ['-c', f'command -v {name}'], capture_output=True, text=True,
+                           env=self.env(), timeout=10)
+        return r.stdout.strip() == str(self.stubs / name)
+
+    def observable_shells(self, name):
+        """self.shells filtered by stub_wins(); the stub of NAME must exist when this is called."""
+        return [s for s in self.shells if self.stub_wins(s, name)]
