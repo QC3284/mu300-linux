@@ -9,6 +9,11 @@ export PATH="$PATH:/opt/mu300/bin:/usr/sbin:/sbin"
 CFG=unisoc_modem.usb
 ROLE_FILE=${MU300_USB_ROLE_FILE:-/sys/class/usb_role/25100000.dwc3-role-switch/role}
 NET_FILE=${MU300_USB_NET_FILE:-/etc/mu300/usb-net}
+# Bridge for the boot images whose init predates the D12 file (the device's #73 boot image
+# and the d3b37629 kernel asset still read mode=/scope= lines from this legacy path): the panel
+# keeps both in step, and the legacy file goes away with a future boot image that carries the
+# D12 init. Never read here; written for the old init only.
+LEGACY_FILE=${MU300_USB_LEGACY_FILE:-/etc/unisoc-modem/usb-boot.conf}
 NET_CLASS=${MU300_USB_NET_CLASS:-/sys/class/net}
 USB_BUS=${MU300_USB_BUS:-/sys/bus/usb/devices}
 RESCAN_MARKER=${MU300_USB_RESCAN_MARKER:-/run/unisoc-usb-host-rescan-done}
@@ -87,7 +92,7 @@ sync_boot_file() {
     # D12: the file of the system that boot/init reads (boot/init usb_net_policy): the bare mode word, nothing else.
     # The scope is a uci value only (set-net persists both); init never reads it.
     mode=$(get net_mode); scope=$(get net_scope); auto=$(get net_auto)
-    [ "$auto" = 1 ] || { rm -f "$NET_FILE"; return; }
+    [ "$auto" = 1 ] || { rm -f "$NET_FILE" "$LEGACY_FILE"; return; }
     case $mode in ecm|ncm|rndis) ;; *) error 'Invalid USB network mode' ;; esac
     case $scope in once|permanent) ;; *) error 'Invalid USB network scope' ;; esac
     mkdir -p "${NET_FILE%/*}" || error 'Cannot write USB boot settings'
@@ -95,6 +100,11 @@ sync_boot_file() {
     printf '%s\n' "$mode" > "$tmp" || error 'Cannot write USB boot settings'
     chmod 600 "$tmp"
     mv "$tmp" "$NET_FILE" || error 'Cannot save USB boot settings'
+    mkdir -p "${LEGACY_FILE%/*}" || error 'Cannot write USB boot settings'
+    ltmp="$LEGACY_FILE.$$"
+    printf 'mode=%s\nscope=%s\n' "$mode" "$scope" > "$ltmp" || error 'Cannot write USB boot settings'
+    chmod 600 "$ltmp"
+    mv "$ltmp" "$LEGACY_FILE" || error 'Cannot save USB boot settings'
 }
 usb_net() {
     name=$1
@@ -247,7 +257,7 @@ case ${1:-} in
         put role_auto "$auto" || error 'Cannot save USB role policy'
         if [ "$role" = host ] && [ "$auto" = 1 ]; then
             put net_auto 0 || error 'Cannot disable USB network boot policy'
-            rm -f "$NET_FILE"
+            rm -f "$NET_FILE" "$LEGACY_FILE"
         fi
         uci commit unisoc_modem || error 'Cannot commit USB role policy'
         request="$(date +%s)-$$"
@@ -300,13 +310,15 @@ case ${1:-} in
         if [ "$(get role_auto)" = 1 ] && [ "$(get net_auto)" = 1 ]; then
             ensure_section
             put net_auto 0 && uci commit unisoc_modem
-            rm -f "$NET_FILE"
+            rm -f "$NET_FILE" "$LEGACY_FILE"
         fi
+        # The old boot init (pre-D12) marks /run/unisoc-usb-net-applied, the D12 one
+        # /run/mu300/usb-net-applied: a one-shot mode is consumed whichever applied it.
         if [ "$(get net_auto)" = 1 ] && [ "$(get net_scope)" = once ] &&
-           [ -f "${MU300_USB_APPLIED_FILE:-/run/mu300/usb-net-applied}" ]; then
+           { [ -f "${MU300_USB_APPLIED_FILE:-/run/mu300/usb-net-applied}" ] || [ -f "${MU300_USB_LEGACY_APPLIED_FILE:-/run/unisoc-usb-net-applied}" ]; }; then
             ensure_section
             put net_auto 0 && uci commit unisoc_modem
-            rm -f "$NET_FILE"
+            rm -f "$NET_FILE" "$LEGACY_FILE"
         fi
         if [ "$(get role_auto)" = 1 ]; then
             [ "$(role_now)" = host ] || role_command host

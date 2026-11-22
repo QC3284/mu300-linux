@@ -19,6 +19,8 @@ class USBManagement(ShellTest):
         self.role = self.tmp / 'role'
         self.role.write_text('device\n')
         self.net_file = self.tmp / 'etc' / 'mu300' / 'usb-net'
+        self.legacy_file = self.tmp / 'etc' / 'unisoc-modem' / 'usb-boot.conf'
+        self.legacy_applied = self.tmp / 'legacy-applied'
         self.applied = self.tmp / 'applied'
         self.net_class = self.tmp / 'net'
         self.net_class.mkdir()
@@ -66,6 +68,8 @@ esac
                     MU300_USB_ROLE_STATE=self.tmp / 'role-state',
                     MU300_USB_NET_LOCK=self.tmp / 'net.lock',
                     MU300_USB_NET_FILE=self.net_file,
+                    MU300_USB_LEGACY_FILE=self.legacy_file,
+                    MU300_USB_LEGACY_APPLIED_FILE=self.legacy_applied,
                     MU300_USB_APPLIED_FILE=self.applied,
                     MU300_USB_NET_CLASS=self.net_class,
                     MU300_USB_BUS=self.usb_bus,
@@ -94,6 +98,8 @@ esac
             (self.tmp / f).unlink(missing_ok=True)
         self.net_file.unlink(missing_ok=True)
         self.applied.unlink(missing_ok=True)
+        self.legacy_file.unlink(missing_ok=True)
+        self.legacy_applied.unlink(missing_ok=True)
         self.role.write_text('device\n')
 
     # --- the USB network mode (D12, K7, K8)
@@ -105,6 +111,8 @@ esac
                 self.assertEqual({'ok': 1}, self.reply(self.call_usb(shell, 'set-net', mode, 'permanent', '1')))
                 self.assertEqual(f'{mode}\n', self.net_file.read_text())
                 self.assertEqual(0o600, self.net_file.stat().st_mode & 0o777)
+                self.assertEqual(f'mode={mode}\nscope=permanent\n', self.legacy_file.read_text())
+                self.assertEqual(0o600, self.legacy_file.stat().st_mode & 0o777)
                 self.assertEqual([], [p.name for p in self.net_file.parent.iterdir() if p != self.net_file])
 
     def test_init_reads_what_the_panel_wrote(self):
@@ -124,6 +132,7 @@ esac
             self.assertTrue(self.net_file.exists())
             self.assertEqual({'ok': 1}, self.reply(self.call_usb(shell, 'set-net', 'ecm', 'permanent', '0')))
             self.assertFalse(self.net_file.exists())
+            self.assertFalse(self.legacy_file.exists())
 
     def test_invalid_values_are_refused(self):
         for shell in self.each_shell():
@@ -133,6 +142,7 @@ esac
                 r = self.reply(self.call_usb(shell, 'set-net', *args))
                 self.assertEqual(0, r['ok'], args)
             self.assertFalse(self.net_file.exists())
+            self.assertFalse(self.legacy_file.exists())
 
     def test_once_consumed_only_after_boot_marker(self):
         for shell in self.each_shell():
@@ -147,6 +157,18 @@ esac
             self.assertFalse(self.net_file.exists())
             self.assertEqual((self.tmp / 'uci.net_auto').read_text(), '0')
 
+            # the legacy marker of the pre-D12 boot init consumes the one-shot too
+            self.reset()
+            (self.tmp / 'uci.role_auto').write_text('0')
+            self.call_usb(shell, 'set-net', 'ncm', 'once', '1')
+            self.call_usb(shell, 'boot')
+            self.assertTrue(self.net_file.exists())
+            self.legacy_applied.write_text('ncm\n')
+            self.call_usb(shell, 'boot')
+            self.assertFalse(self.net_file.exists())
+            self.assertFalse(self.legacy_file.exists())
+            self.assertEqual((self.tmp / 'uci.net_auto').read_text(), '0')
+
     def test_permanent_survives_the_marker(self):
         for shell in self.each_shell():
             self.reset()
@@ -155,6 +177,7 @@ esac
             self.call_usb(shell, 'boot')
             self.assertEqual('ecm\n', self.net_file.read_text())
             self.assertEqual((self.tmp / 'uci.net_auto').read_text(), '1')
+            self.assertEqual('mode=ecm\nscope=permanent\n', self.legacy_file.read_text())
 
     def test_get_reports_the_saved_policy(self):
         for shell in self.each_shell():
@@ -167,8 +190,9 @@ esac
         src = USB.read_text()
         self.assertIn('${MU300_USB_NET_FILE:-/etc/mu300/usb-net}', src)
         self.assertIn('${MU300_USB_APPLIED_FILE:-/run/mu300/usb-net-applied}', src)
-        self.assertNotIn('usb-boot.conf', src)
-        self.assertNotIn('unisoc-usb-net-applied', src)
+        # the pre-D12 boot init bridge: the panel mirrors the policy into the legacy path too
+        self.assertIn('${MU300_USB_LEGACY_FILE:-/etc/unisoc-modem/usb-boot.conf}', src)
+        self.assertIn('${MU300_USB_LEGACY_APPLIED_FILE:-/run/unisoc-usb-net-applied}', src)
         self.assertIn('/run/mu300/usb-net-applied', INIT)
         self.assertIn('$1/etc/mu300/usb-net', INIT)
 
